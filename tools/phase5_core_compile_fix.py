@@ -52,6 +52,11 @@ replace_once(
     """pub fn prepare_driver_install<H: DriverHost>(\n    host: &H,\n    catalogue: &Catalogue,\n    package_root: impl AsRef<Path>,\n    package_id: &str,\n    inf_path: &str,\n    architecture: &str,\n    windows_build: u32,\n    action_id: &str,\n    mission_id: &str,\n) -> Result<PreparedDriverInstall, DriverStoreError> {\n""",
     """#[derive(Debug, Clone, PartialEq, Eq)]\npub struct DriverInstallRequest {\n    pub package_root: PathBuf,\n    pub package_id: String,\n    pub inf_path: String,\n    pub architecture: String,\n    pub windows_build: u32,\n    pub action_id: String,\n    pub mission_id: String,\n}\n\npub fn prepare_driver_install<H: DriverHost>(\n    host: &H,\n    catalogue: &Catalogue,\n    request: &DriverInstallRequest,\n) -> Result<PreparedDriverInstall, DriverStoreError> {\n    let package_root = request.package_root.as_path();\n    let package_id = request.package_id.as_str();\n    let inf_path = request.inf_path.as_str();\n    let architecture = request.architecture.as_str();\n    let windows_build = request.windows_build;\n    let action_id = request.action_id.as_str();\n    let mission_id = request.mission_id.as_str();\n""",
 )
+replace_once(
+    plan,
+    "resolve_source_inf(package_root.as_ref(), inf_path)?",
+    "resolve_source_inf(package_root, inf_path)?",
+)
 
 lib = Path("crates/neo-driverstore/src/lib.rs")
 replace_once(
