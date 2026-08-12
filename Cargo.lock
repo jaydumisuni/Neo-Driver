@@ -139,6 +139,8 @@ dependencies = [
  "clap",
  "neo-catalogue",
  "neo-core",
+ "neo-device",
+ "neo-match",
  "neo-probe",
  "serde_json",
 ]
@@ -157,6 +159,17 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "neo-match"
+version = "0.1.0"
+dependencies = [
+ "neo-catalogue",
+ "neo-core",
+ "neo-device",
+ "serde",
  "thiserror",
 ]
 
