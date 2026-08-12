@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use crate::DriverStoreError;
 
@@ -148,7 +148,13 @@ impl DriverInstallPlan {
         if self.package_root.as_os_str().is_empty() || self.source_inf.as_os_str().is_empty() {
             return Err(DriverStoreError::UnsafeInfPath);
         }
-        if !self.source_inf.starts_with(&self.package_root) {
+        if !self.source_inf.starts_with(&self.package_root)
+            || self
+                .package_root
+                .components()
+                .chain(self.source_inf.components())
+                .any(|component| matches!(component, Component::ParentDir))
+        {
             return Err(DriverStoreError::UnsafeInfPath);
         }
         self.expected_signature.validate()?;

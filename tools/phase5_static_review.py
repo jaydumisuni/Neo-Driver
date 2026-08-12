@@ -9,8 +9,10 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 DRIVERSTORE_DIR = ROOT / "crates/neo-driverstore/src"
-DRIVERSTORE = "\n".join(
-    path.read_text(encoding="utf-8") for path in sorted(DRIVERSTORE_DIR.rglob("*.rs"))
+PRODUCTION = "\n".join(
+    path.read_text(encoding="utf-8")
+    for path in sorted(DRIVERSTORE_DIR.rglob("*.rs"))
+    if path.name != "tests.rs"
 )
 WINDOWS = (DRIVERSTORE_DIR / "windows.rs").read_text(encoding="utf-8")
 PLAN = (DRIVERSTORE_DIR / "plan.rs").read_text(encoding="utf-8")
@@ -77,6 +79,11 @@ def review() -> list[Lane]:
         "post_mutation_inventory_failure_routes_conservative_rollback",
         "transient_verification_probe_can_be_retried",
         "direct_session_deserialization_cannot_rebind_transaction",
+        "deserialized_driver_plan_rejects_parent_traversal",
+        "planner_rejects_caller_build_that_does_not_match_host",
+        "preflight_rejects_host_build_drift_after_authority",
+        "staging_failure_with_recovered_identity_routes_rollback",
+        "staging_failure_without_recoverable_identity_never_claims_no_change",
     ]
     return [
         Lane(
@@ -89,7 +96,7 @@ def review() -> list[Lane]:
             2,
             "validated-root-contracts",
             contains_all(
-                DRIVERSTORE,
+                PRODUCTION,
                 [
                     "DriverInstallPlanWire",
                     "DriverInstallSessionWire",
@@ -110,7 +117,7 @@ def review() -> list[Lane]:
         Lane(
             4,
             "exact-source-bytes",
-            contains_all(DRIVERSTORE, ["source_inf_sha256", "sha256_file", "PrestateDrift"])
+            contains_all(PRODUCTION, ["source_inf_sha256", "sha256_file", "PrestateDrift"])
             and contains_all(PLAN, ["canonicalize", "starts_with", "UnsafeInfPath"]),
             "authority binds to canonical in-root INF bytes and apply rechecks the SHA-256",
         ),
@@ -147,7 +154,7 @@ def review() -> list[Lane]:
             7,
             "rollback-baseline-package",
             contains_all(
-                DRIVERSTORE,
+                PRODUCTION,
                 [
                     "baseline_package",
                     "MissingBaselinePackage",
@@ -161,7 +168,7 @@ def review() -> list[Lane]:
             8,
             "transaction-reconstruction",
             contains_all(
-                DRIVERSTORE,
+                PRODUCTION,
                 [
                     "transaction_contract",
                     "baseline_contract",
@@ -180,6 +187,8 @@ def review() -> list[Lane]:
                 [
                     "fn preflight",
                     "source_inf_sha256",
+                    "windows_build",
+                    "WindowsBuildMismatch",
                     "verify_inf_signature",
                     "compatible_present_devices",
                     "baseline_package",
@@ -217,7 +226,7 @@ def review() -> list[Lane]:
         Lane(
             12,
             "no-force-path",
-            not any(marker in DRIVERSTORE for marker in forbidden_force)
+            not any(marker in PRODUCTION for marker in forbidden_force)
             and contains_all(uninstall, ["SetupUninstallOEMInfW", "PCWSTR(wide.as_ptr()), 0, None"]),
             "no force-install/force-delete primitive exists; package removal uses flags=0",
         ),
@@ -275,6 +284,7 @@ def review() -> list[Lane]:
                     "machine_changed: true",
                     "post-mutation device inventory failed",
                     "post-mutation Driver Store probe failed",
+                    "staging_attempted",
                 ],
             )
             and "post_mutation_inventory_failure_routes_conservative_rollback" in TESTS,

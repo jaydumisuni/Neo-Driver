@@ -40,6 +40,13 @@ pub fn prepare_driver_install<H: DriverHost>(
     let action_id = request.action_id.as_str();
     let mission_id = request.mission_id.as_str();
     catalogue.validate()?;
+    let actual_windows_build = host.windows_build()?;
+    if actual_windows_build != windows_build {
+        return Err(DriverStoreError::WindowsBuildMismatch {
+            requested: windows_build,
+            actual: actual_windows_build,
+        });
+    }
     let package = catalogue
         .packages
         .iter()

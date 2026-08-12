@@ -23,8 +23,12 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_MFG, SPOST_PATH, SP_COPY_STYLE,
     SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
 };
-use windows::Win32::Devices::Properties::{DEVPKEY_Device_DriverInfPath, DEVPROPTYPE};
+use windows::Win32::Devices::Properties::{DEVPKEY_Device_DriverInfPath, DEVPROPKEY, DEVPROPTYPE};
 use windows::Win32::Foundation::ERROR_NO_MORE_ITEMS;
+use windows::Win32::System::Registry::{
+    RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RRF_ZEROONFAILURE,
+};
+use windows::Win32::System::SystemInformation::GetWindowsDirectoryW;
 
 use crate::plan::signature_matches;
 use crate::{
@@ -46,6 +50,10 @@ impl Drop for DeviceSet {
 }
 
 impl DriverHost for WindowsDriverHost {
+    fn windows_build(&self) -> Result<u32, DriverStoreError> {
+        windows_build_number()
+    }
+
     fn inventory(&self) -> Result<DriverInventory, DriverStoreError> {
         let set = present_device_set()?;
         let mut devices = Vec::new();
@@ -458,7 +466,7 @@ fn registry_property_wide(
 fn device_property_string(
     set: HDEVINFO,
     data: &SP_DEVINFO_DATA,
-    property: &windows::Win32::Foundation::DEVPROPKEY,
+    property: &DEVPROPKEY,
 ) -> Result<Option<String>, DriverStoreError> {
     let mut property_type = DEVPROPTYPE(0);
     let mut required = 0u32;
@@ -549,9 +557,63 @@ fn source_catalog_path(inf: &Path, catalog_file: &str) -> Result<PathBuf, Driver
 }
 
 fn windows_inf_dir() -> Result<PathBuf, DriverStoreError> {
-    let root = std::env::var_os("WINDIR")
-        .ok_or_else(|| DriverStoreError::Windows("WINDIR is not defined".to_string()))?;
-    Ok(PathBuf::from(root).join("INF"))
+    let mut buffer = vec![0u16; 260];
+    loop {
+        let length = unsafe { GetWindowsDirectoryW(Some(&mut buffer)) } as usize;
+        if length == 0 {
+            return Err(last_error("GetWindowsDirectoryW"));
+        }
+        if length < buffer.len() {
+            return Ok(PathBuf::from(String::from_utf16_lossy(&buffer[..length])).join("INF"));
+        }
+        buffer.resize(length + 1, 0);
+    }
+}
+
+fn windows_build_number() -> Result<u32, DriverStoreError> {
+    let subkey = wide_string(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+    let value_name = wide_string("CurrentBuildNumber");
+    let flags = RRF_RT_REG_SZ | RRF_ZEROONFAILURE;
+    let mut bytes = 0u32;
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            PCWSTR(subkey.as_ptr()),
+            PCWSTR(value_name.as_ptr()),
+            flags,
+            None,
+            None,
+            Some(&mut bytes),
+        )
+    };
+    if status.0 != 0 || bytes < 2 {
+        return Err(DriverStoreError::Windows(format!(
+            "RegGetValueW CurrentBuildNumber sizing failed: {}",
+            status.0
+        )));
+    }
+    let mut buffer = vec![0u16; (bytes as usize).div_ceil(2)];
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            PCWSTR(subkey.as_ptr()),
+            PCWSTR(value_name.as_ptr()),
+            flags,
+            None,
+            Some(buffer.as_mut_ptr().cast()),
+            Some(&mut bytes),
+        )
+    };
+    if status.0 != 0 {
+        return Err(DriverStoreError::Windows(format!(
+            "RegGetValueW CurrentBuildNumber failed: {}",
+            status.0
+        )));
+    }
+    utf16_array(&buffer)
+        .trim()
+        .parse::<u32>()
+        .map_err(|error| DriverStoreError::Windows(format!("invalid CurrentBuildNumber: {error}")))
 }
 
 fn wide_path(path: &Path) -> Result<Vec<u16>, DriverStoreError> {

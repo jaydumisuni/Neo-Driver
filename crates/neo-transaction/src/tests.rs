@@ -126,6 +126,20 @@ fn direct_serde_checkpoint_deserialization_cannot_bypass_invariants() {
 }
 
 #[test]
+fn legacy_apply_record_preserves_outcome_based_change_semantics() {
+    let success: ApplyRecord = serde_json::from_str(
+        r#"{"action_id":"a","outcome":"success","detail":"legacy success","reboot_required":false}"#,
+    )
+    .unwrap();
+    let failure: ApplyRecord = serde_json::from_str(
+        r#"{"action_id":"a","outcome":"failure","detail":"legacy failure","reboot_required":false}"#,
+    )
+    .unwrap();
+    assert!(success.machine_changed);
+    assert!(!failure.machine_changed);
+}
+
+#[test]
 fn rejected_action_cannot_enter_transaction() {
     let mut action = transaction_action();
     action.action.verdict = EvidenceVerdict::Rejected;
@@ -432,6 +446,34 @@ fn required_reboot_must_be_proven_before_continuation() {
         }])
         .unwrap();
     assert_eq!(checkpoint.stage(), TransactionStage::Verifying);
+}
+
+#[test]
+fn persisted_apply_reboot_checkpoint_cannot_be_rebound_as_rollback() {
+    let mut action = transaction_action();
+    action.action.reboot = RebootRequirement::Required;
+    let plan = TransactionPlan::new("TX", 1, "MISSION", vec![action]).unwrap();
+    let auth = authorization(&plan);
+    let mut checkpoint = TransactionCheckpoint::new(plan).unwrap();
+    checkpoint
+        .capture_baseline(baseline(CapturedValue::Present("0".to_string())))
+        .unwrap();
+    checkpoint.authorize(auth).unwrap();
+    checkpoint.begin_apply().unwrap();
+    checkpoint
+        .record_apply_result(ApplyRecord {
+            action_id: "neo.fixture.tweak".to_string(),
+            outcome: ApplyOutcome::Success,
+            detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
+        })
+        .unwrap();
+    let mut value = serde_json::to_value(&checkpoint).unwrap();
+    value["reboot_checkpoint"]["resume_stage"] = serde_json::json!("rolled_back");
+    value["reboot_checkpoint"]["expected_post_reboot"] =
+        serde_json::to_value(vec![rollback_predicate()]).unwrap();
+    assert!(serde_json::from_value::<TransactionCheckpoint>(value).is_err());
 }
 
 #[test]

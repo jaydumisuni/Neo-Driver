@@ -28,6 +28,9 @@ struct FakeState {
     stage_calls: usize,
     inventory_calls: usize,
     fail_inventory_call: Option<usize>,
+    windows_build: u32,
+    stage_error_after_insert: bool,
+    hide_equivalent: bool,
 }
 
 struct FakeHost {
@@ -83,6 +86,9 @@ impl FakeHost {
                 stage_calls: 0,
                 inventory_calls: 0,
                 fail_inventory_call: None,
+                windows_build: 26100,
+                stage_error_after_insert: false,
+                hide_equivalent: false,
             }),
         }
     }
@@ -93,6 +99,10 @@ impl FakeHost {
 }
 
 impl DriverHost for FakeHost {
+    fn windows_build(&self) -> Result<u32, DriverStoreError> {
+        Ok(self.state.borrow().windows_build)
+    }
+
     fn inventory(&self) -> Result<DriverInventory, DriverStoreError> {
         let mut state = self.state.borrow_mut();
         state.inventory_calls += 1;
@@ -118,7 +128,12 @@ impl DriverHost for FakeHost {
         _source_inf: &Path,
         _catalogue_files: &[String],
     ) -> Result<Option<StoredDriverPackage>, DriverStoreError> {
-        Ok(self.state.borrow().packages.get("oem42.inf").cloned())
+        let state = self.state.borrow();
+        if state.hide_equivalent {
+            Ok(None)
+        } else {
+            Ok(state.packages.get("oem42.inf").cloned())
+        }
     }
 
     fn resolve_published_package(
@@ -141,7 +156,13 @@ impl DriverHost for FakeHost {
         state
             .packages
             .insert(package.published_inf.to_ascii_lowercase(), package.clone());
-        Ok(package)
+        if state.stage_error_after_insert {
+            Err(DriverStoreError::Windows(
+                "synthetic staging failure after Driver Store mutation".to_string(),
+            ))
+        } else {
+            Ok(package)
+        }
     }
 
     fn install_best_match(
@@ -429,6 +450,88 @@ fn planner_refuses_missing_baseline_driver_package() {
     )
     .unwrap_err();
     assert!(matches!(error, DriverStoreError::MissingBaselinePackage(_)));
+}
+
+#[test]
+fn planner_rejects_caller_build_that_does_not_match_host() {
+    let fixture = Fixture::new(None);
+    fixture.host.configure(|state| state.windows_build = 26200);
+    let error = prepare_driver_install(
+        &fixture.host,
+        &fixture_catalogue(),
+        &DriverInstallRequest {
+            package_root: fixture.root.clone(),
+            package_id: "neo.fixture.driver".to_string(),
+            inf_path: "drivers/fixture.inf".to_string(),
+            architecture: "x64".to_string(),
+            windows_build: 26100,
+            action_id: "install.fixture.driver".to_string(),
+            mission_id: "mission.fixture".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert!(matches!(
+        error,
+        DriverStoreError::WindowsBuildMismatch { .. }
+    ));
+}
+
+#[test]
+fn deserialized_driver_plan_rejects_parent_traversal() {
+    let fixture = Fixture::new(None);
+    let prepared = fixture.prepare();
+    let mut value = serde_json::to_value(&prepared.driver_plan).unwrap();
+    value["source_inf"] = serde_json::Value::String(
+        fixture
+            .root
+            .join("drivers")
+            .join("..")
+            .join("evil.inf")
+            .to_string_lossy()
+            .into_owned(),
+    );
+    assert!(serde_json::from_value::<DriverInstallPlan>(value).is_err());
+}
+
+#[test]
+fn preflight_rejects_host_build_drift_after_authority() {
+    let fixture = Fixture::new(None);
+    let mut session = fixture.session();
+    fixture.host.configure(|state| state.windows_build = 26200);
+    let error = session.apply(&fixture.host).unwrap_err();
+    assert!(matches!(
+        error,
+        DriverStoreError::WindowsBuildMismatch { .. }
+    ));
+    assert_eq!(session.transaction().stage(), TransactionStage::Authorized);
+}
+
+#[test]
+fn staging_failure_with_recovered_identity_routes_rollback() {
+    let fixture = Fixture::new(None);
+    let mut session = fixture.session();
+    fixture
+        .host
+        .configure(|state| state.stage_error_after_insert = true);
+    session.apply(&fixture.host).unwrap();
+    assert_eq!(session.transaction().stage(), TransactionStage::RollingBack);
+    assert!(session.target_package().is_some());
+    session.rollback(&fixture.host).unwrap();
+    assert_eq!(session.transaction().stage(), TransactionStage::RolledBack);
+}
+
+#[test]
+fn staging_failure_without_recoverable_identity_never_claims_no_change() {
+    let fixture = Fixture::new(None);
+    let mut session = fixture.session();
+    fixture.host.configure(|state| {
+        state.stage_error_after_insert = true;
+        state.hide_equivalent = true;
+    });
+    session.apply(&fixture.host).unwrap();
+    assert_eq!(session.transaction().stage(), TransactionStage::RollingBack);
+    session.rollback(&fixture.host).unwrap();
+    assert_eq!(session.transaction().stage(), TransactionStage::Failed);
 }
 
 #[test]

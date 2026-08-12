@@ -53,9 +53,14 @@ impl RebootCheckpoint {
         &self,
         checkpoint: &TransactionCheckpoint,
     ) -> Result<(), TransactionError> {
-        let expected = match self.resume_stage {
-            TransactionStage::Verifying => Self::for_apply_checkpoint(checkpoint),
-            TransactionStage::RolledBack => Self::for_rollback_checkpoint(checkpoint),
+        let expected = match checkpoint.stage {
+            TransactionStage::AwaitingReboot
+            | TransactionStage::Verifying
+            | TransactionStage::Complete
+            | TransactionStage::Blocked => Self::for_apply_checkpoint(checkpoint),
+            TransactionStage::AwaitingRollbackReboot | TransactionStage::RolledBack => {
+                Self::for_rollback_checkpoint(checkpoint)
+            }
             _ => return Err(TransactionError::RebootCheckpointMismatch),
         };
         if self != &expected {

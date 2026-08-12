@@ -47,6 +47,8 @@ pub enum DriverStoreError {
     PrestateDrift,
     #[error("driver blast radius changed after authority; apply blocked")]
     ImpactDrift,
+    #[error("requested Windows build {requested} does not match actual host build {actual}")]
+    WindowsBuildMismatch { requested: u32, actual: u32 },
     #[error("staged package identity does not match the approved source package")]
     StagedPackageMismatch,
     #[error("Windows driver policy result is not proven")]

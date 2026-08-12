@@ -429,18 +429,40 @@ pub enum ApplyOutcome {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "ApplyRecordWire")]
 pub struct ApplyRecord {
     pub action_id: String,
     pub outcome: ApplyOutcome,
     pub detail: String,
-    #[serde(default = "default_machine_changed")]
     pub machine_changed: bool,
     #[serde(default)]
     pub reboot_required: bool,
 }
 
-fn default_machine_changed() -> bool {
-    true
+#[derive(Debug, Deserialize)]
+struct ApplyRecordWire {
+    action_id: String,
+    outcome: ApplyOutcome,
+    detail: String,
+    #[serde(default)]
+    machine_changed: Option<bool>,
+    #[serde(default)]
+    reboot_required: bool,
+}
+
+impl From<ApplyRecordWire> for ApplyRecord {
+    fn from(value: ApplyRecordWire) -> Self {
+        let machine_changed = value
+            .machine_changed
+            .unwrap_or(value.outcome == ApplyOutcome::Success);
+        Self {
+            action_id: value.action_id,
+            outcome: value.outcome,
+            detail: value.detail,
+            machine_changed,
+            reboot_required: value.reboot_required,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

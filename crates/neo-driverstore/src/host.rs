@@ -6,6 +6,9 @@ use crate::{
 };
 
 pub trait DriverHost {
+    /// Read the actual host Windows build from trusted system state.
+    fn windows_build(&self) -> Result<u32, DriverStoreError>;
+
     /// Read-only inventory of present devices and their active bindings.
     fn inventory(&self) -> Result<DriverInventory, DriverStoreError>;
 

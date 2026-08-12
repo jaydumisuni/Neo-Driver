@@ -105,33 +105,43 @@ impl DriverInstallSession {
         self.transaction.begin_apply()?;
 
         let mut operational_error: Option<String> = None;
+        let mut staging_attempted = false;
         if self.target_package.is_none() {
+            staging_attempted = true;
             match host.stage_driver(&self.driver_plan.source_inf) {
                 Ok(package) => {
                     self.target_package = Some(package);
                 }
                 Err(error) => {
                     operational_error = Some(format!("driver staging failed: {error}"));
-                    if let Ok(Some(package)) = host.find_equivalent_package(
+                    match host.find_equivalent_package(
                         &self.driver_plan.source_inf,
                         std::slice::from_ref(&self.driver_plan.expected_signature.catalog_file),
                     ) {
-                        self.target_package = Some(package);
+                        Ok(Some(package)) => self.target_package = Some(package),
+                        Ok(None) => {}
+                        Err(recovery_error) => {
+                            operational_error = Some(format!(
+                                "driver staging failed: {error}; package identity recovery failed: {recovery_error}"
+                            ));
+                        }
                     }
                 }
             }
         }
 
-        if operational_error.is_none() {
-            if let Some(package) = self.target_package.as_ref() {
-                if let Err(error) = self.validate_target_package(host, package) {
-                    operational_error =
-                        Some(format!("staged package verification failed: {error}"));
-                }
-            } else {
-                operational_error =
-                    Some("staging produced no recoverable package identity".to_string());
+        if let Some(package) = self.target_package.as_ref() {
+            if let Err(error) = self.validate_target_package(host, package) {
+                operational_error = Some(match operational_error {
+                    Some(existing) => {
+                        format!("{existing}; staged package verification failed: {error}")
+                    }
+                    None => format!("staged package verification failed: {error}"),
+                });
             }
+        } else if operational_error.is_none() {
+            operational_error =
+                Some("staging produced no recoverable package identity".to_string());
         }
 
         let mut reboot_required = false;
@@ -208,7 +218,7 @@ impl DriverInstallSession {
             }
         }
 
-        let store_changed = match self.store_matches_baseline(host) {
+        let store_changed = match self.store_matches_baseline(host, staging_attempted) {
             Ok(matches_baseline) => !matches_baseline,
             Err(error) => {
                 self.record_uncertain_apply_failure(
@@ -410,6 +420,13 @@ impl DriverInstallSession {
     }
 
     fn preflight<H: DriverHost>(&self, host: &H) -> Result<DriverInventory, DriverStoreError> {
+        let actual_windows_build = host.windows_build()?;
+        if actual_windows_build != self.driver_plan.windows_build {
+            return Err(DriverStoreError::WindowsBuildMismatch {
+                requested: self.driver_plan.windows_build,
+                actual: actual_windows_build,
+            });
+        }
         if sha256_file(&self.driver_plan.source_inf)? != self.driver_plan.source_inf_sha256 {
             return Err(DriverStoreError::PrestateDrift);
         }
@@ -585,7 +602,11 @@ impl DriverInstallSession {
         })
     }
 
-    fn store_matches_baseline<H: DriverHost>(&self, host: &H) -> Result<bool, DriverStoreError> {
+    fn store_matches_baseline<H: DriverHost>(
+        &self,
+        host: &H,
+        staging_attempted: bool,
+    ) -> Result<bool, DriverStoreError> {
         match &self.driver_plan.store_baseline {
             DriverStoreBaseline::Existing { package } => Ok(host
                 .resolve_published_package(&package.published_inf)?
@@ -595,7 +616,7 @@ impl DriverInstallSession {
                 Some(target) => Ok(host
                     .resolve_published_package(&target.published_inf)?
                     .is_none()),
-                None => Ok(true),
+                None => Ok(!staging_attempted),
             },
         }
     }
