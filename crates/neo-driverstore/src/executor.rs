@@ -171,7 +171,7 @@ impl DriverInstallSession {
         if let Some(instance_id) = unexpected {
             policy_satisfied = false;
             operational_error.get_or_insert_with(|| {
-                format!("unexpected binding change outside authority: {instance_id}")
+                DriverStoreError::UnexpectedBindingChange(instance_id).to_string()
             });
         }
 
