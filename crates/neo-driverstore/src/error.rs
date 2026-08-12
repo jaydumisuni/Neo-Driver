@@ -35,6 +35,10 @@ pub enum DriverStoreError {
     MissingBaselineBinding(String),
     #[error("present supported device has no captured published INF for exact rollback: {0}")]
     MissingBaselinePublishedInf(String),
+    #[error("captured baseline Driver Store package is unavailable for device: {0}")]
+    MissingBaselinePackage(String),
+    #[error("captured baseline package does not match the active published INF for device: {0}")]
+    BaselinePackageMismatch(String),
     #[error("duplicate impacted device instance: {0}")]
     DuplicateImpact(String),
     #[error("duplicate inventory device instance: {0}")]
