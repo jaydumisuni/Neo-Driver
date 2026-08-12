@@ -74,6 +74,7 @@ pub struct DriverInstallImpact {
 #[serde(try_from = "DriverInstallPlanWire")]
 pub struct DriverInstallPlan {
     pub action_id: String,
+    pub mission_id: String,
     pub package_id: String,
     pub inf_path: String,
     pub package_root: PathBuf,
@@ -89,6 +90,7 @@ pub struct DriverInstallPlan {
 #[derive(Debug, Deserialize)]
 struct DriverInstallPlanWire {
     action_id: String,
+    mission_id: String,
     package_id: String,
     inf_path: String,
     package_root: PathBuf,
@@ -107,6 +109,7 @@ impl TryFrom<DriverInstallPlanWire> for DriverInstallPlan {
     fn try_from(value: DriverInstallPlanWire) -> Result<Self, Self::Error> {
         let plan = Self {
             action_id: value.action_id,
+            mission_id: value.mission_id,
             package_id: value.package_id,
             inf_path: value.inf_path,
             package_root: value.package_root,
@@ -127,6 +130,7 @@ impl DriverInstallPlan {
     pub fn validate(&self) -> Result<(), DriverStoreError> {
         for (label, value) in [
             ("action_id", self.action_id.as_str()),
+            ("mission_id", self.mission_id.as_str()),
             ("package_id", self.package_id.as_str()),
             ("inf_path", self.inf_path.as_str()),
             ("architecture", self.architecture.as_str()),
