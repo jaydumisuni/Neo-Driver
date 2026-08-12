@@ -1,0 +1,10 @@
+[package]
+name = "neo-probe"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-core = { path = "../neo-core" }
+serde.workspace = true
+thiserror.workspace = true
