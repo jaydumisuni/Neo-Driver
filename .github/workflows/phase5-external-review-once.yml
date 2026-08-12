@@ -22,13 +22,9 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup component add rustfmt clippy --toolchain stable
           rustup default stable
-      - name: Correct current-source patch anchor
-        shell: pwsh
-        run: |
-          python -c "from pathlib import Path; p=Path('tools/phase5_external_review_fixes.py'); t=p.read_text(encoding='utf-8'); old='&[self.driver_plan.expected_signature.catalog_file.clone()]'; new='std::slice::from_ref(&self.driver_plan.expected_signature.catalog_file)'; assert old in t; p.write_text(t.replace(old,new),encoding='utf-8')"
       - name: Apply bounded external-review fixes
         shell: pwsh
-        run: python tools/phase5_external_review_fixes.py
+        run: python tools/phase5_external_review_fixes_v2.py
       - name: Prove all corrected contracts
         shell: pwsh
         run: |
@@ -46,6 +42,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Cargo.toml crates/neo-transaction crates/neo-driverstore tools/phase5_static_review.py
-          git rm .github/workflows/phase5-external-review-once.yml tools/phase5_external_review_fixes.py
+          git rm .github/workflows/phase5-external-review-once.yml tools/phase5_external_review_fixes.py tools/phase5_external_review_fixes_v2.py
           git commit -m "fix: close Phase 5 external review findings [phase5-external-review]"
           git push origin HEAD:implementation/phase-5-controlled-driver-install
