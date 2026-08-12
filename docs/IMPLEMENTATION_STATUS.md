@@ -2,80 +2,46 @@
 
 ## Current state
 
-**Implementation started.**
+**Implementation active.**
 
-Current phase: **Phase 1 — shared Rust core/CLI contracts + early read-only System X-Ray foundation.**
+- **Phase 1:** merged and engineering-proven — shared Rust core/CLI contracts + early read-only System X-Ray foundation.
+- **Phase 2:** in review/proof — normalized device evidence + typed package catalogue contracts.
 
-The master plan remains frozen. The `Implementation status: NOT STARTED` line in the original architecture-freeze header records the state at freeze time; this file is the live implementation-status record.
+The master plan remains frozen. This file is the live implementation-status record.
 
-## Implemented in this increment
+## Phase 1 proven baseline
 
-- Rust workspace foundation.
-- `neo-core` model-free product contracts.
-- Three user-depth contracts: Beginner, Standard, Expert.
-- Frozen user-intent contracts.
-- Recommendation and evidence-verdict contracts.
-- Typed risk/action/reboot/mission-stage contracts.
-- Manual-authority invariants in plan validation.
-- Mandatory mutation rationale and supporting evidence.
-- Fail-closed prevention of preselecting HIGH/EXPERT-risk actions.
-- Only CERTIFIED actions can be selected by default.
-- Fail-closed prevention of default-selecting conflict/unsupported/DO-NOT-TOUCH/unknown actions.
-- Duplicate mission action-ID rejection.
-- Machine-profile contracts for OS/security evidence.
-- `neo-probe` read-only command-evidence abstraction.
-- Windows identity read probe.
-- Native Windows architecture detection resilient to WOW64 environment variables.
-- Test Signing and `nointegritychecks` represented as separate persistent BCD states.
-- Secure Boot state probe foundation.
-- Memory Integrity/HVCI state probe foundation.
-- Pending-reboot evidence from CBS, Windows Update, and pending file rename indicators.
-- Connected-device and problem-device evidence collection foundations.
-- Driver Store read evidence collection foundation.
-- Failure-honest probe continuation: one unavailable read command does not erase other evidence lanes.
-- `neo` CLI foundation with `scan`, `plan`, and `status`.
-- JSON output path for machine-readable integration.
-- Unit fixtures for critical policy/parsing rules.
-- Reproducible 20-lane Phase 1 static review tool.
-- Windows + Linux CI definition for static review, formatting, build/type proof, Clippy, and unit tests.
-- Explicit Phase 1 no-mutation boundary.
+Phase 1 established the model-free Rust core, three user-depth authority contracts, manual/risk invariants, read-only Windows identity/security/PnP/Driver Store evidence, CLI foundation, 20-lane static review, and Windows + Ubuntu proof. It merged to `main` as `e363ae8154c8319daaa40d9d1129b9db31029e5a`.
 
-## Deliberately not implemented yet
+## Phase 2 implementation under proof
 
-- driver installation;
-- runtime installation;
-- package downloads;
-- catalogue ingestion;
-- candidate matching/ranking;
-- debloat/tweak execution;
-- security/BCD mutation;
-- reboot/resume mutation workflow;
-- rollback transactions;
-- GUI;
-- Device Lab writes.
+Without machine mutation, Phase 2 adds:
 
-These remain blocked by the planned transaction, authority, catalogue, and verification layers.
+- `neo-device` normalized device evidence;
+- ordered opaque hardware/compatible IDs;
+- instance/problem/active-driver/service/filter evidence;
+- `neo-catalogue` typed package manifests;
+- provenance + SHA-256 + redistribution policy;
+- per-INF applicability + catalogue/signature/signer evidence;
+- Windows architecture/build applicability;
+- dependency/conflict validation;
+- explicit security target states and reboot validation;
+- read-only `neo catalogue validate <file>`;
+- synthetic catalogue fixture;
+- Phase 2 20-lane review;
+- committed Cargo.lock proof gate.
 
-## Apple / technician requirements already frozen
+## Still deliberately blocked
 
-Implementation must honor:
+Driver staging/install/removal, runtime install, downloads, candidate matching/ranking, debloat/tweaks, BCD/security mutation, reboot/resume mutation, rollback, GUI, and Device Lab writes—including Apple/DFU Pro binding changes—remain blocked.
 
-- `docs/decisions/0001-APPLE-TECHNICIAN-STACK.md`;
-- `docs/decisions/0002-DFU-PRO-TECHNICIAN-DRIVERS.md`.
+## Frozen technician requirements
 
-Those requirements will enter Device Lab implementation after the core transaction/catalogue safety layers exist.
+Implementation continues to honor `docs/decisions/0001-APPLE-TECHNICIAN-STACK.md` and `docs/decisions/0002-DFU-PRO-TECHNICIAN-DRIVERS.md`.
 
 ## Proof status
 
-- Deterministic local Phase 1 static review: **20/20 PASS**.
-- GitHub Actions implementation-code proof (`e7962c1812f434c80a68f936894c319e38569346`, run `31589296740`): **PASS on Ubuntu and Windows**.
-  - 20-lane static review: PASS on both.
-  - Rust formatting proof: PASS on both.
-  - Rust type/build proof: PASS on both.
-  - Clippy with warnings denied: PASS on both.
-  - Rust unit tests: PASS on both.
-- External CodeRabbit review: **unavailable due provider rate limit; no external code finding claimed**.
-- Local Rust compilation/runtime proof: **not available in this workspace** because Rust is not installed.
-- Windows-specific live hardware probe proof: **not yet claimed**; GitHub Windows CI proves build/tests, not real attached-device behavior.
-
-Phase 1 is engineering-proven for its current code/contracts and remains read-only. It is not a product release and does not yet prove live hardware coverage.
+- Phase 1: **PROVEN and merged**.
+- Phase 2 deterministic local static review: **20/20 PASS** before publication.
+- Phase 2 Rust/Windows/Ubuntu proof: **pending CI**.
+- Live attached-device proof: **not claimed**.
