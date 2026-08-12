@@ -5,7 +5,8 @@
 **Implementation active.**
 
 - **Phase 1:** merged and engineering-proven — shared Rust core/CLI contracts + early read-only System X-Ray foundation.
-- **Phase 2:** corrected implementation proven — normalized device evidence + typed package catalogue contracts. Final documentation-state CI remains before merge.
+- **Phase 2:** merged and engineering-proven — normalized device evidence + typed package catalogue contracts.
+- **Phase 3:** next — deterministic candidate matching/ranking, still read-only.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -13,9 +14,9 @@ The master plan remains frozen. This file is the live implementation-status reco
 
 Phase 1 established the model-free Rust core, three user-depth authority contracts, manual/risk invariants, read-only Windows identity/security/PnP/Driver Store evidence, CLI foundation, 20-lane static review, and Windows + Ubuntu proof. It merged to `main` as `e363ae8154c8319daaa40d9d1129b9db31029e5a`.
 
-## Phase 2 implemented
+## Phase 2 proven baseline
 
-Without machine mutation, Phase 2 adds:
+Phase 2 adds, without machine mutation:
 
 - `neo-device` normalized device evidence;
 - ordered opaque hardware/compatible IDs;
@@ -32,9 +33,13 @@ Without machine mutation, Phase 2 adds:
 - workspace-wide Phase 2 20-lane review;
 - committed and Git-tracked Cargo.lock proof gate.
 
+Phase 2 final documentation-state GitHub Actions run `31615112238` passed all configured gates on Ubuntu and Windows. All four major external-review code threads were resolved. Phase 2 merged to `main` as `86493f6c69efb14beb2267e2e8a5534670346dc1`.
+
 ## Still deliberately blocked
 
-Driver staging/install/removal, runtime install, downloads, candidate matching/ranking, debloat/tweaks, BCD/security mutation, reboot/resume mutation, rollback, GUI, and Device Lab writes—including Apple/DFU Pro binding changes—remain blocked.
+Driver staging/install/removal, runtime install, downloads, debloat/tweaks, BCD/security mutation, reboot/resume mutation, rollback, GUI, and Device Lab writes—including Apple/DFU Pro binding changes—remain blocked.
+
+Candidate matching/ranking is the next read-only layer and does not grant install authority.
 
 ## Frozen technician requirements
 
@@ -43,20 +48,8 @@ Implementation continues to honor `docs/decisions/0001-APPLE-TECHNICIAN-STACK.md
 ## Proof status
 
 - Phase 1: **PROVEN and merged**.
-- Phase 2 corrected implementation head: `6d08ca5b4c048a833f1122b48fc042d9453bc556`.
-- GitHub Actions run `31614831572`: **PASS on Ubuntu and Windows**.
-  - Phase 1 20-lane review: PASS on both.
-  - Strengthened Phase 2 20-lane review: PASS on both.
-  - Cargo.lock committed/tracked/current graph: PASS on both.
-  - Rust formatting: PASS on both.
-  - Locked Rust type/build proof: PASS on both.
-  - Clippy with warnings denied: PASS on both.
-  - Rust unit tests including corrective regressions: PASS on both.
-  - Read-only catalogue CLI fixture: PASS on both.
-- Four major external-review code threads: **resolved after correction**.
-- Follow-up full CodeRabbit review: **rate-limited; no additional full external-review PASS claimed**.
-- CodeRabbit docstring-coverage warning: **visible, non-functional documentation-quality warning; not a Phase 2 correctness/security proof gate**.
+- Phase 2: **PROVEN and merged**.
+- Phase 2 final CI run `31615112238`: PASS on Ubuntu and Windows for Phase 1 review, strengthened Phase 2 review, Cargo.lock tracking/current graph, rustfmt, locked build/type checks, Clippy with warnings denied, Rust unit tests, and the read-only catalogue CLI fixture.
+- CodeRabbit docstring-coverage warning remains a visible non-functional documentation-quality warning; it is not represented as a correctness/security PASS.
 - Live attached-device proof: **not claimed**.
 - Machine mutation proof: **not applicable yet; mutation remains disabled**.
-
-Phase 2 has no known unresolved correctness/security finding. One final CI run on the documentation-closed branch state is required before merge.
