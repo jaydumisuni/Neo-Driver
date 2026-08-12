@@ -65,8 +65,30 @@ Registry keys such as `RebootPending` are expected to be absent on healthy syste
 
 The initial local Cargo scaffold declared MIT even though no Neo license had been approved. Corrected before push: licensing metadata is omitted until explicitly decided.
 
+### F10 — CI Rust component-install syntax
+
+The first GitHub proof harness attempted to pass both `rustfmt` and `clippy` through a `rustup toolchain install --component` form that parsed `clippy` as another toolchain on Ubuntu. Corrected: install stable first, add `rustfmt` and `clippy` explicitly to the stable toolchain, then select stable.
+
+### F11 — Rust formatting proof
+
+Once the proof harness advanced, `cargo fmt --check` identified deterministic layout differences in the three Rust source files. The formatter output was applied exactly; no product behavior changed.
+
+### F12 — `thiserror` source-field contract
+
+The first compiler pass found that `thiserror` gives a field named `source` special error-source semantics. Neo stored command-start diagnostics there as `String`, which does not implement `std::error::Error`. Corrected by renaming the diagnostic field to `detail`; the captured failure text and failure-honest probe behavior remain unchanged.
+
 ## Reconciliation
 
-After corrections, the deterministic Phase 1 static review reports **20/20 PASS**.
+After all twelve findings were corrected, the deterministic Phase 1 static review reports **20/20 PASS**.
 
-Compilation/runtime proof must still come from Rust-enabled CI; local runtime proof is not claimed because this workspace does not contain a Rust toolchain and is not Windows.
+GitHub Actions run `31589296740` proved the implementation code commit `e7962c1812f434c80a68f936894c319e38569346` on both `ubuntu-latest` and `windows-latest`:
+
+- 20-lane static review: PASS;
+- `cargo fmt --all -- --check`: PASS;
+- `cargo check --workspace --all-targets`: PASS;
+- `cargo clippy --workspace --all-targets -- -D warnings`: PASS;
+- `cargo test --workspace --all-targets`: PASS.
+
+Local Rust runtime proof is still not claimed because this workspace does not contain a Rust toolchain and is not Windows. Live hardware probe proof is a later Windows-machine obligation; CI proves compilation/contracts/tests, not real-device behavior.
+
+CodeRabbit was contacted through the PR integration but was rate-limited and produced no code-review findings. That absence is recorded honestly and is not counted as review proof.
