@@ -68,6 +68,7 @@ pub struct DriverBindingBaseline {
 pub struct DriverInstallImpact {
     pub instance_id: String,
     pub baseline: DriverBindingBaseline,
+    pub baseline_package: StoredDriverPackage,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -177,6 +178,16 @@ impl DriverInstallPlan {
                 })?;
             if !published.to_ascii_lowercase().ends_with(".inf") {
                 return Err(DriverStoreError::MissingBaselinePublishedInf(
+                    impact.instance_id.clone(),
+                ));
+            }
+            impact.baseline_package.validate()?;
+            if !impact
+                .baseline_package
+                .published_inf
+                .eq_ignore_ascii_case(published)
+            {
+                return Err(DriverStoreError::BaselinePackageMismatch(
                     impact.instance_id.clone(),
                 ));
             }
