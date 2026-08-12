@@ -143,7 +143,14 @@ replace_all(
     assert!(packages.contains_key("oem1.inf"));
     assert!(!packages.contains_key("oem42.inf"));
 ''',
-    3,
+    4,
+)
+replace_once(
+    tests,
+    '''    assert!(!fixture.host.state.borrow().packages.is_empty());
+''',
+    '''    assert!(fixture.host.state.borrow().packages.contains_key("oem42.inf"));
+''',
 )
 marker = '''#[test]
 fn source_byte_drift_blocks_before_staging() {
