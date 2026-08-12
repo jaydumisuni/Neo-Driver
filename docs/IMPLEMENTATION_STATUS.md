@@ -68,8 +68,14 @@ Those requirements will enter Device Lab implementation after the core transacti
 ## Proof status
 
 - Deterministic local Phase 1 static review: **20/20 PASS**.
+- GitHub Actions implementation-code proof (`e7962c1812f434c80a68f936894c319e38569346`, run `31589296740`): **PASS on Ubuntu and Windows**.
+  - 20-lane static review: PASS on both.
+  - Rust formatting proof: PASS on both.
+  - Rust type/build proof: PASS on both.
+  - Clippy with warnings denied: PASS on both.
+  - Rust unit tests: PASS on both.
+- External CodeRabbit review: **unavailable due provider rate limit; no external code finding claimed**.
 - Local Rust compilation/runtime proof: **not available in this workspace** because Rust is not installed.
-- Windows-specific live probe proof: **not claimed on this Linux host**.
-- Repository CI: **pending until the Phase 1 implementation branch is pushed**.
+- Windows-specific live hardware probe proof: **not yet claimed**; GitHub Windows CI proves build/tests, not real attached-device behavior.
 
-No release-readiness claim is made before CI proof and later Windows hardware proof.
+Phase 1 is engineering-proven for its current code/contracts and remains read-only. It is not a product release and does not yet prove live hardware coverage.
