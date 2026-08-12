@@ -166,7 +166,11 @@ impl PackageManifest {
         ensure_unique_strings("dependency", &self.dependencies)?;
         ensure_unique_strings("conflict", &self.conflicts)?;
 
-        if self.dependencies.iter().any(|value| value == &self.package_id) {
+        if self
+            .dependencies
+            .iter()
+            .any(|value| value == &self.package_id)
+        {
             return Err(CatalogueError::SelfDependency(self.package_id.clone()));
         }
         if self.conflicts.iter().any(|value| value == &self.package_id) {
@@ -199,7 +203,9 @@ impl PackageManifest {
             }
         }
 
-        if self.security.changes_boot_or_security_state() && self.reboot != RebootRequirement::Required {
+        if self.security.changes_boot_or_security_state()
+            && self.reboot != RebootRequirement::Required
+        {
             return Err(CatalogueError::SecurityStateChangeWithoutRequiredReboot);
         }
 
@@ -218,7 +224,9 @@ impl Catalogue {
         for package in &self.packages {
             package.validate()?;
             if !ids.insert(package.package_id.as_str()) {
-                return Err(CatalogueError::DuplicatePackageId(package.package_id.clone()));
+                return Err(CatalogueError::DuplicatePackageId(
+                    package.package_id.clone(),
+                ));
             }
         }
         Ok(())
@@ -238,7 +246,10 @@ impl Catalogue {
 
 fn validate_driver_artifact(artifact: &DriverArtifact) -> Result<(), CatalogueError> {
     require_nonempty("inf_path", &artifact.inf_path)?;
-    artifact.ids.validate().map_err(|error| CatalogueError::DeviceIds(error.to_string()))?;
+    artifact
+        .ids
+        .validate()
+        .map_err(|error| CatalogueError::DeviceIds(error.to_string()))?;
     if artifact.ids.is_empty() {
         return Err(CatalogueError::DriverArtifactWithoutIds(
             artifact.inf_path.clone(),
@@ -357,7 +368,8 @@ mod tests {
             provenance: Provenance {
                 source_name: "fixture".to_string(),
                 source_url: Some("https://example.invalid/fixture".to_string()),
-                sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string(),
+                sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_string(),
                 redistribution: RedistributionPolicy::Unknown,
             },
             windows: WindowsApplicability {
@@ -417,7 +429,10 @@ mod tests {
     fn duplicate_applicability_ids_fail_closed() {
         let mut manifest = sample_manifest();
         let duplicate = manifest.driver_artifacts[0].ids.hardware_ids[0].clone();
-        manifest.driver_artifacts[0].ids.hardware_ids.push(duplicate);
+        manifest.driver_artifacts[0]
+            .ids
+            .hardware_ids
+            .push(duplicate);
         assert!(manifest.validate().is_err());
     }
 
