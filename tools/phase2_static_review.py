@@ -61,7 +61,7 @@ def review() -> list[Lane]:
         Lane(16, "security-reboot-gate", contains_all(CATALOGUE, ["SecurityStateChangeWithoutRequiredReboot", "changes_boot_or_security_state"]), "security-state changes require reboot=required"),
         Lane(17, "windows-applicability", contains_all(CATALOGUE, ["architectures", "minimum_build", "maximum_build", "InvalidBuildRange"]), "Windows architecture/build applicability is typed"),
         Lane(18, "read-only-cli", contains_all(CLI, ["CatalogueCommand", "Validate", "Catalogue::read_json", "Machine changes: none"]) and not any(v in combined for v in forbidden_mutators), "CLI validates without mutation"),
-        Lane(19, "fixture", package["kind"] == "inf_driver_bundle" and bool(artifact["ids"]["hardware_ids"]) and artifact["signature"]["status"] == "verified", "synthetic fixture exercises core catalogue evidence"),
+        Lane(19, "fixture", package["kind"] == "inf_driver_bundle" and bool(artifact["models"]) and bool(artifact["models"][0]["hardware_id"]) and artifact["signature"]["status"] == "verified", "synthetic fixture exercises core catalogue evidence with explicit INF model entries"),
         Lane(20, "workspace-wide-anti-drift", not any(v in combined for v in forbidden_model_dependencies) and "ls-files" in (ROOT / "tools/lockfile_guard.py").read_text(encoding="utf-8"), "all workspace manifests/Rust sources remain model-free and Cargo.lock must be Git-tracked"),
     ]
 

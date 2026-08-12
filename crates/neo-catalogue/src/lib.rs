@@ -1,10 +1,10 @@
 //! Typed package catalogue contracts for Neo Driver.
 //!
-//! Phase 2 validates package identity, provenance, applicability, signatures,
-//! dependencies, conflicts, and security/reboot requirements. It does not
-//! download or install packages.
+//! Phase 3 refines INF applicability into per-model entries so deterministic
+//! matching can preserve Windows identifier-score semantics. The catalogue
+//! remains read-only and contains no download or install authority.
 
-use neo_device::OrderedDeviceIds;
+use neo_device::OpaqueDeviceId;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -88,11 +88,41 @@ pub struct WindowsApplicability {
     pub maximum_build: Option<u32>,
 }
 
+/// One entry from an INF Models section.
+///
+/// The optional `hardware_id` is the INF hw-id slot; following compatible IDs
+/// remain ordered. Neo treats every value as opaque and never parses bus fields
+/// such as VID/PID/SUBSYS to manufacture compatibility.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InfModelEntry {
+    #[serde(default)]
+    pub hardware_id: Option<OpaqueDeviceId>,
+    #[serde(default)]
+    pub compatible_ids: Vec<OpaqueDeviceId>,
+}
+
+impl InfModelEntry {
+    pub fn validate(&self) -> Result<(), CatalogueError> {
+        if self.hardware_id.is_none() && self.compatible_ids.is_empty() {
+            return Err(CatalogueError::EmptyInfModelEntry);
+        }
+        let mut seen = BTreeSet::new();
+        for value in &self.compatible_ids {
+            if !seen.insert(value.as_str().to_ascii_lowercase()) {
+                return Err(CatalogueError::DuplicateModelCompatibleId(
+                    value.to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DriverArtifact {
     pub inf_path: String,
     #[serde(default)]
-    pub ids: OrderedDeviceIds,
+    pub models: Vec<InfModelEntry>,
     #[serde(default)]
     pub catalog_files: Vec<String>,
     #[serde(default)]
@@ -261,14 +291,13 @@ impl Catalogue {
 
 fn validate_driver_artifact(artifact: &DriverArtifact) -> Result<(), CatalogueError> {
     require_nonempty("inf_path", &artifact.inf_path)?;
-    artifact
-        .ids
-        .validate()
-        .map_err(|error| CatalogueError::DeviceIds(error.to_string()))?;
-    if artifact.ids.is_empty() {
-        return Err(CatalogueError::DriverArtifactWithoutIds(
+    if artifact.models.is_empty() {
+        return Err(CatalogueError::DriverArtifactWithoutModels(
             artifact.inf_path.clone(),
         ));
+    }
+    for model in &artifact.models {
+        model.validate()?;
     }
     ensure_unique_strings("catalog file", &artifact.catalog_files)?;
     if artifact.signature.status == SignatureStatus::Verified {
@@ -347,8 +376,12 @@ pub enum CatalogueError {
     DriverBundleWithoutArtifacts(String),
     #[error("non-INF package unexpectedly contains driver artifacts: {0}")]
     UnexpectedDriverArtifacts(String),
-    #[error("driver artifact has no hardware or compatible IDs: {0}")]
-    DriverArtifactWithoutIds(String),
+    #[error("driver artifact has no INF model entries: {0}")]
+    DriverArtifactWithoutModels(String),
+    #[error("INF model entry must contain at least one hardware or compatible ID")]
+    EmptyInfModelEntry,
+    #[error("duplicate compatible ID inside one INF model entry: {0}")]
+    DuplicateModelCompatibleId(String),
     #[error("duplicate INF path: {0}")]
     DuplicateInfPath(String),
     #[error("verified driver artifact has no catalogue file: {0}")]
@@ -359,8 +392,6 @@ pub enum CatalogueError {
     SecurityStateChangeWithoutRequiredReboot,
     #[error("invalid Windows build range: minimum {minimum} > maximum {maximum}")]
     InvalidBuildRange { minimum: u32, maximum: u32 },
-    #[error("invalid device ID set: {0}")]
-    DeviceIds(String),
     #[error("duplicate package ID: {0}")]
     DuplicatePackageId(String),
     #[error("package {package_id} depends on missing package {dependency}")]
@@ -382,7 +413,10 @@ pub enum CatalogueError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use neo_device::OpaqueDeviceId;
+
+    fn id(value: &str) -> OpaqueDeviceId {
+        OpaqueDeviceId::new(value).unwrap()
+    }
 
     fn sample_manifest() -> PackageManifest {
         PackageManifest {
@@ -405,13 +439,13 @@ mod tests {
             },
             driver_artifacts: vec![DriverArtifact {
                 inf_path: "drivers/fixture.inf".to_string(),
-                ids: OrderedDeviceIds {
-                    hardware_ids: vec![OpaqueDeviceId::new(r"USB\VID_1234&PID_5678").unwrap()],
-                    compatible_ids: vec![],
-                },
+                models: vec![InfModelEntry {
+                    hardware_id: Some(id(r"USB\VID_1234&PID_5678")),
+                    compatible_ids: vec![id(r"USB\Class_FF")],
+                }],
                 catalog_files: vec!["drivers/fixture.cat".to_string()],
                 provider: Some("Neo Fixture Vendor".to_string()),
-                driver_version: Some("1.0.0".to_string()),
+                driver_version: Some("1.0.0.0".to_string()),
                 driver_date: Some("2026-01-01".to_string()),
                 signature: SignatureEvidence {
                     status: SignatureStatus::Verified,
@@ -432,6 +466,54 @@ mod tests {
     }
 
     #[test]
+    fn driver_artifact_requires_models() {
+        let mut manifest = sample_manifest();
+        manifest.driver_artifacts[0].models.clear();
+        assert!(matches!(
+            manifest.validate(),
+            Err(CatalogueError::DriverArtifactWithoutModels(_))
+        ));
+    }
+
+    #[test]
+    fn model_entry_requires_at_least_one_identifier() {
+        let mut manifest = sample_manifest();
+        manifest.driver_artifacts[0].models[0].hardware_id = None;
+        manifest.driver_artifacts[0].models[0]
+            .compatible_ids
+            .clear();
+        assert!(matches!(
+            manifest.validate(),
+            Err(CatalogueError::EmptyInfModelEntry)
+        ));
+    }
+
+    #[test]
+    fn model_compatible_ids_are_ordered_and_unique() {
+        let mut manifest = sample_manifest();
+        let duplicate = manifest.driver_artifacts[0].models[0].compatible_ids[0].clone();
+        manifest.driver_artifacts[0].models[0]
+            .compatible_ids
+            .push(duplicate);
+        assert!(matches!(
+            manifest.validate(),
+            Err(CatalogueError::DuplicateModelCompatibleId(_))
+        ));
+    }
+
+    #[test]
+    fn model_compatible_ids_reject_case_only_duplicates() {
+        let mut manifest = sample_manifest();
+        manifest.driver_artifacts[0].models[0]
+            .compatible_ids
+            .push(id(r"usb\class_ff"));
+        assert!(matches!(
+            manifest.validate(),
+            Err(CatalogueError::DuplicateModelCompatibleId(_))
+        ));
+    }
+
+    #[test]
     fn verified_driver_requires_signer_and_catalog() {
         let mut manifest = sample_manifest();
         manifest.driver_artifacts[0].signature.signer = None;
@@ -449,17 +531,6 @@ mod tests {
             manifest.validate(),
             Err(CatalogueError::SecurityStateChangeWithoutRequiredReboot)
         ));
-    }
-
-    #[test]
-    fn duplicate_applicability_ids_fail_closed() {
-        let mut manifest = sample_manifest();
-        let duplicate = manifest.driver_artifacts[0].ids.hardware_ids[0].clone();
-        manifest.driver_artifacts[0]
-            .ids
-            .hardware_ids
-            .push(duplicate);
-        assert!(manifest.validate().is_err());
     }
 
     #[test]
