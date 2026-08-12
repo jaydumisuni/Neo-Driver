@@ -244,7 +244,10 @@ pub fn best_identifier_match(
     identifier_match_search(device, artifact).best
 }
 
-fn identifier_match_search(device: &DeviceRecord, artifact: &DriverArtifact) -> IdentifierMatchSearch {
+fn identifier_match_search(
+    device: &DeviceRecord,
+    artifact: &DriverArtifact,
+) -> IdentifierMatchSearch {
     let mut matches = Vec::new();
     let mut out_of_range_match = false;
 
@@ -282,7 +285,10 @@ fn collect_model_matches(
 ) {
     for (device_position, device_id) in device.ids.hardware_ids.iter().enumerate() {
         if let Some(hardware_id) = &model.hardware_id {
-            if device_id.as_str().eq_ignore_ascii_case(hardware_id.as_str()) {
+            if device_id
+                .as_str()
+                .eq_ignore_ascii_case(hardware_id.as_str())
+            {
                 push_scored_match(
                     output,
                     out_of_range_match,
@@ -313,7 +319,10 @@ fn collect_model_matches(
 
     for (device_position, device_id) in device.ids.compatible_ids.iter().enumerate() {
         if let Some(hardware_id) = &model.hardware_id {
-            if device_id.as_str().eq_ignore_ascii_case(hardware_id.as_str()) {
+            if device_id
+                .as_str()
+                .eq_ignore_ascii_case(hardware_id.as_str())
+            {
                 push_scored_match(
                     output,
                     out_of_range_match,
@@ -407,9 +416,10 @@ fn compare_candidates(left: &CandidateMatch, right: &CandidateMatch) -> Ordering
 }
 
 fn compare_known_windows_tiebreaks(left: &CandidateMatch, right: &CandidateMatch) -> Ordering {
-    let (Some(left_date), Some(right_date)) =
-        (parsed_date(&left.driver_date), parsed_date(&right.driver_date))
-    else {
+    let (Some(left_date), Some(right_date)) = (
+        parsed_date(&left.driver_date),
+        parsed_date(&right.driver_date),
+    ) else {
         return Ordering::Equal;
     };
 
@@ -476,9 +486,10 @@ fn equivalent_selection_key(left: &CandidateMatch, right: &CandidateMatch) -> bo
         return false;
     }
 
-    let (Some(left_date), Some(right_date)) =
-        (parsed_date(&left.driver_date), parsed_date(&right.driver_date))
-    else {
+    let (Some(left_date), Some(right_date)) = (
+        parsed_date(&left.driver_date),
+        parsed_date(&right.driver_date),
+    ) else {
         return true;
     };
     if left_date != right_date {
@@ -528,7 +539,8 @@ fn valid_calendar_date(year: u16, month: u8, day: u8) -> bool {
     if !(1..=12).contains(&month) || day == 0 {
         return false;
     }
-    let leap_year = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
+    let leap_year =
+        year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
     let maximum = match month {
         2 if leap_year => 29,
         2 => 28,
