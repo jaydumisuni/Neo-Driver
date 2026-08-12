@@ -1,6 +1,7 @@
 use crate::error::TransactionError;
 use crate::plan::TransactionPlan;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -16,18 +17,48 @@ pub enum StateTargetKind {
     Other,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateTarget {
     pub kind: StateTargetKind,
     pub key: String,
 }
 
 impl StateTarget {
+    pub(crate) fn identity_key(&self) -> String {
+        let key = self.key.trim();
+        match self.kind {
+            StateTargetKind::Other => key.to_string(),
+            _ => key.to_ascii_lowercase(),
+        }
+    }
+
     pub(crate) fn validate(&self) -> Result<(), TransactionError> {
         if self.key.trim().is_empty() {
             return Err(TransactionError::EmptyStateTarget);
         }
         Ok(())
+    }
+}
+
+impl PartialEq for StateTarget {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind && self.identity_key() == other.identity_key()
+    }
+}
+
+impl Eq for StateTarget {}
+
+impl PartialOrd for StateTarget {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for StateTarget {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.kind
+            .cmp(&other.kind)
+            .then_with(|| self.identity_key().cmp(&other.identity_key()))
     }
 }
 

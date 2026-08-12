@@ -227,6 +227,46 @@ impl TransactionCheckpoint {
         self.validate()
     }
 
+    pub fn reprobe_after_block(
+        &mut self,
+        observations: Vec<Observation>,
+    ) -> Result<(), TransactionError> {
+        self.require_stage(TransactionStage::Blocked)?;
+        self.validate()?;
+        let reboot_checkpoint = self
+            .reboot_checkpoint
+            .as_ref()
+            .ok_or(TransactionError::MissingRebootCheckpoint)?;
+        reboot_checkpoint.validate_for_checkpoint(self)?;
+        let baseline = self
+            .baseline
+            .as_ref()
+            .ok_or(TransactionError::MissingBaseline)?;
+        let results = evaluate_predicates(&reboot_checkpoint.expected_post_reboot, &observations)?;
+        let passed = required_results_pass(&results, baseline);
+        self.resume_results = results;
+        if passed {
+            self.transition(
+                TransactionStage::Verifying,
+                "blocked post-reboot state re-proven; verification may continue",
+            );
+        } else {
+            let changed = self.successful_applied_ids();
+            if !changed.is_empty() && self.plan.all_reversible(&changed) {
+                self.transition(
+                    TransactionStage::RollingBack,
+                    "blocked post-reboot state still unproven; rollback required",
+                );
+            } else {
+                self.transition(
+                    TransactionStage::Failed,
+                    "blocked post-reboot state still unproven without complete rollback path",
+                );
+            }
+        }
+        self.validate()
+    }
+
     pub fn verify_postconditions(
         &mut self,
         observations: Vec<Observation>,

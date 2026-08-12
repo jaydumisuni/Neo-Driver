@@ -385,6 +385,7 @@ fn overlapping_snapshot_targets_across_actions_fail_closed() {
     let first = transaction_action();
     let mut second = transaction_action();
     second.action.id = "neo.fixture.tweak.second".to_string();
+    second.snapshot_targets[0].key = r"hkcu\software\neofixture\enabled".to_string();
     second.postconditions[0].id = "fixture.enabled.second".to_string();
     second.rollback = RollbackPlan::Reversible {
         restore_targets: vec![target()],
@@ -422,6 +423,75 @@ fn irreversible_action_requires_reason_bound_acknowledgement() {
         }),
         Err(TransactionError::MissingIrreversibleAcknowledgement)
     ));
+}
+
+#[test]
+fn blocked_reprobe_can_recover_to_verifying() {
+    let mut action = transaction_action();
+    action.action.reboot = RebootRequirement::Required;
+    let plan = TransactionPlan::new("TX", 1, "MISSION", vec![action]).unwrap();
+    let auth = authorization(&plan);
+    let mut checkpoint = TransactionCheckpoint::new(plan).unwrap();
+    checkpoint
+        .capture_baseline(baseline(CapturedValue::Present("0".to_string())))
+        .unwrap();
+    checkpoint.authorize(auth).unwrap();
+    checkpoint.begin_apply().unwrap();
+    checkpoint
+        .record_apply_result(ApplyRecord {
+            action_id: "neo.fixture.tweak".to_string(),
+            outcome: ApplyOutcome::Success,
+            detail: "future executor reported success".to_string(),
+        })
+        .unwrap();
+    checkpoint
+        .resume_after_reboot(vec![Observation {
+            target: target(),
+            value: ObservedValue::Present("0".to_string()),
+        }])
+        .unwrap();
+    assert_eq!(checkpoint.stage(), TransactionStage::Blocked);
+    checkpoint
+        .reprobe_after_block(vec![Observation {
+            target: target(),
+            value: ObservedValue::Present("1".to_string()),
+        }])
+        .unwrap();
+    assert_eq!(checkpoint.stage(), TransactionStage::Verifying);
+}
+
+#[test]
+fn blocked_reprobe_routes_reversible_change_to_rollback() {
+    let mut action = transaction_action();
+    action.action.reboot = RebootRequirement::Required;
+    let plan = TransactionPlan::new("TX", 1, "MISSION", vec![action]).unwrap();
+    let auth = authorization(&plan);
+    let mut checkpoint = TransactionCheckpoint::new(plan).unwrap();
+    checkpoint
+        .capture_baseline(baseline(CapturedValue::Present("0".to_string())))
+        .unwrap();
+    checkpoint.authorize(auth).unwrap();
+    checkpoint.begin_apply().unwrap();
+    checkpoint
+        .record_apply_result(ApplyRecord {
+            action_id: "neo.fixture.tweak".to_string(),
+            outcome: ApplyOutcome::Success,
+            detail: "future executor reported success".to_string(),
+        })
+        .unwrap();
+    checkpoint
+        .resume_after_reboot(vec![Observation {
+            target: target(),
+            value: ObservedValue::Present("0".to_string()),
+        }])
+        .unwrap();
+    checkpoint
+        .reprobe_after_block(vec![Observation {
+            target: target(),
+            value: ObservedValue::Present("0".to_string()),
+        }])
+        .unwrap();
+    assert_eq!(checkpoint.stage(), TransactionStage::RollingBack);
 }
 
 #[test]
