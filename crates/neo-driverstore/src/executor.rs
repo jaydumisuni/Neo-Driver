@@ -150,8 +150,23 @@ impl DriverInstallSession {
             }
         }
 
-        let mut after = host.inventory()?;
-        after.validate()?;
+        let mut after = match host.inventory() {
+            Ok(inventory) => inventory,
+            Err(error) => {
+                self.record_uncertain_apply_failure(
+                    format!("post-mutation device inventory failed: {error}"),
+                    reboot_required,
+                )?;
+                return self.validate();
+            }
+        };
+        if let Err(error) = after.validate() {
+            self.record_uncertain_apply_failure(
+                format!("post-mutation device inventory was invalid: {error}"),
+                reboot_required,
+            )?;
+            return self.validate();
+        }
         let (mut policy_satisfied, unexpected) = self.evaluate_forward(&before, &after)?;
         if let Some(instance_id) = unexpected {
             policy_satisfied = false;
@@ -171,14 +186,38 @@ impl DriverInstallSession {
                             format!("unused staged package cleanup failed: {error}")
                         });
                     } else {
-                        after = host.inventory()?;
-                        after.validate()?;
+                        after = match host.inventory() {
+                            Ok(inventory) => inventory,
+                            Err(error) => {
+                                self.record_uncertain_apply_failure(
+                                    format!("post-cleanup device inventory failed: {error}"),
+                                    reboot_required,
+                                )?;
+                                return self.validate();
+                            }
+                        };
+                        if let Err(error) = after.validate() {
+                            self.record_uncertain_apply_failure(
+                                format!("post-cleanup device inventory was invalid: {error}"),
+                                reboot_required,
+                            )?;
+                            return self.validate();
+                        }
                     }
                 }
             }
         }
 
-        let store_changed = !self.store_matches_baseline(host)?;
+        let store_changed = match self.store_matches_baseline(host) {
+            Ok(matches_baseline) => !matches_baseline,
+            Err(error) => {
+                self.record_uncertain_apply_failure(
+                    format!("post-mutation Driver Store probe failed: {error}"),
+                    reboot_required,
+                )?;
+                return self.validate();
+            }
+        };
         let machine_changed = binding_changed || store_changed;
         if operational_error.is_none() && !policy_satisfied {
             operational_error = Some(DriverStoreError::PolicyUnsatisfied.to_string());
@@ -207,9 +246,18 @@ impl DriverInstallSession {
         if outcome == ApplyOutcome::Success
             && self.transaction.stage() == TransactionStage::Verifying
         {
-            let observation = self.policy_observation(host)?;
-            self.transaction.verify_postconditions(vec![observation])?;
+            self.verify_current(host)?;
         }
+        self.validate()
+    }
+
+    pub fn verify_current<H: DriverHost>(&mut self, host: &H) -> Result<(), DriverStoreError> {
+        self.validate()?;
+        if self.transaction.stage() != TransactionStage::Verifying {
+            return Err(DriverStoreError::SessionInvariantViolation);
+        }
+        let observation = self.policy_observation(host)?;
+        self.transaction.verify_postconditions(vec![observation])?;
         self.validate()
     }
 
@@ -291,9 +339,21 @@ impl DriverInstallSession {
         })?;
 
         if self.transaction.stage() == TransactionStage::RollingBack {
-            let observations = self.rollback_observations(host)?;
-            self.transaction.verify_rollback(observations)?;
+            self.verify_rollback_current(host)?;
         }
+        self.validate()
+    }
+
+    pub fn verify_rollback_current<H: DriverHost>(
+        &mut self,
+        host: &H,
+    ) -> Result<(), DriverStoreError> {
+        self.validate()?;
+        if self.transaction.stage() != TransactionStage::RollingBack {
+            return Err(DriverStoreError::SessionInvariantViolation);
+        }
+        let observations = self.rollback_observations(host)?;
+        self.transaction.verify_rollback(observations)?;
         self.validate()
     }
 
@@ -331,6 +391,21 @@ impl DriverInstallSession {
         if let Some(package) = &self.target_package {
             package.validate()?;
         }
+        Ok(())
+    }
+
+    fn record_uncertain_apply_failure(
+        &mut self,
+        detail: String,
+        reboot_required: bool,
+    ) -> Result<(), DriverStoreError> {
+        self.transaction.record_apply_result(ApplyRecord {
+            action_id: self.driver_plan.action_id.clone(),
+            outcome: ApplyOutcome::Failure,
+            detail,
+            machine_changed: true,
+            reboot_required,
+        })?;
         Ok(())
     }
 

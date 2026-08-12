@@ -26,6 +26,8 @@ struct FakeState {
     restore_reboot: bool,
     baseline_bindings: BTreeMap<String, DriverBindingBaseline>,
     stage_calls: usize,
+    inventory_calls: usize,
+    fail_inventory_call: Option<usize>,
 }
 
 struct FakeHost {
@@ -79,6 +81,8 @@ impl FakeHost {
                     baseline,
                 )]),
                 stage_calls: 0,
+                inventory_calls: 0,
+                fail_inventory_call: None,
             }),
         }
     }
@@ -90,7 +94,15 @@ impl FakeHost {
 
 impl DriverHost for FakeHost {
     fn inventory(&self) -> Result<DriverInventory, DriverStoreError> {
-        Ok(self.state.borrow().inventory.clone())
+        let mut state = self.state.borrow_mut();
+        state.inventory_calls += 1;
+        if state.fail_inventory_call == Some(state.inventory_calls) {
+            state.fail_inventory_call = None;
+            return Err(DriverStoreError::Windows(
+                "synthetic inventory failure".to_string(),
+            ));
+        }
+        Ok(state.inventory.clone())
     }
 
     fn compatible_present_devices(&self, _inf: &Path) -> Result<Vec<String>, DriverStoreError> {
@@ -481,6 +493,33 @@ fn unhealthy_windows_noop_fails_without_leaving_staged_package() {
     let packages = &fixture.host.state.borrow().packages;
     assert!(packages.contains_key("oem1.inf"));
     assert!(!packages.contains_key("oem42.inf"));
+}
+
+#[test]
+fn post_mutation_inventory_failure_routes_conservative_rollback() {
+    let fixture = Fixture::new(None);
+    let mut session = fixture.session();
+    fixture.host.configure(|state| {
+        state.fail_inventory_call = Some(state.inventory_calls + 2);
+    });
+    session.apply(&fixture.host).unwrap();
+    assert_eq!(session.transaction().stage(), TransactionStage::RollingBack);
+    session.rollback(&fixture.host).unwrap();
+    assert_eq!(session.transaction().stage(), TransactionStage::RolledBack);
+}
+
+#[test]
+fn transient_verification_probe_can_be_retried() {
+    let fixture = Fixture::new(None);
+    let mut session = fixture.session();
+    fixture.host.configure(|state| {
+        state.fail_inventory_call = Some(state.inventory_calls + 3);
+    });
+    let error = session.apply(&fixture.host).unwrap_err();
+    assert!(error.to_string().contains("synthetic inventory failure"));
+    assert_eq!(session.transaction().stage(), TransactionStage::Verifying);
+    session.verify_current(&fixture.host).unwrap();
+    assert_eq!(session.transaction().stage(), TransactionStage::Complete);
 }
 
 #[test]
