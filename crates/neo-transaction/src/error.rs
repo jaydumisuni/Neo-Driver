@@ -39,6 +39,8 @@ pub enum TransactionError {
     InvalidRollbackVerification(String),
     #[error("duplicate baseline target: {0}")]
     DuplicateBaselineTarget(String),
+    #[error("state target is captured by more than one transaction action: {0}")]
+    OverlappingSnapshotTarget(String),
     #[error("baseline snapshot does not exactly cover the transaction plan")]
     BaselineCoverageMismatch,
     #[error("rollback baseline unavailable for {target}: {reason}")]
