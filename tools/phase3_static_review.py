@@ -67,7 +67,7 @@ def review() -> list[Lane]:
         Lane(9, "build-gates", contains_all(MATCH, ["WindowsBuildTooOld", "WindowsBuildTooNew", "minimum_build", "maximum_build"]), "Windows build applicability is a hard gate"),
         Lane(10, "invalid-signature-reject", contains_all(MATCH, ["InvalidSignature", "SignatureStatus::Invalid", "EvidenceVerdict::Rejected"]), "invalid signature state rejects a candidate"),
         Lane(11, "unknown-signature-investigate", "SignatureStatus::Unknown | SignatureStatus::Unsigned => EvidenceVerdict::Investigate" in MATCH, "unknown/unsigned candidates never become certified"),
-        Lane(12, "no-full-rank-claim", contains_all(MATCH, ["full_windows_rank_available: false", "Full Windows rank", "FeatureScore"]), "Phase 3 explicitly refuses to claim complete Windows rank"),
+        Lane(12, "no-full-rank-claim", contains_all(MATCH, ["full_windows_rank_available: false", "ranking_complete", "FeatureScore", "does not claim the full Windows rank"]), "Phase 3 explicitly refuses to claim complete Windows rank"),
         Lane(
             13,
             "identifier-before-date",
