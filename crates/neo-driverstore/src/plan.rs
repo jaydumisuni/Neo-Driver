@@ -117,21 +117,24 @@ pub fn prepare_driver_install<H: DriverHost>(
             .active_driver
             .clone()
             .ok_or_else(|| DriverStoreError::MissingBaselineBinding(identity.clone()))?;
-        if binding
+        let published = binding
             .published_name
             .as_deref()
-            .is_none_or(|value| value.trim().is_empty())
-        {
-            return Err(DriverStoreError::MissingBaselinePublishedInf(
-                device.instance_id.to_string(),
-            ));
-        }
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| {
+                DriverStoreError::MissingBaselinePublishedInf(device.instance_id.to_string())
+            })?;
+        let baseline_package = host.resolve_published_package(published)?.ok_or_else(|| {
+            DriverStoreError::MissingBaselinePackage(device.instance_id.to_string())
+        })?;
+        baseline_package.validate()?;
         impacts.push(DriverInstallImpact {
             instance_id: device.instance_id.to_string(),
             baseline: DriverBindingBaseline {
                 binding,
                 problem_code: device.problem_code,
             },
+            baseline_package,
         });
     }
     impacts.sort_by_key(|impact| impact.instance_id.to_ascii_lowercase());

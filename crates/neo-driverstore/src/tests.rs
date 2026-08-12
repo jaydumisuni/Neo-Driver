@@ -42,6 +42,17 @@ impl FakeHost {
         let store_dir = root.join("fake-driver-store");
         fs::create_dir_all(&store_dir).unwrap();
         let staged_inf = store_dir.join("oem42.inf");
+        let baseline_inf = store_dir.join("oem1.inf");
+        fs::write(
+            &baseline_inf,
+            b"baseline driver inf bytes
+",
+        )
+        .unwrap();
+        let baseline_package = StoredDriverPackage {
+            published_inf: "oem1.inf".to_string(),
+            driver_store_inf: baseline_inf,
+        };
         Self {
             state: RefCell::new(FakeState {
                 inventory: DriverInventory {
@@ -53,7 +64,7 @@ impl FakeHost {
                     signer: "Neo Fixture Signer".to_string(),
                     signer_version: Some("1".to_string()),
                 },
-                packages: BTreeMap::new(),
+                packages: BTreeMap::from([("oem1.inf".to_string(), baseline_package)]),
                 stage_package: StoredDriverPackage {
                     published_inf: "oem42.inf".to_string(),
                     driver_store_inf: staged_inf,
@@ -95,7 +106,7 @@ impl DriverHost for FakeHost {
         _source_inf: &Path,
         _catalogue_files: &[String],
     ) -> Result<Option<StoredDriverPackage>, DriverStoreError> {
-        Ok(self.state.borrow().packages.values().next().cloned())
+        Ok(self.state.borrow().packages.get("oem42.inf").cloned())
     }
 
     fn resolve_published_package(
@@ -384,6 +395,27 @@ fn planner_binds_windows_impact_to_catalogue_impact() {
 }
 
 #[test]
+fn planner_refuses_missing_baseline_driver_package() {
+    let fixture = Fixture::new(None);
+    fixture.host.configure(|state| state.packages.clear());
+    let error = prepare_driver_install(
+        &fixture.host,
+        &fixture_catalogue(),
+        &DriverInstallRequest {
+            package_root: fixture.root.clone(),
+            package_id: "neo.fixture.driver".to_string(),
+            inf_path: "drivers/fixture.inf".to_string(),
+            architecture: "x64".to_string(),
+            windows_build: 26100,
+            action_id: "install.fixture.driver".to_string(),
+            mission_id: "mission.fixture".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert!(matches!(error, DriverStoreError::MissingBaselinePackage(_)));
+}
+
+#[test]
 fn source_byte_drift_blocks_before_staging() {
     let fixture = Fixture::new(None);
     let mut session = fixture.session();
@@ -428,7 +460,9 @@ fn healthy_windows_noop_cleans_new_store_package_and_completes() {
     let mut session = fixture.session();
     session.apply(&fixture.host).unwrap();
     assert_eq!(session.transaction().stage(), TransactionStage::Complete);
-    assert!(fixture.host.state.borrow().packages.is_empty());
+    let packages = &fixture.host.state.borrow().packages;
+    assert!(packages.contains_key("oem1.inf"));
+    assert!(!packages.contains_key("oem42.inf"));
 }
 
 #[test]
@@ -440,7 +474,9 @@ fn unhealthy_windows_noop_fails_without_leaving_staged_package() {
     let mut session = fixture.session();
     session.apply(&fixture.host).unwrap();
     assert_eq!(session.transaction().stage(), TransactionStage::Failed);
-    assert!(fixture.host.state.borrow().packages.is_empty());
+    let packages = &fixture.host.state.borrow().packages;
+    assert!(packages.contains_key("oem1.inf"));
+    assert!(!packages.contains_key("oem42.inf"));
 }
 
 #[test]
@@ -452,7 +488,9 @@ fn backend_failure_after_binding_change_routes_exact_rollback() {
     assert_eq!(session.transaction().stage(), TransactionStage::RollingBack);
     session.rollback(&fixture.host).unwrap();
     assert_eq!(session.transaction().stage(), TransactionStage::RolledBack);
-    assert!(fixture.host.state.borrow().packages.is_empty());
+    let packages = &fixture.host.state.borrow().packages;
+    assert!(packages.contains_key("oem1.inf"));
+    assert!(!packages.contains_key("oem42.inf"));
     assert_eq!(
         fixture.host.state.borrow().inventory.devices[0]
             .active_driver
@@ -508,10 +546,17 @@ fn rollback_reboot_defers_store_removal_until_binding_is_restored() {
         session.transaction().stage(),
         TransactionStage::AwaitingRollbackReboot
     );
-    assert!(!fixture.host.state.borrow().packages.is_empty());
+    assert!(fixture
+        .host
+        .state
+        .borrow()
+        .packages
+        .contains_key("oem42.inf"));
     session.resume_after_rollback_reboot(&fixture.host).unwrap();
     assert_eq!(session.transaction().stage(), TransactionStage::RolledBack);
-    assert!(fixture.host.state.borrow().packages.is_empty());
+    let packages = &fixture.host.state.borrow().packages;
+    assert!(packages.contains_key("oem1.inf"));
+    assert!(!packages.contains_key("oem42.inf"));
 }
 
 #[test]

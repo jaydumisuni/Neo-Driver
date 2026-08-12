@@ -248,14 +248,7 @@ impl DriverInstallSession {
             if current_binding(current) == Some(impact.baseline.clone()) {
                 continue;
             }
-            let baseline_inf = impact
-                .baseline
-                .binding
-                .published_name
-                .as_deref()
-                .ok_or_else(|| {
-                    DriverStoreError::MissingBaselinePublishedInf(impact.instance_id.clone())
-                })?;
+            let baseline_inf = impact.baseline_package.published_inf.as_str();
             match host.restore_specific_driver(&impact.instance_id, baseline_inf) {
                 Ok(result) => reboot_required |= result.reboot_required,
                 Err(error) => {
@@ -359,6 +352,13 @@ impl DriverInstallSession {
         for impact in &self.driver_plan.impacts {
             let current = current_binding(inventory.device(&impact.instance_id));
             if current != Some(impact.baseline.clone()) {
+                return Err(DriverStoreError::PrestateDrift);
+            }
+            if host
+                .resolve_published_package(&impact.baseline_package.published_inf)?
+                .as_ref()
+                != Some(&impact.baseline_package)
+            {
                 return Err(DriverStoreError::PrestateDrift);
             }
         }

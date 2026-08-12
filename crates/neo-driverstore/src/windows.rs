@@ -14,16 +14,14 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_Get_DevNode_Status, DiInstallDevice, DiInstallDriverW, SetupCopyOEMInfW,
     SetupDiBuildDriverInfoList, SetupDiDestroyDeviceInfoList, SetupDiDestroyDriverInfoList,
     SetupDiEnumDeviceInfo, SetupDiEnumDriverInfoW, SetupDiGetClassDevsW,
-    SetupDiGetDeviceInstallParamsW, SetupDiGetDeviceInstanceIdW,
-    SetupDiGetDevicePropertyW, SetupDiGetDeviceRegistryPropertyW,
-    SetupDiSetDeviceInstallParamsW, SetupGetInfDriverStoreLocationW,
-    SetupGetInfPublishedNameW, SetupUninstallOEMInfW, SetupVerifyInfFileW,
-    CM_DEVNODE_STATUS_FLAGS, CM_PROB, CR_SUCCESS, DIINSTALLDEVICE_FLAGS,
-    DIINSTALLDRIVER_FLAGS, DIGCF_ALLCLASSES, DIGCF_PRESENT, DI_ENUMSINGLEINF,
-    DI_FLAGSEX_ALLOWEXCLUDEDDRVS, HDEVINFO, SP_COPY_STYLE, SP_DEVINFO_DATA,
-    SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
-    SPDIT_COMPATDRIVER, SPDRP_CLASS, SPDRP_CLASSGUID, SPDRP_COMPATIBLEIDS,
-    SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_MFG, SPOST_PATH,
+    SetupDiGetDeviceInstallParamsW, SetupDiGetDeviceInstanceIdW, SetupDiGetDevicePropertyW,
+    SetupDiGetDeviceRegistryPropertyW, SetupDiSetDeviceInstallParamsW,
+    SetupGetInfDriverStoreLocationW, SetupGetInfPublishedNameW, SetupUninstallOEMInfW,
+    SetupVerifyInfFileW, CM_DEVNODE_STATUS_FLAGS, CM_PROB, CR_SUCCESS, DIGCF_ALLCLASSES,
+    DIGCF_PRESENT, DIINSTALLDEVICE_FLAGS, DIINSTALLDRIVER_FLAGS, DI_ENUMSINGLEINF,
+    DI_FLAGSEX_ALLOWEXCLUDEDDRVS, HDEVINFO, SPDIT_COMPATDRIVER, SPDRP_CLASS, SPDRP_CLASSGUID,
+    SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_MFG, SPOST_PATH, SP_COPY_STYLE,
+    SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
 };
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_DriverInfPath, DEVPROPTYPE};
 use windows::Win32::Foundation::ERROR_NO_MORE_ITEMS;
@@ -69,11 +67,8 @@ impl DriverHost for WindowsDriverHost {
                 .into_iter()
                 .map(opaque_id)
                 .collect::<Result<Vec<_>, _>>()?;
-            let published_name = device_property_string(
-                set.0,
-                &data,
-                &DEVPKEY_Device_DriverInfPath,
-            )?;
+            let published_name =
+                device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
             let problem_code = problem_code(&data);
             devices.push(DeviceRecord {
                 instance_id: opaque_id(instance_id)?,
@@ -127,11 +122,8 @@ impl DriverHost for WindowsDriverHost {
                 Err(error) if is_no_more_items(&error) => false,
                 Err(error) => {
                     unsafe {
-                        let _ = SetupDiDestroyDriverInfoList(
-                            set.0,
-                            Some(&data),
-                            SPDIT_COMPATDRIVER,
-                        );
+                        let _ =
+                            SetupDiDestroyDriverInfoList(set.0, Some(&data), SPDIT_COMPATDRIVER);
                     }
                     return Err(win_error("SetupDiEnumDriverInfoW", error));
                 }
@@ -225,9 +217,7 @@ impl DriverHost for WindowsDriverHost {
 
     fn stage_driver(&self, source_inf: &Path) -> Result<StoredDriverPackage, DriverStoreError> {
         let source_wide = wide_path(source_inf)?;
-        let source_dir = source_inf
-            .parent()
-            .ok_or(DriverStoreError::UnsafeInfPath)?;
+        let source_dir = source_inf.parent().ok_or(DriverStoreError::UnsafeInfPath)?;
         let source_dir_wide = wide_path(source_dir)?;
         let mut destination = vec![0u16; 32768];
         let mut required = 0u32;
@@ -348,12 +338,7 @@ impl DriverHost for WindowsDriverHost {
 
 fn present_device_set() -> Result<DeviceSet, DriverStoreError> {
     let set = unsafe {
-        SetupDiGetClassDevsW(
-            None,
-            PCWSTR::null(),
-            None,
-            DIGCF_PRESENT | DIGCF_ALLCLASSES,
-        )
+        SetupDiGetClassDevsW(None, PCWSTR::null(), None, DIGCF_PRESENT | DIGCF_ALLCLASSES)
     }
     .map_err(|error| win_error("SetupDiGetClassDevsW", error))?;
     Ok(DeviceSet(set))
@@ -376,10 +361,7 @@ fn configure_single_inf(
         .map_err(|error| win_error("SetupDiSetDeviceInstallParamsW", error))
 }
 
-fn device_instance_id(
-    set: HDEVINFO,
-    data: &SP_DEVINFO_DATA,
-) -> Result<String, DriverStoreError> {
+fn device_instance_id(set: HDEVINFO, data: &SP_DEVINFO_DATA) -> Result<String, DriverStoreError> {
     let mut required = 0u32;
     let _ = unsafe { SetupDiGetDeviceInstanceIdW(set, data, None, Some(&mut required)) };
     if required == 0 {
@@ -532,7 +514,10 @@ fn wide_string(value: &str) -> Vec<u16> {
 }
 
 fn utf16_array(value: &[u16]) -> String {
-    let end = value.iter().position(|code| *code == 0).unwrap_or(value.len());
+    let end = value
+        .iter()
+        .position(|code| *code == 0)
+        .unwrap_or(value.len());
     String::from_utf16_lossy(&value[..end])
 }
 
