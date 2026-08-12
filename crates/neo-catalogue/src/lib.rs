@@ -479,7 +479,9 @@ mod tests {
     fn model_entry_requires_at_least_one_identifier() {
         let mut manifest = sample_manifest();
         manifest.driver_artifacts[0].models[0].hardware_id = None;
-        manifest.driver_artifacts[0].models[0].compatible_ids.clear();
+        manifest.driver_artifacts[0].models[0]
+            .compatible_ids
+            .clear();
         assert!(matches!(
             manifest.validate(),
             Err(CatalogueError::EmptyInfModelEntry)
