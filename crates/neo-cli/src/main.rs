@@ -4,6 +4,7 @@ use neo_core::{MissionPlan, UserDepth, UserIntent};
 use neo_device::DeviceRecord;
 use neo_match::{match_device, MatchContext};
 use neo_probe::scan_current_machine;
+use neo_transaction::{TransactionCheckpoint, TransactionPlan};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -59,6 +60,11 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Read-only transaction/checkpoint validation. No machine change is executed.
+    Transaction {
+        #[command(subcommand)]
+        command: TransactionCommand,
+    },
     /// Show the current implementation boundary.
     Status,
 }
@@ -69,6 +75,26 @@ enum CatalogueCommand {
     Validate {
         path: PathBuf,
         /// Emit the normalized catalogue as JSON after validation.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum TransactionCommand {
+    /// Validate an exact Neo transaction plan and its fingerprint.
+    ValidatePlan {
+        path: PathBuf,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Emit a new Planned checkpoint bound to the exact validated plan.
+    CheckpointTemplate { path: PathBuf },
+    /// Validate a persisted checkpoint without advancing it.
+    ValidateCheckpoint {
+        path: PathBuf,
+        /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
     },
@@ -269,11 +295,77 @@ fn run(cli: Cli) -> Result<(), String> {
             }
             Ok(())
         }
+        Command::Transaction { command } => match command {
+            TransactionCommand::ValidatePlan { path, json } => {
+                let input = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+                let plan =
+                    TransactionPlan::from_json_str(&input).map_err(|error| error.to_string())?;
+                let fingerprint = plan.fingerprint().map_err(|error| error.to_string())?;
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "transaction_id": plan.transaction_id(),
+                            "revision": plan.revision(),
+                            "mission_id": plan.mission_id(),
+                            "fingerprint": fingerprint,
+                            "actions": plan.actions().len(),
+                            "machine_changes": "none"
+                        })
+                    );
+                } else {
+                    println!("Neo transaction plan validation: PASS");
+                    println!("File: {}", path.display());
+                    println!("Transaction: {}", plan.transaction_id());
+                    println!("Revision: {}", plan.revision());
+                    println!("Fingerprint: {fingerprint}");
+                    println!("Actions: {}", plan.actions().len());
+                    println!("Machine changes: none");
+                }
+                Ok(())
+            }
+            TransactionCommand::CheckpointTemplate { path } => {
+                let input = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+                let plan =
+                    TransactionPlan::from_json_str(&input).map_err(|error| error.to_string())?;
+                let checkpoint =
+                    TransactionCheckpoint::new(plan).map_err(|error| error.to_string())?;
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&checkpoint).map_err(|error| error.to_string())?
+                );
+                Ok(())
+            }
+            TransactionCommand::ValidateCheckpoint { path, json } => {
+                let input = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+                let checkpoint = TransactionCheckpoint::from_json_str(&input)
+                    .map_err(|error| error.to_string())?;
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "transaction_id": checkpoint.plan().transaction_id(),
+                            "stage": checkpoint.stage(),
+                            "fingerprint": checkpoint.plan_fingerprint(),
+                            "machine_changes": "none"
+                        })
+                    );
+                } else {
+                    println!("Neo transaction checkpoint validation: PASS");
+                    println!("File: {}", path.display());
+                    println!("Transaction: {}", checkpoint.plan().transaction_id());
+                    println!("Stage: {:?}", checkpoint.stage());
+                    println!("Fingerprint: {}", checkpoint.plan_fingerprint());
+                    println!("Machine changes: none");
+                }
+                Ok(())
+            }
+        },
         Command::Status => {
-            println!("Neo Driver implementation phase: deterministic read-only candidate matching");
+            println!("Neo Driver implementation phase: transaction/rollback foundation");
             println!("Machine mutation: intentionally disabled");
+            println!("Transaction advancement from CLI: intentionally disabled");
             println!("Package downloads/installations: intentionally disabled");
-            println!("Full Windows rank emulation: intentionally not claimed");
             println!("Model dependency: none");
             Ok(())
         }
