@@ -60,7 +60,7 @@ def review() -> list[Lane]:
     return [
         Lane(1, "workspace", "crates/neo-transaction" in members, "transaction crate is a workspace member"),
         Lane(2, "core-policy-reuse", contains_all(TRANSACTION, ["PlannedAction", "RiskLevel", "EvidenceVerdict", "RebootRequirement"]), "transaction policy reuses neo-core authority/risk contracts"),
-        Lane(3, "exact-plan-fingerprint", contains_all(TRANSACTION, ["Sha256", "fingerprint", "AuthorizationFingerprintMismatch", "CheckpointFingerprintMismatch"]), "authorization/checkpoints bind to the exact serialized plan fingerprint"),
+        Lane(3, "exact-plan-and-root-deserialization", contains_all(TRANSACTION, ["Sha256", "fingerprint", "AuthorizationFingerprintMismatch", "CheckpointFingerprintMismatch", "TransactionPlanWire", "TransactionCheckpointWire", "serde(try_from"]), "authorization/checkpoints bind to the exact plan and root Serde deserialization cannot bypass validation"),
         Lane(4, "actual-baseline", contains_all(TRANSACTION, ["BaselineSnapshot", "CapturedState", "CapturedValue", "capture_baseline"]), "actual pre-state is a first-class transaction record"),
         Lane(5, "baseline-coverage", contains_all(TRANSACTION, ["required_snapshot_targets", "BaselineCoverageMismatch", "DuplicateBaselineTarget", "OverlappingSnapshotTarget", "identity_key"]), "baseline ownership is exact and Windows target identity is case-normalized"),
         Lane(6, "unavailable-fails-closed", "RollbackBaselineUnavailable" in TRANSACTION, "unavailable rollback state blocks reversible authority"),

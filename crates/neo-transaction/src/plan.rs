@@ -124,11 +124,33 @@ impl TransactionAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "TransactionPlanWire")]
 pub struct TransactionPlan {
     transaction_id: String,
     revision: u32,
     mission_id: String,
     actions: Vec<TransactionAction>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TransactionPlanWire {
+    transaction_id: String,
+    revision: u32,
+    mission_id: String,
+    actions: Vec<TransactionAction>,
+}
+
+impl TryFrom<TransactionPlanWire> for TransactionPlan {
+    type Error = TransactionError;
+
+    fn try_from(value: TransactionPlanWire) -> Result<Self, Self::Error> {
+        Self::new(
+            value.transaction_id,
+            value.revision,
+            value.mission_id,
+            value.actions,
+        )
+    }
 }
 
 impl TransactionPlan {
@@ -149,9 +171,8 @@ impl TransactionPlan {
     }
 
     pub fn from_json_str(input: &str) -> Result<Self, TransactionError> {
-        let plan: Self = serde_json::from_str(input)?;
-        plan.validate()?;
-        Ok(plan)
+        let wire: TransactionPlanWire = serde_json::from_str(input)?;
+        Self::try_from(wire)
     }
 
     pub fn transaction_id(&self) -> &str {

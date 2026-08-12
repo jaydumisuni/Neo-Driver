@@ -54,6 +54,7 @@ pub struct TransactionEvent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "TransactionCheckpointWire")]
 pub struct TransactionCheckpoint {
     pub(crate) plan: TransactionPlan,
     pub(crate) plan_fingerprint: String,
@@ -73,6 +74,51 @@ pub struct TransactionCheckpoint {
     pub(crate) reboot_checkpoint: Option<RebootCheckpoint>,
     #[serde(default)]
     pub(crate) events: Vec<TransactionEvent>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TransactionCheckpointWire {
+    plan: TransactionPlan,
+    plan_fingerprint: String,
+    stage: TransactionStage,
+    baseline: Option<BaselineSnapshot>,
+    authorization: Option<TransactionAuthorization>,
+    #[serde(default)]
+    apply_records: Vec<ApplyRecord>,
+    #[serde(default)]
+    resume_results: Vec<VerificationResult>,
+    #[serde(default)]
+    verification_results: Vec<VerificationResult>,
+    #[serde(default)]
+    rollback_records: Vec<RollbackRecord>,
+    #[serde(default)]
+    rollback_results: Vec<VerificationResult>,
+    reboot_checkpoint: Option<RebootCheckpoint>,
+    #[serde(default)]
+    events: Vec<TransactionEvent>,
+}
+
+impl TryFrom<TransactionCheckpointWire> for TransactionCheckpoint {
+    type Error = TransactionError;
+
+    fn try_from(value: TransactionCheckpointWire) -> Result<Self, Self::Error> {
+        let checkpoint = Self {
+            plan: value.plan,
+            plan_fingerprint: value.plan_fingerprint,
+            stage: value.stage,
+            baseline: value.baseline,
+            authorization: value.authorization,
+            apply_records: value.apply_records,
+            resume_results: value.resume_results,
+            verification_results: value.verification_results,
+            rollback_records: value.rollback_records,
+            rollback_results: value.rollback_results,
+            reboot_checkpoint: value.reboot_checkpoint,
+            events: value.events,
+        };
+        checkpoint.validate()?;
+        Ok(checkpoint)
+    }
 }
 
 impl TransactionCheckpoint {
@@ -99,9 +145,8 @@ impl TransactionCheckpoint {
     }
 
     pub fn from_json_str(input: &str) -> Result<Self, TransactionError> {
-        let checkpoint: Self = serde_json::from_str(input)?;
-        checkpoint.validate()?;
-        Ok(checkpoint)
+        let wire: TransactionCheckpointWire = serde_json::from_str(input)?;
+        Self::try_from(wire)
     }
 
     pub fn plan(&self) -> &TransactionPlan {

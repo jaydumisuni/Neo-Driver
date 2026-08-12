@@ -111,6 +111,21 @@ fn fingerprint_is_stable_and_plan_bound() {
 }
 
 #[test]
+fn direct_serde_plan_deserialization_cannot_bypass_validation() {
+    let mut value = serde_json::to_value(plan()).unwrap();
+    value["revision"] = serde_json::json!(0);
+    assert!(serde_json::from_value::<TransactionPlan>(value).is_err());
+}
+
+#[test]
+fn direct_serde_checkpoint_deserialization_cannot_bypass_invariants() {
+    let checkpoint = TransactionCheckpoint::new(plan()).unwrap();
+    let mut value = serde_json::to_value(checkpoint).unwrap();
+    value["plan_fingerprint"] = serde_json::Value::String("00".repeat(32));
+    assert!(serde_json::from_value::<TransactionCheckpoint>(value).is_err());
+}
+
+#[test]
 fn rejected_action_cannot_enter_transaction() {
     let mut action = transaction_action();
     action.action.verdict = EvidenceVerdict::Rejected;
