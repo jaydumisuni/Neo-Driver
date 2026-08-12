@@ -57,6 +57,20 @@ impl TryFrom<TransactionPlanWire> for TransactionPlan {
 impl TransactionPlan {
 ''',
     )
+    replace_once(
+        plan,
+        '''    pub fn from_json_str(input: &str) -> Result<Self, TransactionError> {
+        let plan: Self = serde_json::from_str(input)?;
+        plan.validate()?;
+        Ok(plan)
+    }
+''',
+        '''    pub fn from_json_str(input: &str) -> Result<Self, TransactionError> {
+        let wire: TransactionPlanWire = serde_json::from_str(input)?;
+        Self::try_from(wire)
+    }
+''',
+    )
 
     checkpoint = Path("crates/neo-transaction/src/checkpoint.rs")
     replace_once(
@@ -154,6 +168,20 @@ impl TryFrom<TransactionCheckpointWire> for TransactionCheckpoint {
 }
 
 impl TransactionCheckpoint {
+''',
+    )
+    replace_once(
+        checkpoint,
+        '''    pub fn from_json_str(input: &str) -> Result<Self, TransactionError> {
+        let checkpoint: Self = serde_json::from_str(input)?;
+        checkpoint.validate()?;
+        Ok(checkpoint)
+    }
+''',
+        '''    pub fn from_json_str(input: &str) -> Result<Self, TransactionError> {
+        let wire: TransactionCheckpointWire = serde_json::from_str(input)?;
+        Self::try_from(wire)
+    }
 ''',
     )
 
