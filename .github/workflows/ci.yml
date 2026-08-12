@@ -40,19 +40,10 @@ jobs:
       - name: Phase 4 twenty-lane static review
         run: python -W error tools/phase4_static_review.py
 
-      - name: Generate Cargo lockfile evidence
-        run: cargo generate-lockfile
-
-      - name: Upload generated Cargo lockfile evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase4-generated-lock-${{ matrix.os }}
-          path: Cargo.lock
-          if-no-files-found: error
-          retention-days: 1
-
       - name: Cargo lockfile proof
-        run: python tools/lockfile_guard.py
+        run: |
+          cargo generate-lockfile
+          python tools/lockfile_guard.py
 
       - name: Rust formatting proof
         run: cargo fmt --all -- --check
