@@ -8,6 +8,15 @@ lock = root / "Cargo.lock"
 if not lock.exists():
     print("Cargo.lock was not generated.")
     raise SystemExit(1)
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "Cargo.lock"],
+    cwd=root,
+    capture_output=True,
+    text=True,
+)
+if tracked.returncode != 0:
+    print("Cargo.lock is not tracked by Git.")
+    raise SystemExit(1)
 status = subprocess.run(
     ["git", "status", "--porcelain", "--", "Cargo.lock"],
     cwd=root,

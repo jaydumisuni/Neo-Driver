@@ -18,23 +18,17 @@
 11. Rustfmt found catalogue layout drift; the exact formatter output was applied without behavior changes.
 12. Clippy found `OpaqueDeviceId` imported in production scope although only tests used it; the import was moved into the test module.
 13. Clippy found a manually implemented `Default` for `RequiredState`; it was replaced by the derived default with `Unchanged` explicitly marked as the default variant.
+14. External review found dependency/conflict references could name packages absent from the catalogue; catalogue validation now resolves every relation against the complete package-ID set and has negative tests for both relation types.
+15. External review found `DeviceRecord` / `DeviceInventory` deserialization could bypass explicit validation; deserialization now passes through validated wire types and regression tests reject duplicate filters and duplicate instance IDs at parse time.
+16. External review found the lock guard could accept an ignored/untracked `Cargo.lock`; it now requires `git ls-files --error-unmatch Cargo.lock` before checking modification state.
+17. External review found the Phase 2 anti-drift scan covered only selected sources; it now scans every workspace-member `Cargo.toml` and every Rust source before read-only/model-free boundary checks.
 
-No warning or finding was suppressed with an allow-list escape hatch.
+No warning or finding is suppressed with an allow-list escape hatch.
 
-## Proof
+## Proof history
 
-Implementation-code proof commit: `a2c6453ea4fe5e20ea5ab4da7d7894530612c777`  
-GitHub Actions run: `31613855813`
+Implementation-code proof commit `a2c6453ea4fe5e20ea5ab4da7d7894530612c777`, GitHub Actions run `31613855813`, passed all configured Windows and Ubuntu gates. That proof was subsequently **reopened** when external review identified findings 14-17.
 
-Both **Ubuntu** and **Windows** passed:
+The corrected findings 14-17 require a new full Windows + Ubuntu proof before Phase 2 may close or merge.
 
-- Phase 1 20-lane static review;
-- Phase 2 20-lane static review;
-- committed Cargo.lock/current dependency graph guard;
-- Rust formatting;
-- locked workspace type/build check;
-- Clippy with warnings denied;
-- Rust unit tests;
-- read-only `neo catalogue validate` synthetic fixture proof.
-
-Phase 2 remains read-only. Live attached-device behavior and machine mutation are not claimed by this proof.
+Phase 2 remains read-only. Live attached-device behavior and machine mutation are not claimed.

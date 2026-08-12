@@ -76,6 +76,7 @@ pub struct DriverBinding {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "DeviceRecordWire")]
 pub struct DeviceRecord {
     pub instance_id: OpaqueDeviceId,
     #[serde(default)]
@@ -109,7 +110,55 @@ impl DeviceRecord {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct DeviceRecordWire {
+    instance_id: OpaqueDeviceId,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    manufacturer: Option<String>,
+    #[serde(default)]
+    class_name: Option<String>,
+    #[serde(default)]
+    class_guid: Option<String>,
+    #[serde(default)]
+    problem_code: Option<u32>,
+    #[serde(default)]
+    disabled: Option<bool>,
+    #[serde(default)]
+    ids: OrderedDeviceIds,
+    #[serde(default)]
+    active_driver: Option<DriverBinding>,
+    #[serde(default)]
+    upper_filters: Vec<String>,
+    #[serde(default)]
+    lower_filters: Vec<String>,
+}
+
+impl TryFrom<DeviceRecordWire> for DeviceRecord {
+    type Error = DeviceValidationError;
+
+    fn try_from(value: DeviceRecordWire) -> Result<Self, Self::Error> {
+        let record = Self {
+            instance_id: value.instance_id,
+            description: value.description,
+            manufacturer: value.manufacturer,
+            class_name: value.class_name,
+            class_guid: value.class_guid,
+            problem_code: value.problem_code,
+            disabled: value.disabled,
+            ids: value.ids,
+            active_driver: value.active_driver,
+            upper_filters: value.upper_filters,
+            lower_filters: value.lower_filters,
+        };
+        record.validate()?;
+        Ok(record)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(try_from = "DeviceInventoryWire")]
 pub struct DeviceInventory {
     pub devices: Vec<DeviceRecord>,
 }
@@ -126,6 +175,24 @@ impl DeviceInventory {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct DeviceInventoryWire {
+    #[serde(default)]
+    devices: Vec<DeviceRecord>,
+}
+
+impl TryFrom<DeviceInventoryWire> for DeviceInventory {
+    type Error = DeviceValidationError;
+
+    fn try_from(value: DeviceInventoryWire) -> Result<Self, Self::Error> {
+        let inventory = Self {
+            devices: value.devices,
+        };
+        inventory.validate()?;
+        Ok(inventory)
     }
 }
 
@@ -208,6 +275,28 @@ mod tests {
         assert!(ids.validate().is_ok());
         assert!(ids.hardware_ids[0].as_str().ends_with("DEV_0001"));
         assert!(ids.hardware_ids[1].as_str().ends_with("REV_02"));
+    }
+
+    #[test]
+    fn duplicate_filters_fail_during_deserialization() {
+        let input = r#"{
+            "instance_id":"USB\\VID_1234&PID_5678\\ABC",
+            "upper_filters":["libusb0","libusb0"]
+        }"#;
+        let error = serde_json::from_str::<DeviceRecord>(input).unwrap_err();
+        assert!(error.to_string().contains("duplicate upper filter"));
+    }
+
+    #[test]
+    fn duplicate_instances_fail_during_inventory_deserialization() {
+        let input = r#"{
+            "devices":[
+                {"instance_id":"USB\\VID_1234&PID_5678\\ABC"},
+                {"instance_id":"USB\\VID_1234&PID_5678\\ABC"}
+            ]
+        }"#;
+        let error = serde_json::from_str::<DeviceInventory>(input).unwrap_err();
+        assert!(error.to_string().contains("duplicate device instance ID"));
     }
 
     #[test]

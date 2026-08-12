@@ -217,11 +217,31 @@ impl Catalogue {
     pub fn validate(&self) -> Result<(), CatalogueError> {
         let mut ids = BTreeSet::new();
         for package in &self.packages {
-            package.validate()?;
+            require_nonempty("package_id", &package.package_id)?;
             if !ids.insert(package.package_id.as_str()) {
                 return Err(CatalogueError::DuplicatePackageId(
                     package.package_id.clone(),
                 ));
+            }
+        }
+
+        for package in &self.packages {
+            package.validate()?;
+            for dependency in &package.dependencies {
+                if !ids.contains(dependency.as_str()) {
+                    return Err(CatalogueError::UnresolvedDependency {
+                        package_id: package.package_id.clone(),
+                        dependency: dependency.clone(),
+                    });
+                }
+            }
+            for conflict in &package.conflicts {
+                if !ids.contains(conflict.as_str()) {
+                    return Err(CatalogueError::UnresolvedConflict {
+                        package_id: package.package_id.clone(),
+                        conflict: conflict.clone(),
+                    });
+                }
             }
         }
         Ok(())
@@ -343,6 +363,16 @@ pub enum CatalogueError {
     DeviceIds(String),
     #[error("duplicate package ID: {0}")]
     DuplicatePackageId(String),
+    #[error("package {package_id} depends on missing package {dependency}")]
+    UnresolvedDependency {
+        package_id: String,
+        dependency: String,
+    },
+    #[error("package {package_id} conflicts with missing package {conflict}")]
+    UnresolvedConflict {
+        package_id: String,
+        conflict: String,
+    },
     #[error("catalogue JSON error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("catalogue I/O error: {0}")]
@@ -430,6 +460,32 @@ mod tests {
             .hardware_ids
             .push(duplicate);
         assert!(manifest.validate().is_err());
+    }
+
+    #[test]
+    fn unresolved_dependency_fails_closed() {
+        let mut manifest = sample_manifest();
+        manifest.dependencies.push("neo.missing.dependency".to_string());
+        let catalogue = Catalogue {
+            packages: vec![manifest],
+        };
+        assert!(matches!(
+            catalogue.validate(),
+            Err(CatalogueError::UnresolvedDependency { .. })
+        ));
+    }
+
+    #[test]
+    fn unresolved_conflict_fails_closed() {
+        let mut manifest = sample_manifest();
+        manifest.conflicts.push("neo.missing.conflict".to_string());
+        let catalogue = Catalogue {
+            packages: vec![manifest],
+        };
+        assert!(matches!(
+            catalogue.validate(),
+            Err(CatalogueError::UnresolvedConflict { .. })
+        ));
     }
 
     #[test]
