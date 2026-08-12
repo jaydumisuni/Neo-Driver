@@ -20,7 +20,7 @@ pub struct RebootCheckpoint {
 }
 
 impl RebootCheckpoint {
-    pub(crate) fn for_checkpoint(checkpoint: &TransactionCheckpoint) -> Self {
+    pub(crate) fn for_apply_checkpoint(checkpoint: &TransactionCheckpoint) -> Self {
         Self {
             transaction_id: checkpoint.plan.transaction_id().to_string(),
             plan_fingerprint: checkpoint.plan_fingerprint.clone(),
@@ -34,11 +34,30 @@ impl RebootCheckpoint {
         }
     }
 
+    pub(crate) fn for_rollback_checkpoint(checkpoint: &TransactionCheckpoint) -> Self {
+        let changed = checkpoint.successful_applied_ids();
+        Self {
+            transaction_id: checkpoint.plan.transaction_id().to_string(),
+            plan_fingerprint: checkpoint.plan_fingerprint.clone(),
+            expected_post_reboot: checkpoint.plan.rollback_predicates_for(&changed),
+            restoration_obligations: checkpoint
+                .plan
+                .rollback_targets_for(&changed)
+                .into_iter()
+                .collect(),
+            resume_stage: TransactionStage::RolledBack,
+        }
+    }
+
     pub(crate) fn validate_for_checkpoint(
         &self,
         checkpoint: &TransactionCheckpoint,
     ) -> Result<(), TransactionError> {
-        let expected = Self::for_checkpoint(checkpoint);
+        let expected = match self.resume_stage {
+            TransactionStage::Verifying => Self::for_apply_checkpoint(checkpoint),
+            TransactionStage::RolledBack => Self::for_rollback_checkpoint(checkpoint),
+            _ => return Err(TransactionError::RebootCheckpointMismatch),
+        };
         if self != &expected {
             return Err(TransactionError::RebootCheckpointMismatch);
         }
@@ -200,6 +219,38 @@ impl TransactionCheckpoint {
         self.validate()
     }
 
+    pub fn assert_action_pending(&self, action_id: &str) -> Result<(), TransactionError> {
+        self.require_stage(TransactionStage::Applying)?;
+        self.validate()?;
+        if self.plan.action_by_id(action_id).is_none() {
+            return Err(TransactionError::UnknownApplyAction(action_id.to_string()));
+        }
+        if self
+            .apply_records
+            .iter()
+            .any(|record| record.action_id == action_id)
+        {
+            return Err(TransactionError::DuplicateApplyRecord(
+                action_id.to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn effective_apply_reboot_required(&self) -> bool {
+        self.plan.requires_reboot()
+            || self
+                .apply_records
+                .iter()
+                .any(|record| record.outcome == ApplyOutcome::Success && record.reboot_required)
+    }
+
+    pub fn effective_rollback_reboot_required(&self) -> bool {
+        self.rollback_records
+            .iter()
+            .any(|record| record.outcome == ApplyOutcome::Success && record.reboot_required)
+    }
+
     pub fn record_apply_result(&mut self, record: ApplyRecord) -> Result<(), TransactionError> {
         self.require_stage(TransactionStage::Applying)?;
         self.validate()?;
@@ -224,8 +275,8 @@ impl TransactionCheckpoint {
         }
 
         if self.apply_records.len() == self.plan.actions().len() {
-            if self.plan.requires_reboot() {
-                self.reboot_checkpoint = Some(RebootCheckpoint::for_checkpoint(self));
+            if self.effective_apply_reboot_required() {
+                self.reboot_checkpoint = Some(RebootCheckpoint::for_apply_checkpoint(self));
                 self.transition(
                     TransactionStage::AwaitingReboot,
                     "required reboot checkpoint created",
@@ -386,6 +437,53 @@ impl TransactionCheckpoint {
             self.transition(
                 TransactionStage::Failed,
                 "rollback application failed; recovery remains unresolved",
+            );
+            return self.validate();
+        }
+
+        let changed = self.successful_applied_ids();
+        let all_rollback_records_complete = self.rollback_records.len() == changed.len()
+            && self
+                .rollback_records
+                .iter()
+                .all(|record| record.outcome == ApplyOutcome::Success);
+        if all_rollback_records_complete && self.effective_rollback_reboot_required() {
+            self.reboot_checkpoint = Some(RebootCheckpoint::for_rollback_checkpoint(self));
+            self.transition(
+                TransactionStage::AwaitingRollbackReboot,
+                "rollback requires reboot before restoration can be verified",
+            );
+        }
+        self.validate()
+    }
+
+    pub fn resume_after_rollback_reboot(
+        &mut self,
+        observations: Vec<Observation>,
+    ) -> Result<(), TransactionError> {
+        self.require_stage(TransactionStage::AwaitingRollbackReboot)?;
+        self.validate()?;
+        let reboot_checkpoint = self
+            .reboot_checkpoint
+            .as_ref()
+            .ok_or(TransactionError::MissingRebootCheckpoint)?;
+        reboot_checkpoint.validate_for_checkpoint(self)?;
+        let baseline = self
+            .baseline
+            .as_ref()
+            .ok_or(TransactionError::MissingBaseline)?;
+        let results = evaluate_predicates(&reboot_checkpoint.expected_post_reboot, &observations)?;
+        let passed = required_results_pass(&results, baseline);
+        self.rollback_results = results;
+        if passed {
+            self.transition(
+                TransactionStage::RolledBack,
+                "post-reboot rollback restoration proven",
+            );
+        } else {
+            self.transition(
+                TransactionStage::Failed,
+                "post-reboot rollback restoration not proven",
             );
         }
         self.validate()
