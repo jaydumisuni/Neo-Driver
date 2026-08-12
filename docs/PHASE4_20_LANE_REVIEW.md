@@ -26,6 +26,16 @@
 19. Keep transaction CLI strictly validation/template-only; no authority or advancement calls.
 20. Keep the Phase 4 crate free of Windows/process execution paths and exercise the contract with a synthetic reversible fixture.
 
+## Findings closed before final proof
+
+1. The first CI cycle intentionally exposed a stale Phase 3 `Cargo.lock`; the exact Phase 4 lock graph was recovered from CI and committed without manually selecting dependency versions.
+2. Stable `rustfmt` found layout drift before compilation; only formatter output was applied.
+3. External review found `Blocked` had no recovery path after failed post-reboot proof. Added bounded re-probe recovery: prove and continue, roll back fully reversible changed actions, or fail closed.
+4. External review found byte-exact `StateTarget` identity could let case variants of a Windows target bypass snapshot-ownership checks. Typed Windows targets now compare using case-normalized identity, with an adversarial case-variant regression.
+5. External review found the Phase 4 static scanner was not recursive. Transaction and CLI source collection now uses deterministic recursive Rust-source scans.
+6. Post-proof API review found root `TransactionPlan` / `TransactionCheckpoint` raw Serde deserialization could bypass their validation convenience methods. Both root types now deserialize through private validated wire types. Direct-Serde regressions prove invalid plans/checkpoints cannot be obtained, while `from_json_str()` still preserves Neo's specific `TransactionError` taxonomy.
+7. The first validated-deserialization pre-proof correctly rejected an implementation that wrapped convenience-parser validation errors as generic Serde errors. The parsing path was corrected to validate private wire types directly; the helper then passed Phase 4 review, workspace check, Clippy `-D warnings`, and all `neo-transaction` tests before committing.
+
 ## Required proof before merge
 
 - Phase 1, Phase 2, Phase 3, and Phase 4 20-lane static reviews;
