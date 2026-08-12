@@ -45,6 +45,11 @@ replace_once(
     """                    device.problem_code = state.target_problem_code;\n""",
     """                    device.problem_code = target_problem_code;\n""",
 )
+replace_once(
+    tests,
+    """    fixture.host.configure(|state| {\n        state.compatible.push(\"USB\\\\VID_9999&PID_0001\\\\B\".to_string());\n        state\n            .inventory\n            .devices\n            .push(fixture_device(\"USB\\\\VID_9999&PID_0001\\\\B\", None));\n    });\n""",
+    """    fixture.host.configure(|state| {\n        state.compatible.push(\"USB\\\\VID_9999&PID_0001\\\\B\".to_string());\n        let mut incompatible = fixture_device(\"USB\\\\VID_9999&PID_0001\\\\B\", None);\n        incompatible.ids = OrderedDeviceIds {\n            hardware_ids: vec![OpaqueDeviceId::new(\"USB\\\\VID_9999&PID_0001\").unwrap()],\n            compatible_ids: vec![OpaqueDeviceId::new(\"USB\\\\Class_00\").unwrap()],\n        };\n        state.inventory.devices.push(incompatible);\n    });\n""",
+)
 
 plan = Path("crates/neo-driverstore/src/plan.rs")
 replace_once(
