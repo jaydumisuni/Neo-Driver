@@ -22,13 +22,28 @@
 15. External review found `DeviceRecord` / `DeviceInventory` deserialization could bypass explicit validation; deserialization now passes through validated wire types and regression tests reject duplicate filters and duplicate instance IDs at parse time.
 16. External review found the lock guard could accept an ignored/untracked `Cargo.lock`; it now requires `git ls-files --error-unmatch Cargo.lock` before checking modification state.
 17. External review found the Phase 2 anti-drift scan covered only selected sources; it now scans every workspace-member `Cargo.toml` and every Rust source before read-only/model-free boundary checks.
+18. Re-proof found one rustfmt layout change in the unresolved-dependency regression test; the exact formatter output was applied without behavior changes.
 
-No warning or finding is suppressed with an allow-list escape hatch.
+No warning or finding was suppressed with an allow-list escape hatch.
 
-## Proof history
+## Proof
 
-Implementation-code proof commit `a2c6453ea4fe5e20ea5ab4da7d7894530612c777`, GitHub Actions run `31613855813`, passed all configured Windows and Ubuntu gates. That proof was subsequently **reopened** when external review identified findings 14-17.
+Corrected implementation head: `6d08ca5b4c048a833f1122b48fc042d9453bc556`  
+GitHub Actions run: `31614831572`
 
-The corrected findings 14-17 require a new full Windows + Ubuntu proof before Phase 2 may close or merge.
+Both **Ubuntu** and **Windows** passed:
 
-Phase 2 remains read-only. Live attached-device behavior and machine mutation are not claimed.
+- Phase 1 20-lane static review;
+- strengthened Phase 2 20-lane static review;
+- committed + Git-tracked Cargo.lock/current dependency graph guard;
+- Rust formatting;
+- locked workspace type/build check;
+- Clippy with warnings denied;
+- Rust unit tests, including the new deserialization and unresolved-reference regressions;
+- read-only `neo catalogue validate` synthetic fixture proof.
+
+The four external-review code threads were automatically marked resolved after the corrective commit. A later full incremental CodeRabbit review was rate-limited, so no additional full external-review PASS is claimed.
+
+CodeRabbit also reports a generic **docstring coverage** pre-merge warning. This is a documentation-quality metric rather than a correctness/security finding and is not used as a Phase 2 functional proof gate; it remains visible rather than being represented as resolved by the code changes above.
+
+Phase 2 remains read-only. Live attached-device behavior and machine mutation are not claimed by this proof.
