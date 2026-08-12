@@ -1,0 +1,47 @@
+name: Phase 5 Catalog Equivalence Once
+
+on:
+  push:
+    branches: ["implementation/phase-5-controlled-driver-install"]
+
+permissions:
+  contents: write
+
+jobs:
+  catalog-equivalence-once:
+    if: ${{ !contains(github.event.head_commit.message, '[phase5-catalog-equivalence]') }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-5-controlled-driver-install
+          fetch-depth: 0
+      - name: Install stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup component add rustfmt clippy --toolchain stable
+          rustup default stable
+      - name: Apply bounded catalog-equivalence correction
+        shell: pwsh
+        run: python tools/phase5_catalog_equivalence_fix.py
+      - name: Prove Windows and transaction contracts
+        shell: pwsh
+        run: |
+          cargo fmt --all
+          python -W error tools/phase4_static_review.py
+          python -W error tools/phase5_static_review.py
+          cargo check --workspace --all-targets --locked
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo test -p neo-transaction --locked
+          cargo test -p neo-driverstore --locked
+          git diff --check
+      - name: Commit proven correction and self-clean
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crates/neo-driverstore/src/windows.rs crates/neo-driverstore/src/executor.rs tools/phase5_static_review.py
+          git rm .github/workflows/phase5-catalog-equivalence-once.yml tools/phase5_catalog_equivalence_fix.py
+          git commit -m "fix: require exact catalog bytes for staged package equivalence [phase5-catalog-equivalence]"
+          git push origin HEAD:implementation/phase-5-controlled-driver-install
