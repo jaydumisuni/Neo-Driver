@@ -1,0 +1,44 @@
+name: Neo Driver CI
+
+on:
+  push:
+    branches: [main, "implementation/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  engineering-proof:
+    name: ${{ matrix.os }} proof
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt clippy
+          rustup default stable
+
+      - name: Phase 1 twenty-lane static review
+        run: python tools/phase1_static_review.py
+
+      - name: Rust formatting proof
+        run: cargo fmt --all -- --check
+
+      - name: Rust type/build proof
+        run: cargo check --workspace --all-targets
+
+      - name: Rust Clippy proof
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Rust unit proof
+        run: cargo test --workspace --all-targets

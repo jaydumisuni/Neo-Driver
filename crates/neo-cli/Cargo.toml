@@ -1,0 +1,15 @@
+[package]
+name = "neo-cli"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "neo"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+neo-core = { path = "../neo-core" }
+neo-probe = { path = "../neo-probe" }
+serde_json.workspace = true
