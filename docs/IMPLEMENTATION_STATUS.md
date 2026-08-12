@@ -37,6 +37,7 @@ It adds:
 - exact resolved baseline Driver Store package for every impacted device before reversible authority;
 - preflight re-proof of source bytes, signature, impact set, bindings, baseline packages, and target-store baseline immediately before mutation;
 - exact target staging with Windows-published OEM INF/Driver Store identity;
+- Windows-equivalent staged-package detection requiring binary-identical INF **and identical catalog bytes**;
 - per-authorized-device forward best-match installation: Windows selects each device's best preinstalled match and Neo supplies no specific driver node;
 - explicit exclusion of force-install and force-delete paths;
 - typed outside-authority blast-radius failure;
@@ -64,6 +65,7 @@ Engineering review found and corrected the following before the implementation w
 7. Post-mutation inventory/Driver Store observation failure could escape while the transaction remained `Applying`. It is now conservatively recorded as changed and routed into recovery.
 8. Verification/rollback verification could become stranded after a transient probe error. Explicit retry entry points now preserve the persisted state machine.
 9. Blast-radius violation used a free-form message despite an existing typed error. The path now uses `UnexpectedBindingChange`, and Phase 5's lane 13 binds to that typed contract.
+10. Existing-target equivalence matched binary-identical INF bytes plus signer/catalog metadata, while Windows permits identical INFs with different catalogs. Neo now requires identical catalog bytes as well, and preflight/staged-target validation reuses that exact equivalence rule.
 
 ## Still deliberately blocked
 
@@ -101,7 +103,9 @@ Implementation continues to honor:
 - Windows fail-closed observation correction run `31650621429`: **PASS**.
 - Post-mutation recovery correction run `31650739273`: **PASS** with inherited Phase 4 20/20, workspace compiler, Clippy, 29 transaction tests, and expanded driverstore regressions.
 - Typed blast-radius/final Phase 5 contract run `31651046054`: **PASS** with Phase 4 20/20, Phase 5 20/20, workspace compiler, Clippy, transaction tests, and driverstore tests before commit.
-- Phase 5 normal two-OS CI on the final frozen implementation state: **pending**.
+- Normal pre-catalog-correction PR run `31651538698`: **PASS on Ubuntu and Windows** across Phase 1–5 gates, lock, rustfmt, locked build, Clippy, workspace tests, and all four proven CLI fixtures.
+- Exact catalog-equivalence Windows pre-commit run `31651850209`: **PASS** across Phase 4/5 gates, workspace compiler, Clippy, transaction regressions, driverstore regressions, and diff check.
+- Phase 5 normal two-OS CI on the final exact-catalog implementation state: **pending**.
 - External review disposition on the final PR: **pending**.
 - Final documentation-state CI: **pending**.
 - Live attached-device mutation proof: **not claimed**.
