@@ -165,6 +165,8 @@ impl DriverHost for WindowsDriverHost {
     ) -> Result<Option<StoredDriverPackage>, DriverStoreError> {
         let source_bytes = fs::read(source_inf)?;
         let source_signature = self.verify_inf_signature(source_inf)?;
+        let source_catalog = source_catalog_path(source_inf, &source_signature.catalog_file)?;
+        let source_catalog_bytes = fs::read(&source_catalog)?;
         if !catalogue_files.iter().any(|catalogue| {
             file_name(catalogue).eq_ignore_ascii_case(&file_name(&source_signature.catalog_file))
         }) {
@@ -185,6 +187,14 @@ impl DriverHost for WindowsDriverHost {
                 Err(_) => continue,
             };
             if signature_matches(&candidate_signature, &source_signature) {
+                let candidate_catalog = path.with_extension("cat");
+                let candidate_catalog_bytes = match fs::read(candidate_catalog) {
+                    Ok(bytes) => bytes,
+                    Err(_) => continue,
+                };
+                if candidate_catalog_bytes != source_catalog_bytes {
+                    continue;
+                }
                 if let Some(package) = self.resolve_published_package(name)? {
                     return Ok(Some(package));
                 }
@@ -526,6 +536,18 @@ fn published_name_for_store_inf(driver_store_inf: &Path) -> Result<String, Drive
     Ok(file_name(&utf16_array(&buffer)))
 }
 
+fn source_catalog_path(inf: &Path, catalog_file: &str) -> Result<PathBuf, DriverStoreError> {
+    let name = Path::new(catalog_file)
+        .file_name()
+        .ok_or(DriverStoreError::InvalidSignatureEvidence)?;
+    let parent = inf.parent().ok_or(DriverStoreError::UnsafeInfPath)?;
+    let catalog = parent.join(name);
+    if !catalog.is_file() {
+        return Err(DriverStoreError::InvalidSignatureEvidence);
+    }
+    Ok(catalog)
+}
+
 fn windows_inf_dir() -> Result<PathBuf, DriverStoreError> {
     let root = std::env::var_os("WINDIR")
         .ok_or_else(|| DriverStoreError::Windows("WINDIR is not defined".to_string()))?;
@@ -638,6 +660,28 @@ mod windows_tests {
         assert!(!is_safe_published_name("oem.inf"));
         assert!(!is_safe_published_name("oemx.inf"));
         assert!(!is_safe_published_name(r"sub\oem1.inf"));
+    }
+
+    #[test]
+    fn catalog_equivalence_requires_identical_bytes() {
+        let root =
+            std::env::temp_dir().join(format!("neo-driverstore-catalog-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let source = root.join("source.cat");
+        let candidate = root.join("candidate.cat");
+        std::fs::write(&source, b"catalog-a").unwrap();
+        std::fs::write(&candidate, b"catalog-b").unwrap();
+        assert_ne!(
+            std::fs::read(&source).unwrap(),
+            std::fs::read(&candidate).unwrap()
+        );
+        std::fs::write(&candidate, b"catalog-a").unwrap();
+        assert_eq!(
+            std::fs::read(&source).unwrap(),
+            std::fs::read(&candidate).unwrap()
+        );
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

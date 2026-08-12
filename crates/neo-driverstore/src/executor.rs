@@ -437,24 +437,18 @@ impl DriverInstallSession {
                 return Err(DriverStoreError::PrestateDrift);
             }
         }
+        let equivalent = host.find_equivalent_package(
+            &self.driver_plan.source_inf,
+            std::slice::from_ref(&self.driver_plan.expected_signature.catalog_file),
+        )?;
         match &self.driver_plan.store_baseline {
             DriverStoreBaseline::Existing { package } => {
-                if host
-                    .resolve_published_package(&package.published_inf)?
-                    .as_ref()
-                    != Some(package)
-                {
+                if equivalent.as_ref() != Some(package) {
                     return Err(DriverStoreError::PrestateDrift);
                 }
             }
             DriverStoreBaseline::Absent => {
-                if host
-                    .find_equivalent_package(
-                        &self.driver_plan.source_inf,
-                        std::slice::from_ref(&self.driver_plan.expected_signature.catalog_file),
-                    )?
-                    .is_some()
-                {
+                if equivalent.is_some() {
                     return Err(DriverStoreError::PrestateDrift);
                 }
             }
@@ -476,7 +470,10 @@ impl DriverInstallSession {
             return Err(DriverStoreError::StagedPackageMismatch);
         }
         if host
-            .resolve_published_package(&package.published_inf)?
+            .find_equivalent_package(
+                &self.driver_plan.source_inf,
+                std::slice::from_ref(&self.driver_plan.expected_signature.catalog_file),
+            )?
             .as_ref()
             != Some(package)
         {
