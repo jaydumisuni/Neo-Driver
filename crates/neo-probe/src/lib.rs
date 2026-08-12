@@ -170,10 +170,7 @@ impl<R: CommandRunner> WindowsProbe<R> {
     }
 
     fn query_problem_devices(&self) -> CommandEvidence {
-        self.capture(
-            "pnputil.exe",
-            &["/enum-devices", "/problem", "/deviceids"],
-        )
+        self.capture("pnputil.exe", &["/enum-devices", "/problem", "/deviceids"])
     }
 
     fn query_driver_store(&self) -> CommandEvidence {
@@ -213,16 +210,12 @@ impl<R: CommandRunner> ReadOnlyProbe for WindowsProbe<R> {
             // element in a successfully enumerated current boot entry therefore
             // means the persistent option is off rather than unknown.
             security.test_signing = Some(security.test_signing.unwrap_or(false));
-            security.no_integrity_checks =
-                Some(security.no_integrity_checks.unwrap_or(false));
+            security.no_integrity_checks = Some(security.no_integrity_checks.unwrap_or(false));
         }
         security.secure_boot = parse_reg_dword_bool(&secure_boot.stdout, "UEFISecureBootEnabled");
         security.memory_integrity = parse_reg_dword_bool(&memory_integrity.stdout, "Enabled");
-        security.pending_reboot = determine_pending_reboot(
-            &component_reboot,
-            &update_reboot,
-            &pending_rename,
-        );
+        security.pending_reboot =
+            determine_pending_reboot(&component_reboot, &update_reboot, &pending_rename);
 
         let mut profile = MachineProfile {
             os,
@@ -304,9 +297,7 @@ fn evidence_presence(key: &str, evidence: &CommandEvidence) -> EvidenceItem {
 }
 
 fn expected_absence_warning(label: &str, evidence: &CommandEvidence) -> Option<String> {
-    if evidence.succeeded()
-        || (evidence.start_error.is_none() && evidence.exit_code == Some(1))
-    {
+    if evidence.succeeded() || (evidence.start_error.is_none() && evidence.exit_code == Some(1)) {
         None
     } else {
         Some(format!(
@@ -541,7 +532,10 @@ nointegritychecks       No
     #[test]
     fn parses_registry_dword_boolean() {
         let output = "UEFISecureBootEnabled    REG_DWORD    0x1";
-        assert_eq!(parse_reg_dword_bool(output, "UEFISecureBootEnabled"), Some(true));
+        assert_eq!(
+            parse_reg_dword_bool(output, "UEFISecureBootEnabled"),
+            Some(true)
+        );
 
         let output = "Enabled    REG_DWORD    0x0";
         assert_eq!(parse_reg_dword_bool(output, "Enabled"), Some(false));
@@ -551,7 +545,10 @@ nointegritychecks       No
     fn pending_reboot_is_true_when_any_supported_indicator_exists() {
         let present = evidence("reg.exe", "HKEY_LOCAL_MACHINE\\...\\RebootPending").unwrap();
         let missing = absent("reg.exe").unwrap();
-        assert_eq!(determine_pending_reboot(&present, &missing, &missing), Some(true));
+        assert_eq!(
+            determine_pending_reboot(&present, &missing, &missing),
+            Some(true)
+        );
     }
 
     #[test]

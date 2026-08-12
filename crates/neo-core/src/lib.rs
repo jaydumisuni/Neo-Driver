@@ -241,11 +241,7 @@ pub struct MissionPlan {
 }
 
 impl MissionPlan {
-    pub fn new(
-        mission_id: impl Into<String>,
-        intent: UserIntent,
-        user_depth: UserDepth,
-    ) -> Self {
+    pub fn new(mission_id: impl Into<String>, intent: UserIntent, user_depth: UserDepth) -> Self {
         Self {
             mission_id: mission_id.into(),
             intent,
@@ -257,7 +253,9 @@ impl MissionPlan {
     }
 
     pub fn selected_actions(&self) -> impl Iterator<Item = &PlannedAction> {
-        self.actions.iter().filter(|action| action.selected_by_default)
+        self.actions
+            .iter()
+            .filter(|action| action.selected_by_default)
     }
 
     pub fn validate(&self) -> Result<(), PlanValidationError> {

@@ -4,7 +4,11 @@ use neo_probe::scan_current_machine;
 use std::process::ExitCode;
 
 #[derive(Debug, Parser)]
-#[command(name = "neo", version, about = "Neo Driver model-free Windows setup and repair core")]
+#[command(
+    name = "neo",
+    version,
+    about = "Neo Driver model-free Windows setup and repair core"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -170,7 +174,9 @@ fn run(cli: Cli) -> Result<(), String> {
             Ok(())
         }
         Command::Status => {
-            println!("Neo Driver implementation phase: core contracts + read-only probe foundation");
+            println!(
+                "Neo Driver implementation phase: core contracts + read-only probe foundation"
+            );
             println!("Machine mutation: intentionally disabled");
             println!("Model dependency: none");
             Ok(())
