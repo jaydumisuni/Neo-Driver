@@ -5,7 +5,7 @@
 **Implementation active.**
 
 - **Phase 1:** merged and engineering-proven — shared Rust core/CLI contracts + early read-only System X-Ray foundation.
-- **Phase 2:** in review/proof — normalized device evidence + typed package catalogue contracts.
+- **Phase 2:** implementation-code proof complete — normalized device evidence + typed package catalogue contracts. Final documentation-state CI is the remaining merge gate.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -13,7 +13,7 @@ The master plan remains frozen. This file is the live implementation-status reco
 
 Phase 1 established the model-free Rust core, three user-depth authority contracts, manual/risk invariants, read-only Windows identity/security/PnP/Driver Store evidence, CLI foundation, 20-lane static review, and Windows + Ubuntu proof. It merged to `main` as `e363ae8154c8319daaa40d9d1129b9db31029e5a`.
 
-## Phase 2 implementation under proof
+## Phase 2 implemented
 
 Without machine mutation, Phase 2 adds:
 
@@ -29,7 +29,7 @@ Without machine mutation, Phase 2 adds:
 - read-only `neo catalogue validate <file>`;
 - synthetic catalogue fixture;
 - Phase 2 20-lane review;
-- committed Cargo.lock proof gate.
+- committed Cargo.lock drift/proof gate.
 
 ## Still deliberately blocked
 
@@ -42,6 +42,18 @@ Implementation continues to honor `docs/decisions/0001-APPLE-TECHNICIAN-STACK.md
 ## Proof status
 
 - Phase 1: **PROVEN and merged**.
-- Phase 2 deterministic local static review: **20/20 PASS** before publication.
-- Phase 2 Rust/Windows/Ubuntu proof: **pending CI**.
+- Phase 2 deterministic static review: **20/20 PASS**.
+- Phase 2 implementation-code proof commit: `a2c6453ea4fe5e20ea5ab4da7d7894530612c777`.
+- GitHub Actions run `31613855813`: **PASS on Ubuntu and Windows**.
+  - Phase 1 20-lane review: PASS on both.
+  - Phase 2 20-lane review: PASS on both.
+  - Cargo.lock integrity/current graph: PASS on both.
+  - Rust formatting: PASS on both.
+  - Locked Rust type/build proof: PASS on both.
+  - Clippy with warnings denied: PASS on both.
+  - Rust unit tests: PASS on both.
+  - Read-only catalogue CLI fixture: PASS on both.
 - Live attached-device proof: **not claimed**.
+- Machine mutation proof: **not applicable yet; mutation remains disabled**.
+
+Phase 2 has no known implementation-code proof gap. A final CI run on the documentation-closed branch state is required before merge.
