@@ -433,8 +433,14 @@ pub struct ApplyRecord {
     pub action_id: String,
     pub outcome: ApplyOutcome,
     pub detail: String,
+    #[serde(default = "default_machine_changed")]
+    pub machine_changed: bool,
     #[serde(default)]
     pub reboot_required: bool,
+}
+
+fn default_machine_changed() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

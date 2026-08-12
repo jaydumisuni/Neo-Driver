@@ -35,7 +35,7 @@ impl RebootCheckpoint {
     }
 
     pub(crate) fn for_rollback_checkpoint(checkpoint: &TransactionCheckpoint) -> Self {
-        let changed = checkpoint.successful_applied_ids();
+        let changed = checkpoint.changed_action_ids();
         Self {
             transaction_id: checkpoint.plan.transaction_id().to_string(),
             plan_fingerprint: checkpoint.plan_fingerprint.clone(),
@@ -259,7 +259,7 @@ impl TransactionCheckpoint {
         self.record_event(&format!("apply result recorded for {}", record.action_id));
 
         if record.outcome == ApplyOutcome::Failure {
-            let changed = self.successful_applied_ids();
+            let changed = self.changed_action_ids();
             if !changed.is_empty() && self.plan.all_reversible(&changed) {
                 self.transition(
                     TransactionStage::RollingBack,
@@ -347,7 +347,7 @@ impl TransactionCheckpoint {
                 "blocked post-reboot state re-proven; verification may continue",
             );
         } else {
-            let changed = self.successful_applied_ids();
+            let changed = self.changed_action_ids();
             if !changed.is_empty() && self.plan.all_reversible(&changed) {
                 self.transition(
                     TransactionStage::RollingBack,
@@ -383,7 +383,7 @@ impl TransactionCheckpoint {
                 "all required postconditions proven",
             );
         } else {
-            let changed = self.successful_applied_ids();
+            let changed = self.changed_action_ids();
             if !changed.is_empty() && self.plan.all_reversible(&changed) {
                 self.transition(
                     TransactionStage::RollingBack,
@@ -405,7 +405,7 @@ impl TransactionCheckpoint {
     ) -> Result<(), TransactionError> {
         self.require_stage(TransactionStage::RollingBack)?;
         self.validate()?;
-        let changed = self.successful_applied_ids();
+        let changed = self.changed_action_ids();
         if !changed.contains(&record.action_id) {
             return Err(TransactionError::UnknownRollbackAction(record.action_id));
         }
@@ -441,7 +441,7 @@ impl TransactionCheckpoint {
             return self.validate();
         }
 
-        let changed = self.successful_applied_ids();
+        let changed = self.changed_action_ids();
         let all_rollback_records_complete = self.rollback_records.len() == changed.len()
             && self
                 .rollback_records
@@ -495,7 +495,7 @@ impl TransactionCheckpoint {
     ) -> Result<(), TransactionError> {
         self.require_stage(TransactionStage::RollingBack)?;
         self.validate()?;
-        let changed = self.successful_applied_ids();
+        let changed = self.changed_action_ids();
         self.require_successful_rollback_records(&changed)?;
         let baseline = self
             .baseline

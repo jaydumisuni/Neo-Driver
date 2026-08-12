@@ -99,7 +99,7 @@ impl TransactionCheckpoint {
             }
             TransactionStage::RollingBack => {
                 self.require_baseline_and_authorization()?;
-                let changed = self.successful_applied_ids();
+                let changed = self.changed_action_ids();
                 if changed.is_empty() || !self.plan.all_reversible(&changed) {
                     return Err(TransactionError::StageInvariantViolation);
                 }
@@ -110,7 +110,7 @@ impl TransactionCheckpoint {
             }
             TransactionStage::AwaitingRollbackReboot => {
                 self.require_baseline_and_authorization()?;
-                let changed = self.successful_applied_ids();
+                let changed = self.changed_action_ids();
                 if changed.is_empty()
                     || !self.plan.all_reversible(&changed)
                     || !self.effective_rollback_reboot_required()
@@ -128,7 +128,7 @@ impl TransactionCheckpoint {
             }
             TransactionStage::RolledBack => {
                 self.require_baseline_and_authorization()?;
-                let changed = self.successful_applied_ids();
+                let changed = self.changed_action_ids();
                 if changed.is_empty() || !self.plan.all_reversible(&changed) {
                     return Err(TransactionError::StageInvariantViolation);
                 }
@@ -252,10 +252,10 @@ impl TransactionCheckpoint {
         Ok(())
     }
 
-    pub(crate) fn successful_applied_ids(&self) -> BTreeSet<String> {
+    pub(crate) fn changed_action_ids(&self) -> BTreeSet<String> {
         self.apply_records
             .iter()
-            .filter(|record| record.outcome == ApplyOutcome::Success)
+            .filter(|record| record.machine_changed)
             .map(|record| record.action_id.clone())
             .collect()
     }
