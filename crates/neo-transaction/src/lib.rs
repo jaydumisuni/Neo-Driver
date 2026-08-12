@@ -5,8 +5,10 @@
 
 mod checkpoint;
 mod error;
+mod invariants;
 mod plan;
 mod state;
+mod verification;
 
 pub use checkpoint::{RebootCheckpoint, TransactionCheckpoint, TransactionEvent};
 pub use error::TransactionError;
