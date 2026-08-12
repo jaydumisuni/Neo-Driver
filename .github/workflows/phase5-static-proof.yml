@@ -1,0 +1,18 @@
+name: Phase 5 Static Proof
+
+on:
+  push:
+    branches: ["staging-phase5-driver-install"]
+
+permissions:
+  contents: read
+
+jobs:
+  static-proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging-phase5-driver-install
+      - name: Phase 5 twenty-lane review
+        run: python -W error tools/phase5_static_review.py
