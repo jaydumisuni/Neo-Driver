@@ -263,6 +263,7 @@ impl TransactionCheckpoint {
             .reboot_checkpoint
             .as_ref()
             .ok_or(TransactionError::MissingRebootCheckpoint)?;
+        reboot_checkpoint.validate_for_checkpoint(self)?;
         validate_result_set(
             &self.resume_results,
             &reboot_checkpoint.expected_post_reboot,
@@ -309,6 +310,13 @@ impl TransactionCheckpoint {
             if event.sequence != (index + 1) as u64 || event.message.trim().is_empty() {
                 return Err(TransactionError::InvalidEventLog);
             }
+            if index == 0 {
+                if event.stage != TransactionStage::Planned {
+                    return Err(TransactionError::InvalidEventLog);
+                }
+            } else if !valid_event_transition(self.events[index - 1].stage, event.stage) {
+                return Err(TransactionError::InvalidEventLog);
+            }
         }
         if self.events.last().map(|event| event.stage) != Some(self.stage) {
             return Err(TransactionError::InvalidEventLog);
@@ -328,4 +336,28 @@ impl TransactionCheckpoint {
             message: message.to_string(),
         });
     }
+}
+
+fn valid_event_transition(from: TransactionStage, to: TransactionStage) -> bool {
+    use TransactionStage::*;
+    matches!(
+        (from, to),
+        (Planned, Planned)
+            | (Planned, BaselineCaptured)
+            | (BaselineCaptured, Authorized)
+            | (Authorized, Applying)
+            | (Applying, Applying)
+            | (Applying, AwaitingReboot)
+            | (Applying, Verifying)
+            | (Applying, RollingBack)
+            | (Applying, Failed)
+            | (AwaitingReboot, Verifying)
+            | (AwaitingReboot, Blocked)
+            | (Verifying, Complete)
+            | (Verifying, RollingBack)
+            | (Verifying, Failed)
+            | (RollingBack, RollingBack)
+            | (RollingBack, RolledBack)
+            | (RollingBack, Failed)
+    )
 }
