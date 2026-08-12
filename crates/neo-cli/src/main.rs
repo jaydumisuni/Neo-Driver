@@ -236,7 +236,8 @@ fn run(cli: Cli) -> Result<(), String> {
             build,
             json,
         } => {
-            let device_json = std::fs::read_to_string(&device).map_err(|error| error.to_string())?;
+            let device_json =
+                std::fs::read_to_string(&device).map_err(|error| error.to_string())?;
             let device_record: DeviceRecord =
                 serde_json::from_str(&device_json).map_err(|error| error.to_string())?;
             let catalogue = Catalogue::read_json(&catalogue).map_err(|error| error.to_string())?;
