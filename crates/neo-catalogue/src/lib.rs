@@ -4,7 +4,7 @@
 //! dependencies, conflicts, and security/reboot requirements. It does not
 //! download or install packages.
 
-use neo_device::{OpaqueDeviceId, OrderedDeviceIds};
+use neo_device::OrderedDeviceIds;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -37,9 +37,10 @@ pub enum SignatureStatus {
     Unknown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum RequiredState {
+    #[default]
     Unchanged,
     Enabled,
     Disabled,
@@ -117,12 +118,6 @@ pub struct SecurityRequirements {
 
 fn unchanged() -> RequiredState {
     RequiredState::Unchanged
-}
-
-impl Default for RequiredState {
-    fn default() -> Self {
-        Self::Unchanged
-    }
 }
 
 impl SecurityRequirements {
@@ -357,6 +352,7 @@ pub enum CatalogueError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use neo_device::OpaqueDeviceId;
 
     fn sample_manifest() -> PackageManifest {
         PackageManifest {
