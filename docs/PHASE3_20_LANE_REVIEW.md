@@ -3,7 +3,7 @@
 **Scope:** deterministic read-only driver candidate matching/ranking.  
 **Mutation boundary:** no staging, install, removal, Driver Store write, device binding, filter change, BCD/security change, download, or reboot operation.
 
-## Pre-publication findings / corrections
+## Findings corrected
 
 1. Phase 2's INF applicability was shaped like device evidence (`OrderedDeviceIds`) and could flatten multiple Models entries. Phase 3 refines it to explicit `InfModelEntry` records before matching.
 2. A simple "newer version wins" model was rejected. Identifier match class/order precedes date/version.
@@ -19,19 +19,31 @@
 12. Case-only duplicate INF compatible IDs are rejected because matcher equality is case-insensitive.
 13. The Phase 3 review was corrected to inspect external `tests.rs` after tests were split from the library module.
 14. Calendar validation now rejects impossible non-leap dates so malformed date evidence cannot participate in a Windows tie-break.
+15. First CI found a brittle Phase 3 review assertion that searched for one exact prose phrase to prove "no full rank claim." The gate now checks structural markers (`full_windows_rank_available: false`, `ranking_complete`, `FeatureScore`, and the explicit no-full-rank note) instead of capitalization-sensitive prose.
+16. Adding `neo-match` changed the workspace dependency graph. CI regenerated the exact `Cargo.lock`; that generated lock was committed unchanged and subsequently proved current/tracked with `--locked` gates.
+17. Rustfmt found layout-only drift in `neo-catalogue`, `neo-cli`, `neo-match`, and matcher tests. The exact formatter output was applied without changing matching behavior.
+18. Clippy found the internal score-evidence helper accepted eight arguments. The finding was corrected structurally with a typed `MatchCoordinates` record; no `allow` suppression was added and score/evidence semantics remain unchanged.
 
-## Required proof before merge
+No warning or finding was suppressed with an allow-list escape hatch.
 
-- Phase 1 20-lane review;
-- strengthened Phase 2 20-lane review;
-- Phase 3 20-lane review;
-- tracked/current Cargo.lock;
-- rustfmt;
-- locked workspace type/build proof;
+## Implementation-code proof
+
+Corrected implementation head: `7bd9471913cb13e583ff53293637d5a20c1dbe2e`  
+GitHub Actions run: `31619245616`
+
+Both **Ubuntu** and **Windows** passed:
+
+- Phase 1 20-lane static review;
+- strengthened Phase 2 20-lane static review;
+- Phase 3 20-lane static review;
+- committed + Git-tracked Cargo.lock/current dependency graph guard;
+- Rust formatting;
+- locked workspace type/build check;
 - Clippy with warnings denied;
-- unit tests;
-- catalogue CLI fixture;
-- matcher CLI fixture;
-- external PR review and recursive correction of any valid finding.
+- Rust unit tests, including matcher ranking/tie/overflow/calendar regressions;
+- read-only catalogue CLI fixture;
+- read-only matcher CLI fixture.
 
-Phase 3 does not prove live attached-device behavior and does not enable installation.
+External CodeRabbit review was rate-limited during this proof cycle and produced no code review threads. Therefore no full external-review PASS is claimed. The provider's generic docstring-coverage warning remains a visible non-functional documentation-quality warning and is not represented as a correctness/security finding.
+
+Phase 3 remains read-only. Live attached-device behavior and machine mutation are not claimed by this proof. A final CI run on the documentation-closed branch state is required before merge.
