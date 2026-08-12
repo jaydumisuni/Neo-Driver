@@ -465,7 +465,9 @@ mod tests {
     #[test]
     fn unresolved_dependency_fails_closed() {
         let mut manifest = sample_manifest();
-        manifest.dependencies.push("neo.missing.dependency".to_string());
+        manifest
+            .dependencies
+            .push("neo.missing.dependency".to_string());
         let catalogue = Catalogue {
             packages: vec![manifest],
         };
