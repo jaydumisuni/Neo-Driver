@@ -239,10 +239,7 @@ impl DriverHost for WindowsDriverHost {
             .ok_or(DriverStoreError::StagedPackageMismatch)
     }
 
-    fn install_best_match(
-        &self,
-        instance_id: &str,
-    ) -> Result<DriverBackendResult, DriverStoreError> {
+    fn install_best_match(&self, instance_id: &str) -> Result<DriverBackendResult, DriverStoreError> {
         let set = present_device_set()?;
         let mut index = 0u32;
         loop {
@@ -588,7 +585,7 @@ fn win_error(context: &str, error: WinError) -> DriverStoreError {
 }
 
 fn last_error(context: &str) -> DriverStoreError {
-    win_error(context, WinError::from_win32())
+    win_error(context, WinError::from_thread())
 }
 
 fn nonempty(value: String) -> Option<String> {
