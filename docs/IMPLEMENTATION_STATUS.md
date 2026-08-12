@@ -6,7 +6,7 @@
 
 - **Phase 1:** merged and engineering-proven — shared Rust core/CLI contracts + early read-only System X-Ray foundation.
 - **Phase 2:** merged and engineering-proven — normalized device evidence + typed package catalogue contracts.
-- **Phase 3:** implementation under proof — deterministic read-only driver candidate matching/ranking.
+- **Phase 3:** corrected implementation proven — deterministic read-only driver candidate matching/ranking. Final documentation-state CI remains before merge.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -16,7 +16,7 @@ Phase 1 merged as `e363ae8154c8319daaa40d9d1129b9db31029e5a`.
 
 Phase 2 final documentation-state run `31615112238` passed all configured Ubuntu and Windows gates, all four major external-review code threads were resolved, and Phase 2 merged as `86493f6c69efb14beb2267e2e8a5534670346dc1`.
 
-## Phase 3 implementation under proof
+## Phase 3 implemented
 
 Phase 3 adds no machine mutation. It introduces:
 
@@ -48,6 +48,21 @@ Implementation continues to honor:
 
 - Phase 1: **PROVEN and merged**.
 - Phase 2: **PROVEN and merged**.
-- Phase 3 targeted pre-publication checks: **PASS**; full Windows/Ubuntu workspace proof pending.
+- Phase 3 corrected implementation head: `7bd9471913cb13e583ff53293637d5a20c1dbe2e`.
+- GitHub Actions run `31619245616`: **PASS on Ubuntu and Windows**.
+  - Phase 1 20-lane review: PASS on both.
+  - Strengthened Phase 2 20-lane review: PASS on both.
+  - Phase 3 20-lane review: PASS on both.
+  - Cargo.lock committed/tracked/current graph: PASS on both.
+  - Rust formatting: PASS on both.
+  - Locked Rust type/build proof: PASS on both.
+  - Clippy with warnings denied: PASS on both.
+  - Rust unit regressions: PASS on both.
+  - Read-only catalogue CLI fixture: PASS on both.
+  - Read-only matcher CLI fixture: PASS on both.
+- External CodeRabbit review: **rate-limited during this cycle; no full external-review PASS claimed and no code review threads produced**.
+- CodeRabbit docstring-coverage warning remains visible as a non-functional documentation-quality warning; it is not treated as a Phase 3 correctness/security proof gate.
 - Live attached-device proof: **not claimed**.
 - Machine mutation proof: **not applicable; mutation remains disabled**.
+
+Phase 3 has no known unresolved correctness/security finding. One final CI run on the documentation-closed branch state is required before merge.
