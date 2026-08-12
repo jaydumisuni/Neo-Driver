@@ -22,6 +22,10 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup component add rustfmt clippy --toolchain stable
           rustup default stable
+      - name: Correct current-source patch anchor
+        shell: pwsh
+        run: |
+          python -c "from pathlib import Path; p=Path('tools/phase5_external_review_fixes.py'); t=p.read_text(encoding='utf-8'); old='&[self.driver_plan.expected_signature.catalog_file.clone()]'; new='std::slice::from_ref(&self.driver_plan.expected_signature.catalog_file)'; assert old in t; p.write_text(t.replace(old,new),encoding='utf-8')"
       - name: Apply bounded external-review fixes
         shell: pwsh
         run: python tools/phase5_external_review_fixes.py
