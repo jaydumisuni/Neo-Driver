@@ -102,7 +102,7 @@ pub fn prepare_driver_install<H: DriverHost>(
             .devices
             .iter()
             .find(|device| device.instance_id.as_str().eq_ignore_ascii_case(identity))
-            .ok_or_else(|| DriverStoreError::ImpactDrift)?;
+            .ok_or(DriverStoreError::ImpactDrift)?;
         let binding = device
             .active_driver
             .clone()
@@ -136,6 +136,7 @@ pub fn prepare_driver_install<H: DriverHost>(
 
     let driver_plan = DriverInstallPlan {
         action_id: action_id.to_string(),
+        mission_id: mission_id.to_string(),
         package_id: package_id.to_string(),
         inf_path: normalize_inf_path(inf_path)?,
         package_root,
@@ -152,45 +153,42 @@ pub fn prepare_driver_install<H: DriverHost>(
         impacts,
     };
     driver_plan.validate()?;
-    let driver_fingerprint = driver_plan.fingerprint()?;
+    let transaction_plan = transaction_contract(&driver_plan)?;
+    let baseline = baseline_contract(&driver_plan, &transaction_plan)?;
 
+    Ok(PreparedDriverInstall {
+        driver_plan,
+        transaction_plan,
+        baseline,
+    })
+}
+
+pub(crate) fn transaction_contract(
+    driver_plan: &DriverInstallPlan,
+) -> Result<TransactionPlan, DriverStoreError> {
+    driver_plan.validate()?;
+    let driver_fingerprint = driver_plan.fingerprint()?;
     let store_target = store_target(&driver_fingerprint);
     let mut snapshot_targets = vec![store_target.clone()];
     let mut rollback_verification = vec![VerificationPredicate {
         id: format!("rollback.store.{driver_fingerprint}"),
-        target: store_target.clone(),
+        target: store_target,
         expectation: VerificationExpectation::MatchesBaseline,
         required: true,
     }];
-    let mut baseline_states = vec![CapturedState {
-        target: store_target,
-        value: match &driver_plan.store_baseline {
-            DriverStoreBaseline::Existing { package } => {
-                CapturedValue::Present(serde_json::to_string(package)?)
-            }
-            DriverStoreBaseline::Absent => CapturedValue::Absent,
-        },
-    }];
-
     for impact in &driver_plan.impacts {
         let target = binding_target(&impact.instance_id);
         snapshot_targets.push(target.clone());
         rollback_verification.push(VerificationPredicate {
             id: format!("rollback.binding.{}", impact.instance_id),
-            target: target.clone(),
+            target,
             expectation: VerificationExpectation::MatchesBaseline,
             required: true,
         });
-        baseline_states.push(CapturedState {
-            target,
-            value: CapturedValue::Present(serde_json::to_string(&impact.baseline)?),
-        });
     }
-
-    let policy_target = policy_target(&driver_fingerprint);
     let postconditions = vec![VerificationPredicate {
         id: format!("driver.policy.{driver_fingerprint}"),
-        target: policy_target,
+        target: policy_target(&driver_fingerprint),
         expectation: VerificationExpectation::Equals("satisfied".to_string()),
         required: true,
     }];
@@ -204,8 +202,8 @@ pub fn prepare_driver_install<H: DriverHost>(
         RecommendationState::Recommended
     };
     let action = PlannedAction {
-        id: action_id.to_string(),
-        title: format!("Install approved driver package {package_id}"),
+        id: driver_plan.action_id.clone(),
+        title: format!("Install approved driver package {}", driver_plan.package_id),
         kind: ActionKind::DriverInstall,
         risk: RiskLevel::Normal,
         recommendation,
@@ -236,19 +234,35 @@ pub fn prepare_driver_install<H: DriverHost>(
             verification: rollback_verification,
         },
     };
-    let transaction_plan = TransactionPlan::new(
+    Ok(TransactionPlan::new(
         format!("driver-install-{}", &driver_fingerprint[..16]),
         1,
-        mission_id,
+        driver_plan.mission_id.clone(),
         vec![transaction_action],
-    )?;
-    let baseline = BaselineSnapshot::for_plan(&transaction_plan, baseline_states)?;
+    )?)
+}
 
-    Ok(PreparedDriverInstall {
-        driver_plan,
-        transaction_plan,
-        baseline,
-    })
+pub(crate) fn baseline_contract(
+    driver_plan: &DriverInstallPlan,
+    transaction_plan: &TransactionPlan,
+) -> Result<BaselineSnapshot, DriverStoreError> {
+    let fingerprint = driver_plan.fingerprint()?;
+    let mut states = vec![CapturedState {
+        target: store_target(&fingerprint),
+        value: match &driver_plan.store_baseline {
+            DriverStoreBaseline::Existing { package } => {
+                CapturedValue::Present(serde_json::to_string(package)?)
+            }
+            DriverStoreBaseline::Absent => CapturedValue::Absent,
+        },
+    }];
+    for impact in &driver_plan.impacts {
+        states.push(CapturedState {
+            target: binding_target(&impact.instance_id),
+            value: CapturedValue::Present(serde_json::to_string(&impact.baseline)?),
+        });
+    }
+    Ok(BaselineSnapshot::for_plan(transaction_plan, states)?)
 }
 
 pub(crate) fn store_target(fingerprint: &str) -> StateTarget {
@@ -272,12 +286,18 @@ pub(crate) fn policy_target(fingerprint: &str) -> StateTarget {
     }
 }
 
-fn resolve_source_inf(package_root: &Path, inf_path: &str) -> Result<(PathBuf, PathBuf), DriverStoreError> {
+fn resolve_source_inf(
+    package_root: &Path,
+    inf_path: &str,
+) -> Result<(PathBuf, PathBuf), DriverStoreError> {
     let normalized = normalize_inf_path(inf_path)?;
     let relative = Path::new(&normalized);
     if relative.is_absolute()
         || relative.components().any(|component| {
-            matches!(component, Component::ParentDir | Component::RootDir | Component::Prefix(_))
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
         })
     {
         return Err(DriverStoreError::UnsafeInfPath);
@@ -303,28 +323,36 @@ fn normalize_inf_path(value: &str) -> Result<String, DriverStoreError> {
     Ok(normalized)
 }
 
-fn catalogue_file_matches(actual: &str, expected: &[String]) -> bool {
-    let actual_name = Path::new(actual)
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or(actual);
-    expected.iter().any(|value| {
-        Path::new(value)
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or(value)
-            .eq_ignore_ascii_case(actual_name)
-    })
+pub(crate) fn signature_matches(actual: &VerifiedInfSignature, expected: &VerifiedInfSignature) -> bool {
+    actual.signer.trim().eq_ignore_ascii_case(expected.signer.trim())
+        && file_name(&actual.catalog_file).eq_ignore_ascii_case(&file_name(&expected.catalog_file))
 }
 
-fn normalized_id_set(values: Vec<String>) -> Result<BTreeSet<String>, DriverStoreError> {
+fn catalogue_file_matches(actual: &str, expected: &[String]) -> bool {
+    let actual_name = file_name(actual);
+    expected
+        .iter()
+        .any(|value| file_name(value).eq_ignore_ascii_case(&actual_name))
+}
+
+fn file_name(value: &str) -> String {
+    Path::new(value)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(value)
+        .to_string()
+}
+
+pub(crate) fn normalized_id_set(
+    values: Vec<String>,
+) -> Result<BTreeSet<String>, DriverStoreError> {
     let mut set = BTreeSet::new();
     for value in values {
         if value.trim().is_empty() {
             return Err(DriverStoreError::EmptyField("compatible instance_id"));
         }
         let identity = value.to_ascii_lowercase();
-        if !set.insert(identity.clone()) {
+        if !set.insert(identity) {
             return Err(DriverStoreError::DuplicateImpact(value));
         }
     }
