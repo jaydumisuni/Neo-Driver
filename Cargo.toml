@@ -3,6 +3,8 @@ resolver = "2"
 members = [
     "crates/neo-core",
     "crates/neo-probe",
+    "crates/neo-device",
+    "crates/neo-catalogue",
     "crates/neo-cli",
 ]
 

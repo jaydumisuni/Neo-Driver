@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
+use neo_catalogue::Catalogue;
 use neo_core::{MissionPlan, UserDepth, UserIntent};
 use neo_probe::scan_current_machine;
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 #[derive(Debug, Parser)]
@@ -32,8 +34,24 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Read-only catalogue inspection and validation.
+    Catalogue {
+        #[command(subcommand)]
+        command: CatalogueCommand,
+    },
     /// Show the current implementation boundary.
     Status,
+}
+
+#[derive(Debug, Subcommand)]
+enum CatalogueCommand {
+    /// Validate a Neo catalogue JSON file without installing or downloading anything.
+    Validate {
+        path: PathBuf,
+        /// Emit the normalized catalogue as JSON after validation.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -173,11 +191,28 @@ fn run(cli: Cli) -> Result<(), String> {
             }
             Ok(())
         }
+        Command::Catalogue { command } => match command {
+            CatalogueCommand::Validate { path, json } => {
+                let catalogue = Catalogue::read_json(&path).map_err(|error| error.to_string())?;
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&catalogue)
+                            .map_err(|error| error.to_string())?
+                    );
+                } else {
+                    println!("Neo catalogue validation: PASS");
+                    println!("File: {}", path.display());
+                    println!("Packages: {}", catalogue.packages.len());
+                    println!("Machine changes: none");
+                }
+                Ok(())
+            }
+        },
         Command::Status => {
-            println!(
-                "Neo Driver implementation phase: core contracts + read-only probe foundation"
-            );
+            println!("Neo Driver implementation phase: device evidence + catalogue contracts");
             println!("Machine mutation: intentionally disabled");
+            println!("Package downloads/installations: intentionally disabled");
             println!("Model dependency: none");
             Ok(())
         }

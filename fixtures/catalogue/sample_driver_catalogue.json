@@ -1,0 +1,49 @@
+{
+  "packages": [
+    {
+      "package_id": "neo.fixture.usb-driver",
+      "name": "Neo Fixture USB Driver",
+      "vendor": "Neo Fixture Vendor",
+      "version": "1.0.0",
+      "kind": "inf_driver_bundle",
+      "provenance": {
+        "source_name": "fixture",
+        "source_url": "https://example.invalid/fixture",
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "redistribution": "unknown"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041,
+        "maximum_build": null
+      },
+      "driver_artifacts": [
+        {
+          "inf_path": "drivers/fixture.inf",
+          "ids": {
+            "hardware_ids": ["USB\\VID_1234&PID_5678"],
+            "compatible_ids": ["USB\\Class_FF"]
+          },
+          "catalog_files": ["drivers/fixture.cat"],
+          "provider": "Neo Fixture Vendor",
+          "driver_version": "1.0.0",
+          "driver_date": "2026-01-01",
+          "signature": {
+            "status": "verified",
+            "signer": "Neo Fixture Signer",
+            "verification_note": "Synthetic fixture only; not a distributable driver."
+          }
+        }
+      ],
+      "dependencies": [],
+      "conflicts": [],
+      "security": {
+        "test_signing": "unchanged",
+        "no_integrity_checks": "unchanged",
+        "secure_boot": "unchanged",
+        "memory_integrity": "unchanged"
+      },
+      "reboot": "none"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+neo-catalogue = { path = "../neo-catalogue" }
 neo-core = { path = "../neo-core" }
 neo-probe = { path = "../neo-probe" }
 serde_json.workspace = true

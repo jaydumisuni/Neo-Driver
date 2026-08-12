@@ -1,0 +1,11 @@
+[package]
+name = "neo-catalogue"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-device = { path = "../neo-device" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

@@ -31,14 +31,25 @@ jobs:
       - name: Phase 1 twenty-lane static review
         run: python tools/phase1_static_review.py
 
+      - name: Phase 2 twenty-lane static review
+        run: python -W error tools/phase2_static_review.py
+
+      - name: Cargo lockfile proof
+        run: |
+          cargo generate-lockfile
+          python tools/lockfile_guard.py
+
       - name: Rust formatting proof
         run: cargo fmt --all -- --check
 
       - name: Rust type/build proof
-        run: cargo check --workspace --all-targets
+        run: cargo check --workspace --all-targets --locked
 
       - name: Rust Clippy proof
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Rust unit proof
-        run: cargo test --workspace --all-targets
+        run: cargo test --workspace --all-targets --locked
+
+      - name: Catalogue CLI fixture proof
+        run: cargo run --locked -p neo-cli -- catalogue validate fixtures/catalogue/sample_driver_catalogue.json
