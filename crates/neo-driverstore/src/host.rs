@@ -31,10 +31,11 @@ pub trait DriverHost {
     /// Stage the exact selected source INF and return its Windows-published identity.
     fn stage_driver(&self, source_inf: &Path) -> Result<StoredDriverPackage, DriverStoreError>;
 
-    /// Normal forward lane. Implementations must preserve Windows ranking (no force flag).
+    /// Normal forward lane for one already-authorized device. Implementations must ask
+    /// Windows to select the best preinstalled match; they must not supply/force a driver node.
     fn install_best_match(
         &self,
-        driver_store_inf: &Path,
+        instance_id: &str,
     ) -> Result<DriverBackendResult, DriverStoreError>;
 
     /// Rollback-only primitive: restore the captured published INF on one captured device.
