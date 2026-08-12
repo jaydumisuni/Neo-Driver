@@ -133,9 +133,10 @@ impl DriverHost for FakeHost {
             .cloned()
             .ok_or_else(|| DriverStoreError::Windows("target package missing".to_string()))?;
         if state.install_changes {
+            let compatible = state.compatible.clone();
+            let target_problem_code = state.target_problem_code;
             for device in &mut state.inventory.devices {
-                if state
-                    .compatible
+                if compatible
                     .iter()
                     .any(|id| id.eq_ignore_ascii_case(device.instance_id.as_str()))
                 {
@@ -147,7 +148,7 @@ impl DriverHost for FakeHost {
                     binding.signer = Some("Neo Fixture Signer".to_string());
                     binding.catalog_file = Some("fixture.cat".to_string());
                     device.active_driver = Some(binding);
-                    device.problem_code = state.target_problem_code;
+                    device.problem_code = target_problem_code;
                 }
             }
         }
@@ -187,7 +188,12 @@ impl DriverHost for FakeHost {
             .inventory
             .devices
             .iter_mut()
-            .find(|device| device.instance_id.as_str().eq_ignore_ascii_case(instance_id))
+            .find(|device| {
+                device
+                    .instance_id
+                    .as_str()
+                    .eq_ignore_ascii_case(instance_id)
+            })
             .ok_or_else(|| DriverStoreError::RollbackBindingFailure(instance_id.to_string()))?;
         device.active_driver = Some(baseline.binding);
         device.problem_code = baseline.problem_code;
@@ -299,10 +305,8 @@ impl Fixture {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "neo-driverstore-{}-{nonce}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("neo-driverstore-{}-{nonce}", std::process::id()));
         fs::create_dir_all(root.join("drivers")).unwrap();
         fs::write(root.join("drivers/fixture.inf"), b"neo fixture inf bytes\n").unwrap();
         fs::write(root.join("drivers/fixture.cat"), b"fixture cat\n").unwrap();
@@ -314,13 +318,15 @@ impl Fixture {
         prepare_driver_install(
             &self.host,
             &fixture_catalogue(),
-            &self.root,
-            "neo.fixture.driver",
-            "drivers/fixture.inf",
-            "x64",
-            26100,
-            "install.fixture.driver",
-            "mission.fixture",
+            &DriverInstallRequest {
+                package_root: self.root.clone(),
+                package_id: "neo.fixture.driver".to_string(),
+                inf_path: "drivers/fixture.inf".to_string(),
+                architecture: "x64".to_string(),
+                windows_build: 26100,
+                action_id: "install.fixture.driver".to_string(),
+                mission_id: "mission.fixture".to_string(),
+            },
         )
         .unwrap()
     }
@@ -350,22 +356,28 @@ impl Drop for Fixture {
 fn planner_binds_windows_impact_to_catalogue_impact() {
     let fixture = Fixture::new(None);
     fixture.host.configure(|state| {
-        state.compatible.push("USB\\VID_9999&PID_0001\\B".to_string());
         state
-            .inventory
-            .devices
-            .push(fixture_device("USB\\VID_9999&PID_0001\\B", None));
+            .compatible
+            .push("USB\\VID_9999&PID_0001\\B".to_string());
+        let mut incompatible = fixture_device("USB\\VID_9999&PID_0001\\B", None);
+        incompatible.ids = OrderedDeviceIds {
+            hardware_ids: vec![OpaqueDeviceId::new("USB\\VID_9999&PID_0001").unwrap()],
+            compatible_ids: vec![OpaqueDeviceId::new("USB\\Class_00").unwrap()],
+        };
+        state.inventory.devices.push(incompatible);
     });
     let error = prepare_driver_install(
         &fixture.host,
         &fixture_catalogue(),
-        &fixture.root,
-        "neo.fixture.driver",
-        "drivers/fixture.inf",
-        "x64",
-        26100,
-        "install.fixture.driver",
-        "mission.fixture",
+        &DriverInstallRequest {
+            package_root: fixture.root.clone(),
+            package_id: "neo.fixture.driver".to_string(),
+            inf_path: "drivers/fixture.inf".to_string(),
+            architecture: "x64".to_string(),
+            windows_build: 26100,
+            action_id: "install.fixture.driver".to_string(),
+            mission_id: "mission.fixture".to_string(),
+        },
     )
     .unwrap_err();
     assert!(matches!(error, DriverStoreError::CatalogueImpactMismatch));
@@ -410,7 +422,9 @@ fn healthy_target_install_reaches_complete() {
 #[test]
 fn healthy_windows_noop_cleans_new_store_package_and_completes() {
     let fixture = Fixture::new(None);
-    fixture.host.configure(|state| state.install_changes = false);
+    fixture
+        .host
+        .configure(|state| state.install_changes = false);
     let mut session = fixture.session();
     session.apply(&fixture.host).unwrap();
     assert_eq!(session.transaction().stage(), TransactionStage::Complete);
@@ -420,7 +434,9 @@ fn healthy_windows_noop_cleans_new_store_package_and_completes() {
 #[test]
 fn unhealthy_windows_noop_fails_without_leaving_staged_package() {
     let fixture = Fixture::new(Some(28));
-    fixture.host.configure(|state| state.install_changes = false);
+    fixture
+        .host
+        .configure(|state| state.install_changes = false);
     let mut session = fixture.session();
     session.apply(&fixture.host).unwrap();
     assert_eq!(session.transaction().stage(), TransactionStage::Failed);
@@ -493,9 +509,7 @@ fn rollback_reboot_defers_store_removal_until_binding_is_restored() {
         TransactionStage::AwaitingRollbackReboot
     );
     assert!(!fixture.host.state.borrow().packages.is_empty());
-    session
-        .resume_after_rollback_reboot(&fixture.host)
-        .unwrap();
+    session.resume_after_rollback_reboot(&fixture.host).unwrap();
     assert_eq!(session.transaction().stage(), TransactionStage::RolledBack);
     assert!(fixture.host.state.borrow().packages.is_empty());
 }

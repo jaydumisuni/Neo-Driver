@@ -7,7 +7,10 @@ pub enum DriverStoreError {
     #[error("catalogue package not found: {0}")]
     PackageNotFound(String),
     #[error("driver artifact not found in package {package_id}: {inf_path}")]
-    ArtifactNotFound { package_id: String, inf_path: String },
+    ArtifactNotFound {
+        package_id: String,
+        inf_path: String,
+    },
     #[error("selected package is not an INF driver bundle")]
     WrongPackageKind,
     #[error("selected driver artifact is not catalogue-verified")]

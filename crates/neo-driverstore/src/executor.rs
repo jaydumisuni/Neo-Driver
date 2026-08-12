@@ -1,9 +1,8 @@
 use neo_transaction::{
-    ApplyOutcome, ApplyRecord, BaselineSnapshot, Observation, ObservedValue, RollbackRecord,
+    ApplyOutcome, ApplyRecord, Observation, ObservedValue, RollbackRecord,
     TransactionAuthorization, TransactionCheckpoint, TransactionStage,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
 
 use crate::model::sha256_file;
 use crate::plan::{
@@ -51,7 +50,8 @@ impl DriverInstallSession {
         if prepared.transaction_plan != expected_transaction {
             return Err(DriverStoreError::SessionInvariantViolation);
         }
-        let expected_baseline = baseline_contract(&prepared.driver_plan, &prepared.transaction_plan)?;
+        let expected_baseline =
+            baseline_contract(&prepared.driver_plan, &prepared.transaction_plan)?;
         if prepared.baseline != expected_baseline {
             return Err(DriverStoreError::SessionInvariantViolation);
         }
@@ -114,7 +114,7 @@ impl DriverInstallSession {
                     operational_error = Some(format!("driver staging failed: {error}"));
                     if let Ok(Some(package)) = host.find_equivalent_package(
                         &self.driver_plan.source_inf,
-                        &[self.driver_plan.expected_signature.catalog_file.clone()],
+                        std::slice::from_ref(&self.driver_plan.expected_signature.catalog_file),
                     ) {
                         self.target_package = Some(package);
                     }
@@ -125,10 +125,12 @@ impl DriverInstallSession {
         if operational_error.is_none() {
             if let Some(package) = self.target_package.as_ref() {
                 if let Err(error) = self.validate_target_package(host, package) {
-                    operational_error = Some(format!("staged package verification failed: {error}"));
+                    operational_error =
+                        Some(format!("staged package verification failed: {error}"));
                 }
             } else {
-                operational_error = Some("staging produced no recoverable package identity".to_string());
+                operational_error =
+                    Some("staging produced no recoverable package identity".to_string());
             }
         }
 
@@ -137,7 +139,8 @@ impl DriverInstallSession {
                 Some(package) => match host.install_best_match(&package.driver_store_inf) {
                     Ok(result) => Some(result),
                     Err(error) => {
-                        operational_error = Some(format!("Windows best-match install failed: {error}"));
+                        operational_error =
+                            Some(format!("Windows best-match install failed: {error}"));
                         None
                     }
                 },
@@ -158,7 +161,9 @@ impl DriverInstallSession {
         }
 
         let binding_changed = self.impacted_binding_changed(&after);
-        if !binding_changed && matches!(self.driver_plan.store_baseline, DriverStoreBaseline::Absent) {
+        if !binding_changed
+            && matches!(self.driver_plan.store_baseline, DriverStoreBaseline::Absent)
+        {
             if let Some(package) = self.target_package.as_ref() {
                 if !package_in_use(&after, &package.published_inf) {
                     if let Err(error) = host.remove_published_package(&package.published_inf) {
@@ -199,7 +204,8 @@ impl DriverInstallSession {
             reboot_required: backend.is_some_and(|result| result.reboot_required),
         })?;
 
-        if outcome == ApplyOutcome::Success && self.transaction.stage() == TransactionStage::Verifying
+        if outcome == ApplyOutcome::Success
+            && self.transaction.stage() == TransactionStage::Verifying
         {
             let observation = self.policy_observation(host)?;
             self.transaction.verify_postconditions(vec![observation])?;
@@ -343,7 +349,8 @@ impl DriverInstallSession {
         if !signature_matches(&signature, &self.driver_plan.expected_signature) {
             return Err(DriverStoreError::PrestateDrift);
         }
-        let impacts = normalized_id_set(host.compatible_present_devices(&self.driver_plan.source_inf)?)?;
+        let impacts =
+            normalized_id_set(host.compatible_present_devices(&self.driver_plan.source_inf)?)?;
         if impacts != self.driver_plan.impact_ids() {
             return Err(DriverStoreError::ImpactDrift);
         }
@@ -357,7 +364,11 @@ impl DriverInstallSession {
         }
         match &self.driver_plan.store_baseline {
             DriverStoreBaseline::Existing { package } => {
-                if host.resolve_published_package(&package.published_inf)?.as_ref() != Some(package) {
+                if host
+                    .resolve_published_package(&package.published_inf)?
+                    .as_ref()
+                    != Some(package)
+                {
                     return Err(DriverStoreError::PrestateDrift);
                 }
             }
@@ -365,7 +376,7 @@ impl DriverInstallSession {
                 if host
                     .find_equivalent_package(
                         &self.driver_plan.source_inf,
-                        &[self.driver_plan.expected_signature.catalog_file.clone()],
+                        std::slice::from_ref(&self.driver_plan.expected_signature.catalog_file),
                     )?
                     .is_some()
                 {
@@ -389,7 +400,11 @@ impl DriverInstallSession {
         if !signature_matches(&signature, &self.driver_plan.expected_signature) {
             return Err(DriverStoreError::StagedPackageMismatch);
         }
-        if host.resolve_published_package(&package.published_inf)?.as_ref() != Some(package) {
+        if host
+            .resolve_published_package(&package.published_inf)?
+            .as_ref()
+            != Some(package)
+        {
             return Err(DriverStoreError::StagedPackageMismatch);
         }
         Ok(())
@@ -473,7 +488,9 @@ impl DriverInstallSession {
         let mut satisfied = self.policy_satisfied_by_inventory(&inventory);
         if matches!(self.driver_plan.store_baseline, DriverStoreBaseline::Absent) {
             if let Some(target) = self.target_package.as_ref() {
-                let present = host.resolve_published_package(&target.published_inf)?.is_some();
+                let present = host
+                    .resolve_published_package(&target.published_inf)?
+                    .is_some();
                 let any_target = package_in_use(&inventory, &target.published_inf);
                 if present != any_target {
                     satisfied = false;
@@ -503,7 +520,9 @@ impl DriverInstallSession {
                 .as_ref()
                 == Some(package)),
             DriverStoreBaseline::Absent => match self.target_package.as_ref() {
-                Some(target) => Ok(host.resolve_published_package(&target.published_inf)?.is_none()),
+                Some(target) => Ok(host
+                    .resolve_published_package(&target.published_inf)?
+                    .is_none()),
                 None => Ok(true),
             },
         }
@@ -515,7 +534,11 @@ impl DriverInstallSession {
     ) -> Result<(), DriverStoreError> {
         match &self.driver_plan.store_baseline {
             DriverStoreBaseline::Existing { package } => {
-                if host.resolve_published_package(&package.published_inf)?.as_ref() == Some(package) {
+                if host
+                    .resolve_published_package(&package.published_inf)?
+                    .as_ref()
+                    == Some(package)
+                {
                     Ok(())
                 } else {
                     Err(DriverStoreError::DriverStoreRestoreFailure)
@@ -530,10 +553,16 @@ impl DriverInstallSession {
                 if package_in_use(&inventory, &target.published_inf) {
                     return Err(DriverStoreError::DriverStoreRestoreFailure);
                 }
-                if host.resolve_published_package(&target.published_inf)?.is_some() {
+                if host
+                    .resolve_published_package(&target.published_inf)?
+                    .is_some()
+                {
                     host.remove_published_package(&target.published_inf)?;
                 }
-                if host.resolve_published_package(&target.published_inf)?.is_some() {
+                if host
+                    .resolve_published_package(&target.published_inf)?
+                    .is_some()
+                {
                     Err(DriverStoreError::DriverStoreRestoreFailure)
                 } else {
                     Ok(())
@@ -553,7 +582,10 @@ impl DriverInstallSession {
             target: store_target(&fingerprint),
             value: match &self.driver_plan.store_baseline {
                 DriverStoreBaseline::Existing { package } => {
-                    if host.resolve_published_package(&package.published_inf)?.as_ref() == Some(package)
+                    if host
+                        .resolve_published_package(&package.published_inf)?
+                        .as_ref()
+                        == Some(package)
                     {
                         ObservedValue::Present(serde_json::to_string(package)?)
                     } else {
@@ -562,7 +594,9 @@ impl DriverInstallSession {
                 }
                 DriverStoreBaseline::Absent => match self.target_package.as_ref() {
                     Some(target)
-                        if host.resolve_published_package(&target.published_inf)?.is_some() =>
+                        if host
+                            .resolve_published_package(&target.published_inf)?
+                            .is_some() =>
                     {
                         ObservedValue::Present(serde_json::to_string(target)?)
                     }
@@ -597,11 +631,7 @@ fn current_binding(device: Option<&neo_device::DeviceRecord>) -> Option<DriverBi
 }
 
 fn active_published(device: &neo_device::DeviceRecord) -> Option<&str> {
-    device
-        .active_driver
-        .as_ref()?
-        .published_name
-        .as_deref()
+    device.active_driver.as_ref()?.published_name.as_deref()
 }
 
 fn package_in_use(inventory: &DriverInventory, published_inf: &str) -> bool {
@@ -609,6 +639,3 @@ fn package_in_use(inventory: &DriverInventory, published_inf: &str) -> bool {
         active_published(device).is_some_and(|value| value.eq_ignore_ascii_case(published_inf))
     })
 }
-
-#[allow(dead_code)]
-fn _baseline_is_exact(_baseline: &BaselineSnapshot) {}

@@ -5,30 +5,40 @@ use neo_core::{
 };
 use neo_match::{match_device, MatchContext};
 use neo_transaction::{
-    BaselineSnapshot, CapturedState, CapturedValue, RollbackPlan, StateTarget,
-    StateTargetKind, TransactionAction, TransactionPlan, VerificationExpectation,
-    VerificationPredicate,
+    BaselineSnapshot, CapturedState, CapturedValue, RollbackPlan, StateTarget, StateTargetKind,
+    TransactionAction, TransactionPlan, VerificationExpectation, VerificationPredicate,
 };
 use std::collections::BTreeSet;
 use std::path::{Component, Path, PathBuf};
 
 use crate::{
-    model::sha256_file, DriverBindingBaseline, DriverHost, DriverInstallImpact,
-    DriverInstallPlan, DriverStoreBaseline, DriverStoreError, PreparedDriverInstall,
-    VerifiedInfSignature,
+    model::sha256_file, DriverBindingBaseline, DriverHost, DriverInstallImpact, DriverInstallPlan,
+    DriverStoreBaseline, DriverStoreError, PreparedDriverInstall, VerifiedInfSignature,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DriverInstallRequest {
+    pub package_root: PathBuf,
+    pub package_id: String,
+    pub inf_path: String,
+    pub architecture: String,
+    pub windows_build: u32,
+    pub action_id: String,
+    pub mission_id: String,
+}
 
 pub fn prepare_driver_install<H: DriverHost>(
     host: &H,
     catalogue: &Catalogue,
-    package_root: impl AsRef<Path>,
-    package_id: &str,
-    inf_path: &str,
-    architecture: &str,
-    windows_build: u32,
-    action_id: &str,
-    mission_id: &str,
+    request: &DriverInstallRequest,
 ) -> Result<PreparedDriverInstall, DriverStoreError> {
+    let package_root = request.package_root.as_path();
+    let package_id = request.package_id.as_str();
+    let inf_path = request.inf_path.as_str();
+    let architecture = request.architecture.as_str();
+    let windows_build = request.windows_build;
+    let action_id = request.action_id.as_str();
+    let mission_id = request.mission_id.as_str();
     catalogue.validate()?;
     let package = catalogue
         .packages
@@ -56,7 +66,7 @@ pub fn prepare_driver_install<H: DriverHost>(
         .filter(|value| !value.trim().is_empty())
         .ok_or(DriverStoreError::MissingExpectedSigner)?;
 
-    let (package_root, source_inf) = resolve_source_inf(package_root.as_ref(), inf_path)?;
+    let (package_root, source_inf) = resolve_source_inf(package_root, inf_path)?;
     let source_inf_sha256 = sha256_file(&source_inf)?;
     let verified_signature = host.verify_inf_signature(&source_inf)?;
     verified_signature.validate()?;
@@ -323,8 +333,14 @@ fn normalize_inf_path(value: &str) -> Result<String, DriverStoreError> {
     Ok(normalized)
 }
 
-pub(crate) fn signature_matches(actual: &VerifiedInfSignature, expected: &VerifiedInfSignature) -> bool {
-    actual.signer.trim().eq_ignore_ascii_case(expected.signer.trim())
+pub(crate) fn signature_matches(
+    actual: &VerifiedInfSignature,
+    expected: &VerifiedInfSignature,
+) -> bool {
+    actual
+        .signer
+        .trim()
+        .eq_ignore_ascii_case(expected.signer.trim())
         && file_name(&actual.catalog_file).eq_ignore_ascii_case(&file_name(&expected.catalog_file))
 }
 
@@ -343,9 +359,7 @@ fn file_name(value: &str) -> String {
         .to_string()
 }
 
-pub(crate) fn normalized_id_set(
-    values: Vec<String>,
-) -> Result<BTreeSet<String>, DriverStoreError> {
+pub(crate) fn normalized_id_set(values: Vec<String>) -> Result<BTreeSet<String>, DriverStoreError> {
     let mut set = BTreeSet::new();
     for value in values {
         if value.trim().is_empty() {

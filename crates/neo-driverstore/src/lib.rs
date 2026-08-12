@@ -21,7 +21,7 @@ pub use model::{
     DriverInventory, DriverStoreBaseline, PreparedDriverInstall, StoredDriverPackage,
     VerifiedInfSignature,
 };
-pub use plan::prepare_driver_install;
+pub use plan::{prepare_driver_install, DriverInstallRequest};
 
 #[cfg(windows)]
 pub use windows::WindowsDriverHost;

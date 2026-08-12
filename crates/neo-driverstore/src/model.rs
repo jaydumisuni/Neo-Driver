@@ -238,9 +238,12 @@ impl DriverInventory {
     }
 
     pub fn device(&self, instance_id: &str) -> Option<&DeviceRecord> {
-        self.devices
-            .iter()
-            .find(|device| device.instance_id.as_str().eq_ignore_ascii_case(instance_id))
+        self.devices.iter().find(|device| {
+            device
+                .instance_id
+                .as_str()
+                .eq_ignore_ascii_case(instance_id)
+        })
     }
 }
 
