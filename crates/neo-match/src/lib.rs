@@ -9,7 +9,7 @@ use neo_catalogue::{
     Catalogue, DriverArtifact, InfModelEntry, PackageKind, PackageManifest, SignatureStatus,
 };
 use neo_core::EvidenceVerdict;
-use neo_device::DeviceRecord;
+use neo_device::{DeviceRecord, OpaqueDeviceId};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use thiserror::Error;
@@ -237,6 +237,14 @@ struct IdentifierMatchSearch {
     out_of_range_match: bool,
 }
 
+struct MatchCoordinates<'a> {
+    device_id: &'a OpaqueDeviceId,
+    inf_id: &'a OpaqueDeviceId,
+    device_position: usize,
+    model_position: usize,
+    inf_position: usize,
+}
+
 pub fn best_identifier_match(
     device: &DeviceRecord,
     artifact: &DriverArtifact,
@@ -293,11 +301,13 @@ fn collect_model_matches(
                     output,
                     out_of_range_match,
                     IdentifierMatchType::DeviceHardwareToInfHardware,
-                    device_id,
-                    hardware_id,
-                    device_position,
-                    model_position,
-                    0,
+                    MatchCoordinates {
+                        device_id,
+                        inf_id: hardware_id,
+                        device_position,
+                        model_position,
+                        inf_position: 0,
+                    },
                 );
             }
         }
@@ -307,11 +317,13 @@ fn collect_model_matches(
                     output,
                     out_of_range_match,
                     IdentifierMatchType::DeviceHardwareToInfCompatible,
-                    device_id,
-                    inf_id,
-                    device_position,
-                    model_position,
-                    inf_position,
+                    MatchCoordinates {
+                        device_id,
+                        inf_id,
+                        device_position,
+                        model_position,
+                        inf_position,
+                    },
                 );
             }
         }
@@ -327,11 +339,13 @@ fn collect_model_matches(
                     output,
                     out_of_range_match,
                     IdentifierMatchType::DeviceCompatibleToInfHardware,
-                    device_id,
-                    hardware_id,
-                    device_position,
-                    model_position,
-                    0,
+                    MatchCoordinates {
+                        device_id,
+                        inf_id: hardware_id,
+                        device_position,
+                        model_position,
+                        inf_position: 0,
+                    },
                 );
             }
         }
@@ -341,11 +355,13 @@ fn collect_model_matches(
                     output,
                     out_of_range_match,
                     IdentifierMatchType::DeviceCompatibleToInfCompatible,
-                    device_id,
-                    inf_id,
-                    device_position,
-                    model_position,
-                    inf_position,
+                    MatchCoordinates {
+                        device_id,
+                        inf_id,
+                        device_position,
+                        model_position,
+                        inf_position,
+                    },
                 );
             }
         }
@@ -356,20 +372,20 @@ fn push_scored_match(
     output: &mut Vec<IdentifierMatchEvidence>,
     out_of_range_match: &mut bool,
     match_type: IdentifierMatchType,
-    device_id: &neo_device::OpaqueDeviceId,
-    inf_id: &neo_device::OpaqueDeviceId,
-    device_position: usize,
-    model_position: usize,
-    inf_position: usize,
+    coordinates: MatchCoordinates<'_>,
 ) {
-    if let Some(identifier_score) = identifier_score(match_type, device_position, inf_position) {
+    if let Some(identifier_score) = identifier_score(
+        match_type,
+        coordinates.device_position,
+        coordinates.inf_position,
+    ) {
         output.push(IdentifierMatchEvidence {
             match_type,
-            device_id: device_id.to_string(),
-            inf_id: inf_id.to_string(),
-            device_position,
-            model_position,
-            inf_position,
+            device_id: coordinates.device_id.to_string(),
+            inf_id: coordinates.inf_id.to_string(),
+            device_position: coordinates.device_position,
+            model_position: coordinates.model_position,
+            inf_position: coordinates.inf_position,
             identifier_score,
         });
     } else {
