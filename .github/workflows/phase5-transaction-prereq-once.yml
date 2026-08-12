@@ -25,7 +25,7 @@ jobs:
           rustup default stable
 
       - name: Apply runtime reboot prerequisite
-        run: python tools/phase5_transaction_reboot_patch.py
+        run: python tools/phase5_transaction_reboot_apply.py
 
       - name: Format and prove transaction prerequisite
         run: |
@@ -42,6 +42,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add crates/neo-transaction/src/plan.rs crates/neo-transaction/src/checkpoint.rs crates/neo-transaction/src/invariants.rs crates/neo-transaction/src/tests.rs
-          git rm .github/workflows/phase5-transaction-prereq-once.yml tools/phase5_transaction_reboot_patch.py
+          git rm .github/workflows/phase5-transaction-prereq-once.yml tools/phase5_transaction_reboot_patch.py tools/phase5_transaction_reboot_apply.py
           git commit -m "feat: add runtime reboot evidence to transactions [phase5-transaction-prereq]"
           git push origin HEAD:staging-phase5-driver-install
