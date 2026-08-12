@@ -186,12 +186,20 @@ impl TransactionPlan {
 
         let mut action_ids = BTreeSet::new();
         let mut predicate_ids = BTreeSet::new();
+        let mut snapshot_targets = BTreeSet::new();
         for transaction_action in &self.actions {
             transaction_action.validate()?;
             if !action_ids.insert(transaction_action.action.id.as_str()) {
                 return Err(TransactionError::DuplicateTransactionAction(
                     transaction_action.action.id.clone(),
                 ));
+            }
+            for target in &transaction_action.snapshot_targets {
+                if !snapshot_targets.insert(target.clone()) {
+                    return Err(TransactionError::OverlappingSnapshotTarget(
+                        target.key.clone(),
+                    ));
+                }
             }
             for predicate in &transaction_action.postconditions {
                 if !predicate_ids.insert(predicate.id.as_str()) {
