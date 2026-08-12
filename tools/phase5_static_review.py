@@ -226,11 +226,11 @@ def review() -> list[Lane]:
                 [
                     "impact_ids",
                     "evaluate_forward",
-                    "unexpected binding change outside authority",
                     "UnexpectedBindingChange",
+                    "policy_satisfied = false",
                 ],
             ),
-            "outside-authority binding changes fail the forward policy",
+            "outside-authority binding changes fail through the typed blast-radius error contract",
         ),
         Lane(
             14,
