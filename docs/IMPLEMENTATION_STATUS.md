@@ -7,7 +7,8 @@
 - **Phase 1:** merged and engineering-proven — shared Rust core/CLI contracts + early read-only System X-Ray foundation.
 - **Phase 2:** merged and engineering-proven — normalized device evidence + typed package catalogue contracts.
 - **Phase 3:** merged and engineering-proven — deterministic read-only driver candidate matching/ranking.
-- **Phase 4:** corrected implementation proven — transaction, checkpoint, verification, reboot/resume, and rollback foundation; no machine-changing executor attached. Final documentation-state CI remains before merge.
+- **Phase 4:** merged and engineering-proven — transaction, checkpoint, verification, reboot/resume, and rollback foundation; no machine-changing executor attached.
+- **Phase 5:** next — controlled, manually selected driver installation bound to the proven transaction engine.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -19,9 +20,11 @@ Phase 2 final documentation-state run `31615112238` passed all configured Ubuntu
 
 Phase 3 final documentation-state run `31619460283` passed all configured Ubuntu and Windows gates with no unresolved review thread, and Phase 3 merged as `76e45bd6166dee4f89eecac519cfafde8a4c47e5`.
 
-## Phase 4 implemented
+Phase 4 final documentation-state run `31642625013` passed the complete Ubuntu and Windows pipeline with zero unresolved review threads, and Phase 4 merged as `bc9712a47e27a5930b918b45dcc65a48e62f70ae`.
 
-Phase 4 adds no machine mutation. It introduces:
+## Phase 4 proven capability
+
+Phase 4 adds no machine mutation. It provides:
 
 - `neo-transaction`;
 - exact immutable transaction plans with SHA-256 fingerprints;
@@ -42,7 +45,9 @@ Phase 4 adds no machine mutation. It introduces:
 
 ## Still deliberately blocked
 
-Driver staging/install/removal, runtime install, downloads, debloat/tweaks execution, BCD/security mutation, actual reboot/resume execution, actual rollback writes, GUI, and Device Lab writes—including Apple/DFU Pro binding changes—remain blocked.
+Driver staging/install/removal, runtime install, downloads, debloat/tweaks execution, BCD/security mutation, actual reboot/resume execution, actual rollback writes, GUI, and Device Lab writes—including Apple/DFU Pro binding changes—remain blocked until their dedicated phases prove the corresponding executors.
+
+Phase 5 may introduce only a narrowly bounded, transaction-authorized selected-driver installation path after its own review/proof gates. Broad driver-store deletion, forced lower-ranked binding, blanket USB/filter replacement, and security/BCD weakening remain outside that authority.
 
 ## Frozen technician requirements
 
@@ -58,11 +63,13 @@ Implementation continues to honor:
 - Phase 1: **PROVEN and merged**.
 - Phase 2: **PROVEN and merged**.
 - Phase 3: **PROVEN and merged**.
+- Phase 4: **PROVEN and merged**.
 - Phase 4 Cargo.lock: recovered exactly from CI and committed; no dependency version selected by hand.
 - Phase 4 rustfmt finding: corrected using stable rustfmt only.
 - External review found three valid major gaps: blocked-state recovery, case-insensitive Windows target identity, and non-recursive Phase 4 source scanning. All three were corrected and the reviewer automatically resolved all three threads.
 - Post-proof API review found raw root Serde deserialization could bypass plan/checkpoint validation. Both root types now deserialize through private validated wire types; direct-Serde regressions pass while `from_json_str()` preserves Neo's specific error taxonomy.
-- GitHub Actions run `31642441507`: **PASS on Ubuntu and Windows**.
+- GitHub Actions implementation-code run `31642441507`: **PASS on Ubuntu and Windows**.
+- GitHub Actions final documentation-state run `31642625013`: **PASS on Ubuntu and Windows**.
   - Phase 1 20-lane review: PASS on both.
   - Phase 2 20-lane review: PASS on both.
   - Phase 3 20-lane review: PASS on both.
@@ -76,8 +83,8 @@ Implementation continues to honor:
   - Read-only matcher CLI fixture: PASS on both.
   - Read-only transaction-plan CLI fixture: PASS on both.
   - Read-only transaction-checkpoint CLI fixture: PASS on both.
-- External review threads: **0 unresolved** at implementation-code proof close.
+- External review threads at merge: **0 unresolved**.
 - Live attached-device proof: **not claimed**.
-- Machine mutation proof: **not applicable; mutation remains disabled**.
+- Machine mutation proof: **not yet claimed; Phase 4 intentionally has no machine-changing executor**.
 
-Phase 4 has no known unresolved correctness/security finding. One final CI run on this documentation-closed branch state is required before merge.
+Phase 5 is the next implementation boundary: controlled selected-driver installation over the proven matcher + transaction contracts.
