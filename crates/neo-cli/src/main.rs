@@ -332,8 +332,7 @@ fn run(cli: Cli) -> Result<(), String> {
                     TransactionCheckpoint::new(plan).map_err(|error| error.to_string())?;
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&checkpoint)
-                        .map_err(|error| error.to_string())?
+                    serde_json::to_string_pretty(&checkpoint).map_err(|error| error.to_string())?
                 );
                 Ok(())
             }

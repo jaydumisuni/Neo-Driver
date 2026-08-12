@@ -3,7 +3,7 @@ use crate::state::{
     ensure_unique_predicates, ensure_unique_targets, set_of_targets, StateTarget,
     VerificationExpectation, VerificationPredicate,
 };
-use neo_core::{EvidenceVerdict, PlannedAction, RecommendationState, RebootRequirement, RiskLevel};
+use neo_core::{EvidenceVerdict, PlannedAction, RebootRequirement, RecommendationState, RiskLevel};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -203,17 +203,13 @@ impl TransactionPlan {
             }
             for predicate in &transaction_action.postconditions {
                 if !predicate_ids.insert(predicate.id.as_str()) {
-                    return Err(TransactionError::DuplicatePredicateId(
-                        predicate.id.clone(),
-                    ));
+                    return Err(TransactionError::DuplicatePredicateId(predicate.id.clone()));
                 }
             }
             if let RollbackPlan::Reversible { verification, .. } = &transaction_action.rollback {
                 for predicate in verification {
                     if !predicate_ids.insert(predicate.id.as_str()) {
-                        return Err(TransactionError::DuplicatePredicateId(
-                            predicate.id.clone(),
-                        ));
+                        return Err(TransactionError::DuplicatePredicateId(predicate.id.clone()));
                     }
                 }
             }
@@ -372,7 +368,10 @@ impl TransactionAuthorization {
             .actions
             .iter()
             .filter(|transaction_action| {
-                matches!(&transaction_action.rollback, RollbackPlan::Irreversible { .. })
+                matches!(
+                    &transaction_action.rollback,
+                    RollbackPlan::Irreversible { .. }
+                )
             })
             .map(|transaction_action| transaction_action.action.id.clone())
             .collect::<BTreeSet<_>>();

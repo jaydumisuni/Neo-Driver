@@ -94,7 +94,9 @@ pub(crate) fn validate_record_ids(
     let mut seen = BTreeSet::new();
     for record in records {
         if plan.action_by_id(&record.action_id).is_none() {
-            return Err(TransactionError::UnknownApplyAction(record.action_id.clone()));
+            return Err(TransactionError::UnknownApplyAction(
+                record.action_id.clone(),
+            ));
         }
         if !seen.insert(record.action_id.as_str()) {
             return Err(TransactionError::DuplicateApplyRecord(

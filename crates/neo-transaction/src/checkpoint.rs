@@ -124,10 +124,7 @@ impl TransactionCheckpoint {
         &self.events
     }
 
-    pub fn capture_baseline(
-        &mut self,
-        states: Vec<CapturedState>,
-    ) -> Result<(), TransactionError> {
+    pub fn capture_baseline(&mut self, states: Vec<CapturedState>) -> Result<(), TransactionError> {
         self.require_stage(TransactionStage::Planned)?;
         self.validate()?;
         let baseline = BaselineSnapshot::for_plan(&self.plan, states)?;
@@ -213,8 +210,7 @@ impl TransactionCheckpoint {
             .baseline
             .as_ref()
             .ok_or(TransactionError::MissingBaseline)?;
-        let results =
-            evaluate_predicates(&reboot_checkpoint.expected_post_reboot, &observations)?;
+        let results = evaluate_predicates(&reboot_checkpoint.expected_post_reboot, &observations)?;
         let passed = required_results_pass(&results, baseline);
         self.resume_results = results;
         if passed {
@@ -297,7 +293,10 @@ impl TransactionCheckpoint {
             return Err(TransactionError::EmptyExecutionDetail(record.action_id));
         }
         self.rollback_records.push(record.clone());
-        self.record_event(&format!("rollback result recorded for {}", record.action_id));
+        self.record_event(&format!(
+            "rollback result recorded for {}",
+            record.action_id
+        ));
         if record.outcome == ApplyOutcome::Failure {
             self.transition(
                 TransactionStage::Failed,

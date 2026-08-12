@@ -212,9 +212,7 @@ pub(crate) fn ensure_unique_predicates(
     for predicate in predicates {
         predicate.validate()?;
         if !seen.insert(predicate.id.as_str()) {
-            return Err(TransactionError::DuplicatePredicateId(
-                predicate.id.clone(),
-            ));
+            return Err(TransactionError::DuplicatePredicateId(predicate.id.clone()));
         }
     }
     Ok(())

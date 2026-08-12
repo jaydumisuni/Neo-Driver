@@ -176,9 +176,7 @@ impl TransactionCheckpoint {
     }
 
     fn require_baseline_only(&self) -> Result<(), TransactionError> {
-        if self.baseline.is_none()
-            || self.authorization.is_some()
-            || !self.apply_records.is_empty()
+        if self.baseline.is_none() || self.authorization.is_some() || !self.apply_records.is_empty()
         {
             return Err(TransactionError::StageInvariantViolation);
         }
@@ -204,9 +202,14 @@ impl TransactionCheckpoint {
         Ok(())
     }
 
-    pub(crate) fn validate_apply_record(&self, record: &ApplyRecord) -> Result<(), TransactionError> {
+    pub(crate) fn validate_apply_record(
+        &self,
+        record: &ApplyRecord,
+    ) -> Result<(), TransactionError> {
         if self.plan.action_by_id(&record.action_id).is_none() {
-            return Err(TransactionError::UnknownApplyAction(record.action_id.clone()));
+            return Err(TransactionError::UnknownApplyAction(
+                record.action_id.clone(),
+            ));
         }
         if self
             .apply_records

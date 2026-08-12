@@ -1,7 +1,7 @@
 use super::*;
 use neo_core::{
-    ActionKind, EvidenceItem, EvidenceVerdict, PlannedAction, RecommendationState,
-    RebootRequirement, RiskLevel,
+    ActionKind, EvidenceItem, EvidenceVerdict, PlannedAction, RebootRequirement,
+    RecommendationState, RiskLevel,
 };
 
 fn target() -> StateTarget {
@@ -104,15 +104,9 @@ fn fingerprint_is_stable_and_plan_bound() {
     let same = plan();
     assert_eq!(first.fingerprint().unwrap(), same.fingerprint().unwrap());
     let mut changed_action = transaction_action();
-    changed_action.postconditions[0].expectation =
-        VerificationExpectation::Equals("2".to_string());
-    let changed = TransactionPlan::new(
-        "NEO-TX-TEST",
-        1,
-        "NEO-MISSION-TEST",
-        vec![changed_action],
-    )
-    .unwrap();
+    changed_action.postconditions[0].expectation = VerificationExpectation::Equals("2".to_string());
+    let changed =
+        TransactionPlan::new("NEO-TX-TEST", 1, "NEO-MISSION-TEST", vec![changed_action]).unwrap();
     assert_ne!(first.fingerprint().unwrap(), changed.fingerprint().unwrap());
 }
 
@@ -357,11 +351,9 @@ fn verification_status_is_recomputed_from_observed_evidence() {
         predicate: rollback_predicate(),
         observed: ObservedValue::Present("0".to_string()),
     };
-    let baseline = BaselineSnapshot::for_plan(
-        &plan(),
-        baseline(CapturedValue::Present("0".to_string())),
-    )
-    .unwrap();
+    let baseline =
+        BaselineSnapshot::for_plan(&plan(), baseline(CapturedValue::Present("0".to_string())))
+            .unwrap();
     assert_eq!(result.status(&baseline), VerificationStatus::Pass);
     let json = serde_json::to_string(&result).unwrap();
     assert!(!json.contains("pass"));
@@ -459,11 +451,14 @@ fn persisted_reboot_checkpoint_tampering_is_rejected_after_resume() {
         "predicate": value["reboot_checkpoint"]["expected_post_reboot"][0].clone(),
         "observed": {"state":"present","value":"0"}
     }]);
-    value["events"].as_array_mut().unwrap().push(serde_json::json!({
-        "sequence": 7,
-        "stage":"blocked",
-        "message":"tampered resume"
-    }));
+    value["events"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "sequence": 7,
+            "stage":"blocked",
+            "message":"tampered resume"
+        }));
     let encoded = serde_json::to_string(&value).unwrap();
     assert!(matches!(
         TransactionCheckpoint::from_json_str(&encoded),
