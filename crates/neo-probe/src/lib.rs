@@ -50,7 +50,7 @@ impl CommandRunner for SystemCommandRunner {
             .output()
             .map_err(|source| ProbeError::CommandStart {
                 program: program.to_string(),
-                source: source.to_string(),
+                detail: source.to_string(),
             })?;
 
         Ok(CommandEvidence {
@@ -407,8 +407,8 @@ fn determine_pending_reboot(
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum ProbeError {
-    #[error("failed to start '{program}': {source}")]
-    CommandStart { program: String, source: String },
+    #[error("failed to start '{program}': {detail}")]
+    CommandStart { program: String, detail: String },
     #[error("Neo system scan is currently supported on Windows only")]
     UnsupportedPlatform,
 }
@@ -555,7 +555,7 @@ nointegritychecks       No
     fn pending_reboot_is_unknown_when_a_probe_cannot_start() {
         let error = ProbeError::CommandStart {
             program: "reg.exe".to_string(),
-            source: "fixture".to_string(),
+            detail: "fixture".to_string(),
         };
         let failed = CommandEvidence::failed_to_start("reg.exe", &["query"], &error);
         let missing = absent("reg.exe").unwrap();
@@ -593,7 +593,7 @@ nointegritychecks       No
     fn one_failed_command_start_does_not_abort_other_probe_lanes() {
         let start_error = Err(ProbeError::CommandStart {
             program: "bcdedit.exe".to_string(),
-            source: "fixture missing".to_string(),
+            detail: "fixture missing".to_string(),
         });
         let runner = FakeRunner::new(vec![
             evidence("reg.exe", "ProductName REG_SZ Windows 11 Pro"),
