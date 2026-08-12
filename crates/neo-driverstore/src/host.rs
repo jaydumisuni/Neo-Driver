@@ -9,6 +9,9 @@ pub trait DriverHost {
     /// Read-only inventory of present devices and their active bindings.
     fn inventory(&self) -> Result<DriverInventory, DriverStoreError>;
 
+    /// Ask Windows which present devices have a compatible driver node in this exact INF.
+    fn compatible_present_devices(&self, inf: &Path) -> Result<Vec<String>, DriverStoreError>;
+
     /// Verify the actual selected INF and return Windows signer/catalogue evidence.
     fn verify_inf_signature(&self, inf: &Path) -> Result<VerifiedInfSignature, DriverStoreError>;
 
@@ -17,6 +20,12 @@ pub trait DriverHost {
         &self,
         source_inf: &Path,
         catalogue_files: &[String],
+    ) -> Result<Option<StoredDriverPackage>, DriverStoreError>;
+
+    /// Resolve one exact Windows-published package without mutating it.
+    fn resolve_published_package(
+        &self,
+        published_inf: &str,
     ) -> Result<Option<StoredDriverPackage>, DriverStoreError>;
 
     /// Stage the exact selected source INF and return its Windows-published identity.
