@@ -1,0 +1,73 @@
+{
+  "transaction_id": "NEO-TX-FIXTURE",
+  "revision": 1,
+  "mission_id": "NEO-MISSION-FIXTURE",
+  "actions": [
+    {
+      "action": {
+        "id": "neo.fixture.tweak",
+        "title": "Fixture reversible tweak",
+        "kind": "tweak",
+        "risk": "normal",
+        "recommendation": "recommended",
+        "verdict": "certified",
+        "rationale": "Exercise transaction capture, verification, and rollback contracts without changing Windows.",
+        "selected_by_default": false,
+        "requires_confirmation": true,
+        "requires_admin": false,
+        "reboot": "none",
+        "rollback_available": true,
+        "evidence": [
+          {
+            "key": "fixture",
+            "value": "synthetic",
+            "source": "phase4-fixture"
+          }
+        ],
+        "warnings": []
+      },
+      "snapshot_targets": [
+        {
+          "kind": "registry_value",
+          "key": "HKCU\\Software\\NeoFixture\\Enabled"
+        }
+      ],
+      "postconditions": [
+        {
+          "id": "fixture.enabled",
+          "target": {
+            "kind": "registry_value",
+            "key": "HKCU\\Software\\NeoFixture\\Enabled"
+          },
+          "expectation": {
+            "type": "equals",
+            "value": "1"
+          },
+          "required": true
+        }
+      ],
+      "rollback": {
+        "mode": "reversible",
+        "restore_targets": [
+          {
+            "kind": "registry_value",
+            "key": "HKCU\\Software\\NeoFixture\\Enabled"
+          }
+        ],
+        "verification": [
+          {
+            "id": "fixture.restore",
+            "target": {
+              "kind": "registry_value",
+              "key": "HKCU\\Software\\NeoFixture\\Enabled"
+            },
+            "expectation": {
+              "type": "matches_baseline"
+            },
+            "required": true
+          }
+        ]
+      }
+    }
+  ]
+}

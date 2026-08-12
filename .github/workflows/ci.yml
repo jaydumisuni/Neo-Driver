@@ -37,6 +37,9 @@ jobs:
       - name: Phase 3 twenty-lane static review
         run: python -W error tools/phase3_static_review.py
 
+      - name: Phase 4 twenty-lane static review
+        run: python -W error tools/phase4_static_review.py
+
       - name: Cargo lockfile proof
         run: |
           cargo generate-lockfile
@@ -59,3 +62,11 @@ jobs:
 
       - name: Matcher CLI fixture proof
         run: cargo run --locked -p neo-cli -- match --device fixtures/match/device.json --catalogue fixtures/catalogue/sample_driver_catalogue.json --architecture x64 --build 26100
+
+      - name: Transaction plan CLI fixture proof
+        run: cargo run --locked -p neo-cli -- transaction validate-plan fixtures/transaction/sample_transaction_plan.json
+
+      - name: Transaction checkpoint CLI fixture proof
+        run: |
+          cargo run --locked --quiet -p neo-cli -- transaction checkpoint-template fixtures/transaction/sample_transaction_plan.json > target/phase4-checkpoint.json
+          cargo run --locked -p neo-cli -- transaction validate-checkpoint target/phase4-checkpoint.json
