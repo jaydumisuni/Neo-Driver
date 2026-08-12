@@ -134,21 +134,21 @@ impl DriverInstallSession {
             }
         }
 
-        let backend = if operational_error.is_none() {
-            match self.target_package.as_ref() {
-                Some(package) => match host.install_best_match(&package.driver_store_inf) {
-                    Ok(result) => Some(result),
+        let mut reboot_required = false;
+        if operational_error.is_none() {
+            for impact in &self.driver_plan.impacts {
+                match host.install_best_match(&impact.instance_id) {
+                    Ok(result) => reboot_required |= result.reboot_required,
                     Err(error) => {
-                        operational_error =
-                            Some(format!("Windows best-match install failed: {error}"));
-                        None
+                        operational_error = Some(format!(
+                            "Windows per-device best-match install failed for {}: {error}",
+                            impact.instance_id
+                        ));
+                        break;
                     }
-                },
-                None => None,
+                }
             }
-        } else {
-            None
-        };
+        }
 
         let mut after = host.inventory()?;
         after.validate()?;
@@ -201,7 +201,7 @@ impl DriverInstallSession {
             outcome,
             detail,
             machine_changed,
-            reboot_required: backend.is_some_and(|result| result.reboot_required),
+            reboot_required,
         })?;
 
         if outcome == ApplyOutcome::Success

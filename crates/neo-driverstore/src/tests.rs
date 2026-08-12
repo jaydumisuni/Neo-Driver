@@ -134,34 +134,38 @@ impl DriverHost for FakeHost {
 
     fn install_best_match(
         &self,
-        driver_store_inf: &Path,
+        instance_id: &str,
     ) -> Result<DriverBackendResult, DriverStoreError> {
         let mut state = self.state.borrow_mut();
         let package = state
             .packages
-            .values()
-            .find(|package| package.driver_store_inf == driver_store_inf)
+            .get("oem42.inf")
             .cloned()
             .ok_or_else(|| DriverStoreError::Windows("target package missing".to_string()))?;
         if state.install_changes {
-            let compatible = state.compatible.clone();
             let target_problem_code = state.target_problem_code;
-            for device in &mut state.inventory.devices {
-                if compatible
-                    .iter()
-                    .any(|id| id.eq_ignore_ascii_case(device.instance_id.as_str()))
-                {
-                    let mut binding = device.active_driver.clone().unwrap_or_default();
-                    binding.published_name = Some(package.published_inf.clone());
-                    binding.original_name = Some("fixture.inf".to_string());
-                    binding.provider = Some("Neo Fixture Vendor".to_string());
-                    binding.version = Some("2.0.0.0".to_string());
-                    binding.signer = Some("Neo Fixture Signer".to_string());
-                    binding.catalog_file = Some("fixture.cat".to_string());
-                    device.active_driver = Some(binding);
-                    device.problem_code = target_problem_code;
-                }
-            }
+            let device = state
+                .inventory
+                .devices
+                .iter_mut()
+                .find(|device| {
+                    device
+                        .instance_id
+                        .as_str()
+                        .eq_ignore_ascii_case(instance_id)
+                })
+                .ok_or_else(|| {
+                    DriverStoreError::Windows(format!("device disappeared: {instance_id}"))
+                })?;
+            let mut binding = device.active_driver.clone().unwrap_or_default();
+            binding.published_name = Some(package.published_inf.clone());
+            binding.original_name = Some("fixture.inf".to_string());
+            binding.provider = Some("Neo Fixture Vendor".to_string());
+            binding.version = Some("2.0.0.0".to_string());
+            binding.signer = Some("Neo Fixture Signer".to_string());
+            binding.catalog_file = Some("fixture.cat".to_string());
+            device.active_driver = Some(binding);
+            device.problem_code = target_problem_code;
         }
         if state.install_error {
             return Err(DriverStoreError::Windows(

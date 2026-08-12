@@ -1,9 +1,10 @@
 //! Windows SetupAPI/NewDev backend for controlled driver installation.
 //!
-//! Forward installation always calls `DiInstallDriverW` with flags=0 so Windows
-//! retains best-match authority. `DiInstallDevice` is used only to restore an
-//! exact captured baseline published INF during rollback. Package removal uses
-//! `SetupUninstallOEMInfW` with flags=0; force deletion is intentionally absent.
+//! Forward installation stages the approved package, then calls `DiInstallDevice`
+//! with `DriverInfoData = NULL` for each already-authorized device so Windows searches
+//! the preinstalled Driver Store and selects that device's best match. Rollback is the
+//! only path that supplies a specific captured driver node. Package removal uses
+//! `SetupUninstallOEMInfW` with flags=0; force installation/deletion is absent.
 
 use neo_device::{DeviceRecord, DriverBinding, OpaqueDeviceId, OrderedDeviceIds};
 use std::fs;
@@ -11,14 +12,13 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use windows::core::{Error as WinError, HRESULT, PCWSTR};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
-    CM_Get_DevNode_Status, DiInstallDevice, DiInstallDriverW, SetupCopyOEMInfW,
-    SetupDiBuildDriverInfoList, SetupDiDestroyDeviceInfoList, SetupDiDestroyDriverInfoList,
-    SetupDiEnumDeviceInfo, SetupDiEnumDriverInfoW, SetupDiGetClassDevsW,
-    SetupDiGetDeviceInstallParamsW, SetupDiGetDeviceInstanceIdW, SetupDiGetDevicePropertyW,
-    SetupDiGetDeviceRegistryPropertyW, SetupDiSetDeviceInstallParamsW,
-    SetupGetInfDriverStoreLocationW, SetupGetInfPublishedNameW, SetupUninstallOEMInfW,
-    SetupVerifyInfFileW, CM_DEVNODE_STATUS_FLAGS, CM_PROB, CR_SUCCESS, DIGCF_ALLCLASSES,
-    DIGCF_PRESENT, DIINSTALLDEVICE_FLAGS, DIINSTALLDRIVER_FLAGS, DI_ENUMSINGLEINF,
+    CM_Get_DevNode_Status, DiInstallDevice, SetupCopyOEMInfW, SetupDiBuildDriverInfoList,
+    SetupDiDestroyDeviceInfoList, SetupDiDestroyDriverInfoList, SetupDiEnumDeviceInfo,
+    SetupDiEnumDriverInfoW, SetupDiGetClassDevsW, SetupDiGetDeviceInstallParamsW,
+    SetupDiGetDeviceInstanceIdW, SetupDiGetDevicePropertyW, SetupDiGetDeviceRegistryPropertyW,
+    SetupDiSetDeviceInstallParamsW, SetupGetInfDriverStoreLocationW, SetupGetInfPublishedNameW,
+    SetupUninstallOEMInfW, SetupVerifyInfFileW, CM_DEVNODE_STATUS_FLAGS, CM_PROB, CR_SUCCESS,
+    DIGCF_ALLCLASSES, DIGCF_PRESENT, DIINSTALLDEVICE_FLAGS, DI_ENUMSINGLEINF,
     DI_FLAGSEX_ALLOWEXCLUDEDDRVS, HDEVINFO, SPDIT_COMPATDRIVER, SPDRP_CLASS, SPDRP_CLASSGUID,
     SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_MFG, SPOST_PATH, SP_COPY_STYLE,
     SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
@@ -241,22 +241,41 @@ impl DriverHost for WindowsDriverHost {
 
     fn install_best_match(
         &self,
-        driver_store_inf: &Path,
+        instance_id: &str,
     ) -> Result<DriverBackendResult, DriverStoreError> {
-        let wide = wide_path(driver_store_inf)?;
-        let mut reboot = windows::core::BOOL(0);
-        unsafe {
-            DiInstallDriverW(
-                None,
-                PCWSTR(wide.as_ptr()),
-                DIINSTALLDRIVER_FLAGS(0),
-                Some(&mut reboot),
-            )
+        let set = present_device_set()?;
+        let mut index = 0u32;
+        loop {
+            let mut data = devinfo_data();
+            match unsafe { SetupDiEnumDeviceInfo(set.0, index, &mut data) } {
+                Ok(()) => {}
+                Err(error) if is_no_more_items(&error) => {
+                    return Err(DriverStoreError::Windows(format!(
+                        "authorized device disappeared before best-match install: {instance_id}"
+                    )));
+                }
+                Err(error) => return Err(win_error("SetupDiEnumDeviceInfo", error)),
+            }
+            index += 1;
+            if !device_instance_id(set.0, &data)?.eq_ignore_ascii_case(instance_id) {
+                continue;
+            }
+            let mut reboot = windows::core::BOOL(0);
+            unsafe {
+                DiInstallDevice(
+                    None,
+                    set.0,
+                    &data,
+                    None,
+                    DIINSTALLDEVICE_FLAGS(0),
+                    Some(&mut reboot),
+                )
+            }
+            .map_err(|error| win_error("DiInstallDevice best-match", error))?;
+            return Ok(DriverBackendResult {
+                reboot_required: reboot.as_bool(),
+            });
         }
-        .map_err(|error| win_error("DiInstallDriverW", error))?;
-        Ok(DriverBackendResult {
-            reboot_required: reboot.as_bool(),
-        })
     }
 
     fn restore_specific_driver(
