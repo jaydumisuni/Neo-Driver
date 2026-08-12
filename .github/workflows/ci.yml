@@ -2,15 +2,15 @@ name: Neo Driver CI
 
 on:
   push:
-    branches: [main, "implementation/**"]
+    branches: ["main", "implementation/**"]
   pull_request:
-    branches: [main]
+    branches: ["main"]
 
 permissions:
   contents: read
 
 jobs:
-  engineering-proof:
+  proof:
     name: ${{ matrix.os }} proof
     strategy:
       fail-fast: false
@@ -23,50 +23,64 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install stable Rust
+        shell: bash
         run: |
           rustup toolchain install stable --profile minimal
           rustup component add rustfmt clippy --toolchain stable
           rustup default stable
 
       - name: Phase 1 twenty-lane static review
-        run: python tools/phase1_static_review.py
+        shell: bash
+        run: python -W error tools/phase1_static_review.py
 
       - name: Phase 2 twenty-lane static review
+        shell: bash
         run: python -W error tools/phase2_static_review.py
 
       - name: Phase 3 twenty-lane static review
+        shell: bash
         run: python -W error tools/phase3_static_review.py
 
       - name: Phase 4 twenty-lane static review
+        shell: bash
         run: python -W error tools/phase4_static_review.py
 
+      - name: Phase 5 twenty-lane static review
+        shell: bash
+        run: python -W error tools/phase5_static_review.py
+
       - name: Cargo lockfile proof
-        run: |
-          cargo generate-lockfile
-          python tools/lockfile_guard.py
+        shell: bash
+        run: python -W error tools/lockfile_guard.py
 
       - name: Rust formatting proof
+        shell: bash
         run: cargo fmt --all -- --check
 
       - name: Rust type/build proof
+        shell: bash
         run: cargo check --workspace --all-targets --locked
 
       - name: Rust Clippy proof
+        shell: bash
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Rust unit proof
+        shell: bash
         run: cargo test --workspace --all-targets --locked
 
       - name: Catalogue CLI fixture proof
-        run: cargo run --locked -p neo-cli -- catalogue validate fixtures/catalogue/sample_driver_catalogue.json
+        shell: bash
+        run: cargo run -p neo-cli --locked -- catalogue validate fixtures/catalogue.sample.json --json
 
       - name: Matcher CLI fixture proof
-        run: cargo run --locked -p neo-cli -- match --device fixtures/match/device.json --catalogue fixtures/catalogue/sample_driver_catalogue.json --architecture x64 --build 26100
+        shell: bash
+        run: cargo run -p neo-cli --locked -- match --inventory fixtures/device_inventory.sample.json --catalogue fixtures/catalogue.sample.json --architecture x64 --windows-build 26100 --device-instance-id "USB\\VID_1234&PID_5678\\NEO-FIXTURE" --json
 
       - name: Transaction plan CLI fixture proof
-        run: cargo run --locked -p neo-cli -- transaction validate-plan fixtures/transaction/sample_transaction_plan.json
+        shell: bash
+        run: cargo run -p neo-cli --locked -- transaction validate-plan fixtures/transaction_plan.sample.json --json
 
       - name: Transaction checkpoint CLI fixture proof
-        run: |
-          cargo run --locked --quiet -p neo-cli -- transaction checkpoint-template fixtures/transaction/sample_transaction_plan.json > target/phase4-checkpoint.json
-          cargo run --locked -p neo-cli -- transaction validate-checkpoint target/phase4-checkpoint.json
+        shell: bash
+        run: cargo run -p neo-cli --locked -- transaction checkpoint-template fixtures/transaction_plan.sample.json --json
