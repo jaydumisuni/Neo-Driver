@@ -2,26 +2,40 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DriverStoreError {
+    #[error("{0} cannot be empty")]
+    EmptyField(&'static str),
     #[error("catalogue package not found: {0}")]
     PackageNotFound(String),
     #[error("driver artifact not found in package {package_id}: {inf_path}")]
     ArtifactNotFound { package_id: String, inf_path: String },
+    #[error("selected package is not an INF driver bundle")]
+    WrongPackageKind,
     #[error("selected driver artifact is not catalogue-verified")]
     UnverifiedArtifact,
     #[error("selected driver artifact has no expected signer")]
     MissingExpectedSigner,
     #[error("driver INF path must be a relative path contained by the package root")]
     UnsafeInfPath,
+    #[error("invalid source INF SHA-256: {0}")]
+    InvalidSourceHash(String),
     #[error("driver source signature/catalogue does not match the approved catalogue evidence")]
     SignatureMismatch,
+    #[error("invalid Windows signature evidence")]
+    InvalidSignatureEvidence,
+    #[error("invalid stored driver package identity")]
+    InvalidStoredPackage,
     #[error("no present device is supported by the exact selected INF")]
     NoSupportedPresentDevice,
+    #[error("catalogue applicability and Windows exact-INF impact set disagree")]
+    CatalogueImpactMismatch,
     #[error("present supported device has no captured active driver binding: {0}")]
     MissingBaselineBinding(String),
     #[error("present supported device has no captured published INF for exact rollback: {0}")]
     MissingBaselinePublishedInf(String),
     #[error("duplicate impacted device instance: {0}")]
     DuplicateImpact(String),
+    #[error("duplicate inventory device instance: {0}")]
+    DuplicateInventoryDevice(String),
     #[error("driver pre-state changed after authority; apply blocked")]
     PrestateDrift,
     #[error("driver blast radius changed after authority; apply blocked")]
@@ -40,10 +54,14 @@ pub enum DriverStoreError {
     TransactionActionMismatch,
     #[error("driver plan fingerprint is not bound into the transaction action evidence")]
     DriverPlanFingerprintMismatch,
+    #[error("driver-install session state violates its transaction contract")]
+    SessionInvariantViolation,
     #[error("driver operation is not supported on this host: {0}")]
     UnsupportedHost(String),
     #[error("Windows backend error: {0}")]
     Windows(String),
+    #[error("device evidence error: {0}")]
+    Device(String),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]
