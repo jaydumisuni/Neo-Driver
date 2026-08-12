@@ -17,8 +17,8 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     SetupDiEnumDriverInfoW, SetupDiGetClassDevsW, SetupDiGetDeviceInstallParamsW,
     SetupDiGetDeviceInstanceIdW, SetupDiGetDevicePropertyW, SetupDiGetDeviceRegistryPropertyW,
     SetupDiSetDeviceInstallParamsW, SetupGetInfDriverStoreLocationW, SetupGetInfPublishedNameW,
-    SetupUninstallOEMInfW, SetupVerifyInfFileW, CM_DEVNODE_STATUS_FLAGS, CM_PROB, CR_SUCCESS,
-    DIGCF_ALLCLASSES, DIGCF_PRESENT, DIINSTALLDEVICE_FLAGS, DI_ENUMSINGLEINF,
+    SetupUninstallOEMInfW, SetupVerifyInfFileW, CM_DEVNODE_STATUS_FLAGS, CM_PROB, CONFIGRET,
+    CR_SUCCESS, DIGCF_ALLCLASSES, DIGCF_PRESENT, DIINSTALLDEVICE_FLAGS, DI_ENUMSINGLEINF,
     DI_FLAGSEX_ALLOWEXCLUDEDDRVS, HDEVINFO, SPDIT_COMPATDRIVER, SPDRP_CLASS, SPDRP_CLASSGUID,
     SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_MFG, SPOST_PATH, SP_COPY_STYLE,
     SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
@@ -69,7 +69,7 @@ impl DriverHost for WindowsDriverHost {
                 .collect::<Result<Vec<_>, _>>()?;
             let published_name =
                 device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
-            let problem_code = problem_code(&data);
+            let problem_code = problem_code(&data)?;
             devices.push(DeviceRecord {
                 instance_id: opaque_id(instance_id)?,
                 description: registry_string(set.0, &data, SPDRP_DEVICEDESC)?,
@@ -482,15 +482,24 @@ fn device_property_string(
     Ok(nonempty(utf16_array(&bytes_to_u16(&bytes))))
 }
 
-fn problem_code(data: &SP_DEVINFO_DATA) -> Option<u32> {
+fn problem_code(data: &SP_DEVINFO_DATA) -> Result<Option<u32>, DriverStoreError> {
     let mut status = CM_DEVNODE_STATUS_FLAGS(0);
     let mut problem = CM_PROB(0);
     let result = unsafe { CM_Get_DevNode_Status(&mut status, &mut problem, data.DevInst, 0) };
-    if result == CR_SUCCESS && problem.0 != 0 {
-        Some(problem.0)
-    } else {
-        None
+    decode_problem_code(result, problem)
+}
+
+fn decode_problem_code(
+    result: CONFIGRET,
+    problem: CM_PROB,
+) -> Result<Option<u32>, DriverStoreError> {
+    if result != CR_SUCCESS {
+        return Err(DriverStoreError::Windows(format!(
+            "CM_Get_DevNode_Status failed: CONFIGRET {}",
+            result.0
+        )));
     }
+    Ok((problem.0 != 0).then_some(problem.0))
 }
 
 fn driver_store_location(published_inf: &Path) -> Result<PathBuf, DriverStoreError> {
@@ -611,10 +620,34 @@ fn file_name(value: &str) -> String {
 
 fn is_safe_published_name(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
-    !value.contains(['\\', '/'])
-        && lower.starts_with("oem")
-        && lower.ends_with(".inf")
-        && lower[3..lower.len() - 4]
-            .chars()
-            .all(|character| character.is_ascii_digit())
+    if value.contains(['\\', '/']) || !lower.starts_with("oem") || !lower.ends_with(".inf") {
+        return false;
+    }
+    let digits = &lower[3..lower.len() - 4];
+    !digits.is_empty() && digits.chars().all(|character| character.is_ascii_digit())
+}
+
+#[cfg(test)]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn published_name_requires_numeric_oem_index() {
+        assert!(is_safe_published_name("oem0.inf"));
+        assert!(is_safe_published_name("OEM42.INF"));
+        assert!(!is_safe_published_name("oem.inf"));
+        assert!(!is_safe_published_name("oemx.inf"));
+        assert!(!is_safe_published_name(r"sub\oem1.inf"));
+    }
+
+    #[test]
+    fn config_manager_status_failure_is_not_treated_as_healthy() {
+        assert_eq!(decode_problem_code(CR_SUCCESS, CM_PROB(0)).unwrap(), None);
+        assert_eq!(
+            decode_problem_code(CR_SUCCESS, CM_PROB(10)).unwrap(),
+            Some(10)
+        );
+        let error = decode_problem_code(CONFIGRET(13), CM_PROB(0)).unwrap_err();
+        assert!(error.to_string().contains("CONFIGRET 13"));
+    }
 }
