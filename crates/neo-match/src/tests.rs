@@ -1,7 +1,7 @@
 use super::*;
 use neo_catalogue::{
-    PackageManifest, Provenance, RebootRequirement, RedistributionPolicy,
-    SecurityRequirements, SignatureEvidence, WindowsApplicability,
+    PackageManifest, Provenance, RebootRequirement, RedistributionPolicy, SecurityRequirements,
+    SignatureEvidence, WindowsApplicability,
 };
 use neo_device::{OpaqueDeviceId, OrderedDeviceIds};
 
@@ -65,7 +65,11 @@ fn artifact(
     }
 }
 
-fn package(package_id: &str, artifact: DriverArtifact, architectures: Vec<&str>) -> PackageManifest {
+fn package(
+    package_id: &str,
+    artifact: DriverArtifact,
+    architectures: Vec<&str>,
+) -> PackageManifest {
     PackageManifest {
         package_id: package_id.to_string(),
         name: package_id.to_string(),
@@ -75,8 +79,7 @@ fn package(package_id: &str, artifact: DriverArtifact, architectures: Vec<&str>)
         provenance: Provenance {
             source_name: "fixture".to_string(),
             source_url: None,
-            sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                .to_string(),
+            sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string(),
             redistribution: RedistributionPolicy::Unknown,
         },
         windows: WindowsApplicability {
@@ -122,11 +125,7 @@ fn identifier_score_matches_microsoft_classes() {
 #[test]
 fn identifier_score_refuses_values_outside_documented_range() {
     assert_eq!(
-        identifier_score(
-            IdentifierMatchType::DeviceCompatibleToInfCompatible,
-            0,
-            16,
-        ),
+        identifier_score(IdentifierMatchType::DeviceCompatibleToInfCompatible, 0, 16,),
         None
     );
     assert_eq!(
@@ -162,8 +161,22 @@ fn more_specific_hardware_id_position_wins() {
     };
     let report = match_device(&device, &catalogue, &context()).unwrap();
     assert_eq!(report.candidates[0].package_id, "neo.first");
-    assert_eq!(report.candidates[0].identifier.as_ref().unwrap().identifier_score, 0);
-    assert_eq!(report.candidates[1].identifier.as_ref().unwrap().identifier_score, 1);
+    assert_eq!(
+        report.candidates[0]
+            .identifier
+            .as_ref()
+            .unwrap()
+            .identifier_score,
+        0
+    );
+    assert_eq!(
+        report.candidates[1]
+            .identifier
+            .as_ref()
+            .unwrap()
+            .identifier_score,
+        1
+    );
 }
 
 #[test]
