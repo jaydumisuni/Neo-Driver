@@ -141,8 +141,10 @@ impl DriverHost for WindowsDriverHost {
 
     fn verify_inf_signature(&self, inf: &Path) -> Result<VerifiedInfSignature, DriverStoreError> {
         let wide = wide_path(inf)?;
-        let mut signer = SP_INF_SIGNER_INFO_V2_W::default();
-        signer.cbSize = std::mem::size_of::<SP_INF_SIGNER_INFO_V2_W>() as u32;
+        let mut signer = SP_INF_SIGNER_INFO_V2_W {
+            cbSize: std::mem::size_of::<SP_INF_SIGNER_INFO_V2_W>() as u32,
+            ..Default::default()
+        };
         let ok = unsafe { SetupVerifyInfFileW(PCWSTR(wide.as_ptr()), None, &mut signer) };
         if !ok.as_bool() {
             return Err(last_error("SetupVerifyInfFileW"));
@@ -239,7 +241,10 @@ impl DriverHost for WindowsDriverHost {
             .ok_or(DriverStoreError::StagedPackageMismatch)
     }
 
-    fn install_best_match(&self, instance_id: &str) -> Result<DriverBackendResult, DriverStoreError> {
+    fn install_best_match(
+        &self,
+        instance_id: &str,
+    ) -> Result<DriverBackendResult, DriverStoreError> {
         let set = present_device_set()?;
         let mut index = 0u32;
         loop {
@@ -365,8 +370,10 @@ fn configure_single_inf(
     data: &mut SP_DEVINFO_DATA,
     inf_wide: &[u16],
 ) -> Result<(), DriverStoreError> {
-    let mut params = SP_DEVINSTALL_PARAMS_W::default();
-    params.cbSize = std::mem::size_of::<SP_DEVINSTALL_PARAMS_W>() as u32;
+    let mut params = SP_DEVINSTALL_PARAMS_W {
+        cbSize: std::mem::size_of::<SP_DEVINSTALL_PARAMS_W>() as u32,
+        ..Default::default()
+    };
     unsafe { SetupDiGetDeviceInstallParamsW(set, Some(data), &mut params) }
         .map_err(|error| win_error("SetupDiGetDeviceInstallParamsW", error))?;
     params.Flags.0 |= DI_ENUMSINGLEINF.0;
@@ -565,15 +572,17 @@ fn opaque_id(value: String) -> Result<OpaqueDeviceId, DriverStoreError> {
 }
 
 fn devinfo_data() -> SP_DEVINFO_DATA {
-    let mut value = SP_DEVINFO_DATA::default();
-    value.cbSize = std::mem::size_of::<SP_DEVINFO_DATA>() as u32;
-    value
+    SP_DEVINFO_DATA {
+        cbSize: std::mem::size_of::<SP_DEVINFO_DATA>() as u32,
+        ..Default::default()
+    }
 }
 
 fn drvinfo_data() -> SP_DRVINFO_DATA_V2_W {
-    let mut value = SP_DRVINFO_DATA_V2_W::default();
-    value.cbSize = std::mem::size_of::<SP_DRVINFO_DATA_V2_W>() as u32;
-    value
+    SP_DRVINFO_DATA_V2_W {
+        cbSize: std::mem::size_of::<SP_DRVINFO_DATA_V2_W>() as u32,
+        ..Default::default()
+    }
 }
 
 fn is_no_more_items(error: &WinError) -> bool {
