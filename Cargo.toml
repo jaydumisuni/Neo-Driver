@@ -5,6 +5,7 @@ members = [
     "crates/neo-probe",
     "crates/neo-device",
     "crates/neo-catalogue",
+    "crates/neo-match",
     "crates/neo-cli",
 ]
 

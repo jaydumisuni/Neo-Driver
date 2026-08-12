@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use neo_catalogue::Catalogue;
 use neo_core::{MissionPlan, UserDepth, UserIntent};
+use neo_device::DeviceRecord;
+use neo_match::{match_device, MatchContext};
 use neo_probe::scan_current_machine;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -38,6 +40,24 @@ enum Command {
     Catalogue {
         #[command(subcommand)]
         command: CatalogueCommand,
+    },
+    /// Read-only driver candidate matching. This never installs or stages a driver.
+    Match {
+        /// Validated Neo device JSON.
+        #[arg(long)]
+        device: PathBuf,
+        /// Validated Neo catalogue JSON.
+        #[arg(long)]
+        catalogue: PathBuf,
+        /// Windows architecture such as x64 or arm64.
+        #[arg(long)]
+        architecture: String,
+        /// Windows build number.
+        #[arg(long)]
+        build: u32,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
     },
     /// Show the current implementation boundary.
     Status,
@@ -209,10 +229,50 @@ fn run(cli: Cli) -> Result<(), String> {
                 Ok(())
             }
         },
+        Command::Match {
+            device,
+            catalogue,
+            architecture,
+            build,
+            json,
+        } => {
+            let device_json = std::fs::read_to_string(&device).map_err(|error| error.to_string())?;
+            let device_record: DeviceRecord =
+                serde_json::from_str(&device_json).map_err(|error| error.to_string())?;
+            let catalogue = Catalogue::read_json(&catalogue).map_err(|error| error.to_string())?;
+            let context = MatchContext {
+                architecture,
+                windows_build: build,
+            };
+            let report = match_device(&device_record, &catalogue, &context)
+                .map_err(|error| error.to_string())?;
+
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
+                );
+            } else {
+                println!("Neo read-only driver match");
+                println!("Device: {}", report.device_instance_id);
+                println!("Candidates: {}", report.candidates.len());
+                match &report.best_candidate {
+                    Some(best) => {
+                        println!("Best available-evidence candidate: {}", best.package_id);
+                        println!("INF: {}", best.inf_path);
+                    }
+                    None => println!("Best available-evidence candidate: none / ambiguous"),
+                }
+                println!("Full Windows rank available: {}", report.ranking_complete);
+                println!("Machine changes: none");
+            }
+            Ok(())
+        }
         Command::Status => {
-            println!("Neo Driver implementation phase: device evidence + catalogue contracts");
+            println!("Neo Driver implementation phase: deterministic read-only candidate matching");
             println!("Machine mutation: intentionally disabled");
             println!("Package downloads/installations: intentionally disabled");
+            println!("Full Windows rank emulation: intentionally not claimed");
             println!("Model dependency: none");
             Ok(())
         }

@@ -1,18 +1,12 @@
 [package]
-name = "neo-cli"
+name = "neo-match"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
 
-[[bin]]
-name = "neo"
-path = "src/main.rs"
-
 [dependencies]
-clap.workspace = true
 neo-catalogue = { path = "../neo-catalogue" }
 neo-core = { path = "../neo-core" }
 neo-device = { path = "../neo-device" }
-neo-match = { path = "../neo-match" }
-neo-probe = { path = "../neo-probe" }
-serde_json.workspace = true
+serde.workspace = true
+thiserror.workspace = true

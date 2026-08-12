@@ -1,0 +1,19 @@
+{
+  "instance_id": "USB\\VID_1234&PID_5678\\ABC",
+  "description": "Neo Fixture USB Device",
+  "manufacturer": "Neo Fixture Vendor",
+  "problem_code": null,
+  "disabled": false,
+  "ids": {
+    "hardware_ids": [
+      "USB\\VID_1234&PID_5678&REV_0001",
+      "USB\\VID_1234&PID_5678"
+    ],
+    "compatible_ids": [
+      "USB\\Class_FF"
+    ]
+  },
+  "active_driver": null,
+  "upper_filters": [],
+  "lower_filters": []
+}

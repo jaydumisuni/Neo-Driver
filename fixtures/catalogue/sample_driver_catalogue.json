@@ -20,13 +20,15 @@
       "driver_artifacts": [
         {
           "inf_path": "drivers/fixture.inf",
-          "ids": {
-            "hardware_ids": ["USB\\VID_1234&PID_5678"],
-            "compatible_ids": ["USB\\Class_FF"]
-          },
+          "models": [
+            {
+              "hardware_id": "USB\\VID_1234&PID_5678",
+              "compatible_ids": ["USB\\Class_FF"]
+            }
+          ],
           "catalog_files": ["drivers/fixture.cat"],
           "provider": "Neo Fixture Vendor",
-          "driver_version": "1.0.0",
+          "driver_version": "1.0.0.0",
           "driver_date": "2026-01-01",
           "signature": {
             "status": "verified",
