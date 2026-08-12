@@ -1,0 +1,19 @@
+[package]
+name = "neo-driverstore"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-catalogue = { path = "../neo-catalogue" }
+neo-core = { path = "../neo-core" }
+neo-device = { path = "../neo-device" }
+neo-match = { path = "../neo-match" }
+neo-transaction = { path = "../neo-transaction" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true

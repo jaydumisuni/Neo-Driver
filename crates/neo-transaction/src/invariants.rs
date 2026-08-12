@@ -56,7 +56,7 @@ impl TransactionCheckpoint {
             TransactionStage::AwaitingReboot => {
                 self.require_baseline_and_authorization()?;
                 self.require_all_apply_success()?;
-                if !self.plan.requires_reboot() {
+                if !self.effective_apply_reboot_required() {
                     return Err(TransactionError::UnexpectedRebootCheckpoint);
                 }
                 self.reboot_checkpoint
@@ -74,7 +74,7 @@ impl TransactionCheckpoint {
             TransactionStage::Verifying => {
                 self.require_baseline_and_authorization()?;
                 self.require_all_apply_success()?;
-                if self.plan.requires_reboot() {
+                if self.effective_apply_reboot_required() {
                     self.validate_resume_results(true)?;
                 } else if !self.resume_results.is_empty() || self.reboot_checkpoint.is_some() {
                     return Err(TransactionError::UnexpectedRebootCheckpoint);
@@ -89,7 +89,7 @@ impl TransactionCheckpoint {
             TransactionStage::Complete => {
                 self.require_baseline_and_authorization()?;
                 self.require_all_apply_success()?;
-                if self.plan.requires_reboot() {
+                if self.effective_apply_reboot_required() {
                     self.validate_resume_results(true)?;
                 }
                 self.validate_postcondition_results(true)?;
@@ -99,7 +99,7 @@ impl TransactionCheckpoint {
             }
             TransactionStage::RollingBack => {
                 self.require_baseline_and_authorization()?;
-                let changed = self.successful_applied_ids();
+                let changed = self.changed_action_ids();
                 if changed.is_empty() || !self.plan.all_reversible(&changed) {
                     return Err(TransactionError::StageInvariantViolation);
                 }
@@ -108,13 +108,37 @@ impl TransactionCheckpoint {
                     return Err(TransactionError::StageInvariantViolation);
                 }
             }
+            TransactionStage::AwaitingRollbackReboot => {
+                self.require_baseline_and_authorization()?;
+                let changed = self.changed_action_ids();
+                if changed.is_empty()
+                    || !self.plan.all_reversible(&changed)
+                    || !self.effective_rollback_reboot_required()
+                {
+                    return Err(TransactionError::StageInvariantViolation);
+                }
+                self.require_successful_rollback_records(&changed)?;
+                self.reboot_checkpoint
+                    .as_ref()
+                    .ok_or(TransactionError::MissingRebootCheckpoint)?
+                    .validate_for_checkpoint(self)?;
+                if !self.rollback_results.is_empty() {
+                    return Err(TransactionError::StageInvariantViolation);
+                }
+            }
             TransactionStage::RolledBack => {
                 self.require_baseline_and_authorization()?;
-                let changed = self.successful_applied_ids();
+                let changed = self.changed_action_ids();
                 if changed.is_empty() || !self.plan.all_reversible(&changed) {
                     return Err(TransactionError::StageInvariantViolation);
                 }
                 self.require_successful_rollback_records(&changed)?;
+                if self.effective_rollback_reboot_required() {
+                    self.reboot_checkpoint
+                        .as_ref()
+                        .ok_or(TransactionError::MissingRebootCheckpoint)?
+                        .validate_for_checkpoint(self)?;
+                }
                 self.validate_rollback_results(&changed, true)?;
             }
             TransactionStage::Failed => {
@@ -122,7 +146,7 @@ impl TransactionCheckpoint {
             }
             TransactionStage::Blocked => {
                 self.require_baseline_and_authorization()?;
-                if !self.plan.requires_reboot() {
+                if !self.effective_apply_reboot_required() {
                     return Err(TransactionError::StageInvariantViolation);
                 }
                 self.validate_resume_results(false)?;
@@ -228,10 +252,10 @@ impl TransactionCheckpoint {
         Ok(())
     }
 
-    pub(crate) fn successful_applied_ids(&self) -> BTreeSet<String> {
+    pub(crate) fn changed_action_ids(&self) -> BTreeSet<String> {
         self.apply_records
             .iter()
-            .filter(|record| record.outcome == ApplyOutcome::Success)
+            .filter(|record| record.machine_changed)
             .map(|record| record.action_id.clone())
             .collect()
     }
@@ -364,6 +388,9 @@ fn valid_event_transition(from: TransactionStage, to: TransactionStage) -> bool 
             | (Verifying, Failed)
             | (RollingBack, RollingBack)
             | (RollingBack, RolledBack)
+            | (RollingBack, AwaitingRollbackReboot)
             | (RollingBack, Failed)
+            | (AwaitingRollbackReboot, RolledBack)
+            | (AwaitingRollbackReboot, Failed)
     )
 }
