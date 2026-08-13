@@ -9,19 +9,20 @@ use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use windows::core::{Error as WinError, PCWSTR};
-use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_ABANDONED, WAIT_OBJECT_0};
-use windows::Win32::System::SystemInformation::GetWindowsDirectoryW;
-use windows::Win32::System::Threading::{
-    CreateMutexW, ReleaseMutex, WaitForSingleObject, INFINITE,
+use windows::Win32::Foundation::{
+    CloseHandle, HANDLE, WAIT_ABANDONED, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
+use windows::Win32::System::SystemInformation::GetWindowsDirectoryW;
+use windows::Win32::System::Threading::{CreateMutexW, ReleaseMutex, WaitForSingleObject};
 
 const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
 const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
 const FILE_SHARE_READ: u32 = 0x0000_0001;
 const RUNTIME_MUTEX_NAME: &str = "Local\\THETECHGUY.NeoDriver.RuntimeExecutor.v1";
+const RUNTIME_MUTEX_TIMEOUT_MS: u32 = 300_000;
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct WindowsRuntimeHost;
+pub(crate) struct WindowsRuntimeHost;
 
 impl RuntimeHost for WindowsRuntimeHost {
     fn inventory(&self) -> Result<RuntimeInventory, RuntimeExecutorError> {
@@ -171,7 +172,7 @@ impl RuntimeExecutionMutex {
             unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }.map_err(|error| {
                 RuntimeExecutorError::Host(format!("mutex creation failed: {error}"))
             })?;
-        let wait = unsafe { WaitForSingleObject(handle, INFINITE) };
+        let wait = unsafe { WaitForSingleObject(handle, RUNTIME_MUTEX_TIMEOUT_MS) };
         if wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED {
             Ok(Self {
                 handle,
@@ -180,6 +181,11 @@ impl RuntimeExecutionMutex {
         } else {
             unsafe {
                 let _ = CloseHandle(handle);
+            }
+            if wait == WAIT_TIMEOUT {
+                return Err(RuntimeExecutorError::Host(format!(
+                    "runtime executor mutex wait timed out after {RUNTIME_MUTEX_TIMEOUT_MS} ms"
+                )));
             }
             Err(RuntimeExecutorError::Host(format!(
                 "runtime executor mutex wait failed with status {wait:?}"

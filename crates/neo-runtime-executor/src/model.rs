@@ -156,6 +156,11 @@ impl RuntimeExecutionPlan {
                 "Windows build must be greater than zero".to_string(),
             ));
         }
+        if !self.application_root.is_absolute() {
+            return Err(RuntimeExecutorError::InvalidPlan(
+                "runtime execution plan application_root must be an absolute path".to_string(),
+            ));
+        }
         let Some(architecture) = canonical_arch(&self.architecture) else {
             return Err(RuntimeExecutorError::InvalidPlan(format!(
                 "unsupported architecture {}",
@@ -286,16 +291,18 @@ impl RuntimeExecutionPlan {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RuntimeInvocation {
-    pub installer: RuntimeInstallerKind,
-    pub payload: PathBuf,
-    pub expected_sha256: Sha256Digest,
-    pub arguments: Vec<String>,
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RuntimeInvocation {
+    pub(crate) installer: RuntimeInstallerKind,
+    pub(crate) payload: PathBuf,
+    pub(crate) expected_sha256: Sha256Digest,
+    pub(crate) arguments: Vec<String>,
 }
 
+#[cfg(any(windows, test))]
 impl RuntimeInvocation {
-    pub fn validate(&self) -> Result<(), RuntimeExecutorError> {
+    pub(crate) fn validate(&self) -> Result<(), RuntimeExecutorError> {
         if self.payload.as_os_str().is_empty() {
             return Err(RuntimeExecutorError::InvalidPlan(
                 "runtime invocation payload path cannot be empty".to_string(),
@@ -305,16 +312,17 @@ impl RuntimeInvocation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RuntimeProcessResult {
-    pub started: bool,
-    #[serde(default)]
-    pub exit_code: Option<i32>,
-    pub detail: String,
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RuntimeProcessResult {
+    pub(crate) started: bool,
+    pub(crate) exit_code: Option<i32>,
+    pub(crate) detail: String,
 }
 
+#[cfg(any(windows, test))]
 impl RuntimeProcessResult {
-    pub fn start_failed(detail: impl Into<String>) -> Self {
+    pub(crate) fn start_failed(detail: impl Into<String>) -> Self {
         Self {
             started: false,
             exit_code: None,
@@ -322,7 +330,7 @@ impl RuntimeProcessResult {
         }
     }
 
-    pub fn exited(exit_code: i32, detail: impl Into<String>) -> Self {
+    pub(crate) fn exited(exit_code: i32, detail: impl Into<String>) -> Self {
         Self {
             started: true,
             exit_code: Some(exit_code),
@@ -330,7 +338,7 @@ impl RuntimeProcessResult {
         }
     }
 
-    pub fn started_without_exit(detail: impl Into<String>) -> Self {
+    pub(crate) fn started_without_exit(detail: impl Into<String>) -> Self {
         Self {
             started: true,
             exit_code: None,
@@ -362,6 +370,7 @@ pub(crate) fn runtime_baseline_value(observation: &RuntimeObservation) -> String
     }
 }
 
+#[cfg(any(windows, test))]
 pub(crate) fn observation_matches_baseline(
     current: &RuntimeObservation,
     baseline: &RuntimeObservation,
@@ -371,6 +380,7 @@ pub(crate) fn observation_matches_baseline(
         && current.detected_version == baseline.detected_version
 }
 
+#[cfg(any(windows, test))]
 pub(crate) fn verification_value(
     rule: &RuntimeVerificationRule,
     observation: &RuntimeObservation,
@@ -407,12 +417,16 @@ fn require_exact_evidence(
     key: &str,
     expected: &str,
 ) -> Result<(), RuntimeExecutorError> {
-    let matches = action
+    let mut keyed = action
         .evidence
         .iter()
-        .filter(|evidence| evidence.key == key && evidence.value == expected)
-        .count();
-    if matches != 1 {
+        .filter(|evidence| evidence.key == key);
+    let Some(evidence) = keyed.next() else {
+        return Err(RuntimeExecutorError::ActionMismatch(format!(
+            "expected exactly one {key} evidence item matching {expected}"
+        )));
+    };
+    if evidence.value != expected || keyed.next().is_some() {
         return Err(RuntimeExecutorError::ActionMismatch(format!(
             "expected exactly one {key} evidence item matching {expected}"
         )));

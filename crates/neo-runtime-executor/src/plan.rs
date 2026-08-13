@@ -98,7 +98,7 @@ pub fn prepare_runtime_execution(
         .iter()
         .find(|observation| observation.component == component)
         .cloned()
-        .ok_or(RuntimeExecutorError::MissingCertifiedAction { component })?;
+        .ok_or(RuntimeExecutorError::MissingObservation { component })?;
     let operation = match baseline.state {
         RuntimeState::Missing => RuntimeExecutionOperation::Install,
         RuntimeState::Broken | RuntimeState::Partial => RuntimeExecutionOperation::Repair,

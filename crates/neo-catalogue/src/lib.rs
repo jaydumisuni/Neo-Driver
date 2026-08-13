@@ -438,9 +438,12 @@ fn validate_runtime_args(
 }
 
 fn is_msi_property_assignment(value: &str) -> bool {
-    let Some((name, _)) = value.split_once('=') else {
+    let Some((name, property_value)) = value.split_once('=') else {
         return false;
     };
+    if property_value.is_empty() {
+        return false;
+    }
     let mut chars = name.chars();
     let Some(first) = chars.next() else {
         return false;
@@ -452,9 +455,9 @@ fn is_msi_property_assignment(value: &str) -> bool {
 fn ensure_unique_exit_codes(label: &'static str, values: &[i32]) -> Result<(), CatalogueError> {
     let mut seen = BTreeSet::new();
     for value in values {
-        if *value < 0 {
-            return Err(CatalogueError::InvalidRuntimeExitCode(*value));
-        }
+        // Windows process exit statuses are raw 32-bit values surfaced by
+        // std::process as i32. High-bit HRESULT/Win32 values therefore appear
+        // negative and must retain their bit pattern rather than be rejected.
         if !seen.insert(*value) {
             return Err(CatalogueError::DuplicateRuntimeExitCode {
                 label,
@@ -667,6 +670,33 @@ mod tests {
         ));
         spec.install_args = vec!["ADDLOCAL=ALL".to_string()];
         spec.repair_args = Some(vec!["REINSTALL=ALL".to_string()]);
+        assert!(spec.validate().is_ok());
+    }
+
+    #[test]
+    fn msi_bare_empty_property_is_rejected() {
+        let mut spec = runtime_spec();
+        spec.installer = RuntimeInstallerKind::Msi;
+        spec.install_args = vec!["addlocal=ALL".to_string()];
+        spec.repair_args = Some(vec!["REINSTALL=ALL".to_string()]);
+        assert!(spec.validate().is_ok());
+
+        spec.install_args = vec!["ADDLOCAL=".to_string()];
+        assert!(matches!(
+            spec.validate(),
+            Err(CatalogueError::InvalidMsiRuntimeArgument(_))
+        ));
+
+        spec.install_args = vec!["ADDLOCAL=\"\"".to_string()];
+        assert!(spec.validate().is_ok());
+    }
+
+    #[test]
+    fn windows_high_bit_exit_code_bit_pattern_is_accepted() {
+        let mut spec = runtime_spec();
+        let high_bit_code = 0x8007_0666u32 as i32;
+        spec.success_exit_codes = vec![0, high_bit_code];
+        spec.reboot_exit_codes.clear();
         assert!(spec.validate().is_ok());
     }
 

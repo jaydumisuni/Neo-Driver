@@ -5,13 +5,15 @@
 //! archive extraction, Windows-feature mutation, shell execution, or public CLI
 //! apply path.
 //!
-//! Phase 8 intentionally exposes only validated planning/inspection contracts.
-//! The session, host adapter, process invocation/result types, and Windows host
-//! remain crate-private so an outside crate cannot bypass Phase 6 assessment,
+//! Public callers may inspect validated plans/sessions, but mutation authority
+//! requires an opaque `RuntimeExecutorCapability`. The capability has no public
+//! constructor, while raw host/invocation/process/Windows-host types stay
+//! crate-private. Safe outside code therefore cannot bypass Phase 6 assessment,
 //! Phase 7 vault authority, or Phase 4 transaction authorization.
 
 mod error;
 mod executor;
+#[cfg(any(windows, test))]
 mod host;
 mod model;
 mod plan;
@@ -20,15 +22,14 @@ mod plan;
 mod windows;
 
 pub use error::RuntimeExecutorError;
+pub use executor::{RuntimeExecutionSession, RuntimeExecutorCapability};
 pub use model::{RuntimeExecutionOperation, RuntimeExecutionPlan};
 pub use plan::{prepare_runtime_execution, PreparedRuntimeExecution};
 
-pub(crate) use executor::RuntimeExecutionSession;
+#[cfg(any(windows, test))]
 pub(crate) use host::RuntimeHost;
+#[cfg(any(windows, test))]
 pub(crate) use model::{RuntimeInvocation, RuntimeProcessResult};
-
-#[cfg(windows)]
-pub(crate) use windows::WindowsRuntimeHost;
 
 #[cfg(test)]
 mod tests;

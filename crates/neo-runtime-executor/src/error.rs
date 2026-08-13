@@ -18,6 +18,8 @@ pub enum RuntimeExecutorError {
     MissingRecommendation(RuntimeComponent),
     #[error("runtime component {component:?} has no certified Phase 6 action")]
     MissingCertifiedAction { component: RuntimeComponent },
+    #[error("runtime inventory has no observation for {component:?}")]
+    MissingObservation { component: RuntimeComponent },
     #[error("runtime recommendation for {component:?} is not certified")]
     RecommendationNotCertified { component: RuntimeComponent },
     #[error("runtime recommendation for {component:?} has no exact package id")]
@@ -47,7 +49,7 @@ pub enum RuntimeExecutorError {
     HostDrift(String),
     #[error("runtime component baseline drifted before mutation: {0}")]
     BaselineDrift(String),
-    #[error("runtime payload is unavailable: {0}")]
+    #[error("runtime payload is unavailable: {0:?}")]
     PayloadUnavailable(PathBuf),
     #[error("runtime host failed before process creation: {0}")]
     Host(String),

@@ -1,25 +1,42 @@
-use crate::model::{
-    canonical_arch, observation_matches_baseline, verification_value, RuntimeInvocation,
-};
+use crate::model::canonical_arch;
+#[cfg(any(windows, test))]
+use crate::model::{observation_matches_baseline, verification_value, RuntimeInvocation};
 use crate::plan::{transaction_plan_for, PreparedRuntimeExecution};
-use crate::{RuntimeExecutionPlan, RuntimeExecutorError, RuntimeHost};
-use neo_transaction::{
-    ApplyOutcome, ApplyRecord, Observation, ObservedValue, TransactionAuthorization,
-    TransactionCheckpoint, TransactionStage,
-};
+#[cfg(windows)]
+use crate::windows::WindowsRuntimeHost;
+#[cfg(any(windows, test))]
+use crate::RuntimeHost;
+use crate::{RuntimeExecutionPlan, RuntimeExecutorError};
+#[cfg(any(windows, test))]
+use neo_transaction::{ApplyOutcome, ApplyRecord, Observation, ObservedValue, TransactionStage};
+use neo_transaction::{TransactionAuthorization, TransactionCheckpoint};
+#[cfg(any(windows, test))]
 use neo_vault::{VaultSegment, VaultStore};
 use serde::{Deserialize, Serialize};
+#[cfg(any(windows, test))]
 use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(any(windows, test))]
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(any(windows, test))]
 static NEXT_RUNTIME_SESSION: AtomicU64 = AtomicU64::new(1);
+
+/// Opaque token required for every public Phase 8 mutation transition.
+///
+/// There is deliberately no public constructor and the only field is
+/// crate-private. Safe outside code can inspect/deserialize sessions but cannot
+/// authorize or execute them in Phase 8.
+#[derive(Debug)]
+pub struct RuntimeExecutorCapability {
+    pub(crate) _private: (),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RuntimeExecutionSession {
-    pub plan: RuntimeExecutionPlan,
-    pub checkpoint: TransactionCheckpoint,
+    pub(crate) plan: RuntimeExecutionPlan,
+    pub(crate) checkpoint: TransactionCheckpoint,
     #[serde(default)]
-    pub warnings: Vec<String>,
+    pub(crate) warnings: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -88,7 +105,15 @@ impl RuntimeExecutionSession {
         Ok(())
     }
 
-    pub fn authorize(
+    pub fn authorize_with_capability(
+        &mut self,
+        _capability: &RuntimeExecutorCapability,
+        authorization: TransactionAuthorization,
+    ) -> Result<(), RuntimeExecutorError> {
+        self.authorize(authorization)
+    }
+
+    pub(crate) fn authorize(
         &mut self,
         authorization: TransactionAuthorization,
     ) -> Result<(), RuntimeExecutorError> {
@@ -97,7 +122,40 @@ impl RuntimeExecutionSession {
         Ok(())
     }
 
-    pub fn apply<H: RuntimeHost>(&mut self, host: &H) -> Result<(), RuntimeExecutorError> {
+    #[cfg(windows)]
+    pub fn apply_windows(
+        &mut self,
+        _capability: &RuntimeExecutorCapability,
+    ) -> Result<(), RuntimeExecutorError> {
+        self.apply(&WindowsRuntimeHost)
+    }
+
+    #[cfg(windows)]
+    pub fn verify_windows(
+        &mut self,
+        _capability: &RuntimeExecutorCapability,
+    ) -> Result<(), RuntimeExecutorError> {
+        self.verify_current(&WindowsRuntimeHost)
+    }
+
+    #[cfg(windows)]
+    pub fn resume_after_reboot_windows(
+        &mut self,
+        _capability: &RuntimeExecutorCapability,
+    ) -> Result<(), RuntimeExecutorError> {
+        self.resume_after_reboot(&WindowsRuntimeHost)
+    }
+
+    #[cfg(windows)]
+    pub fn reprobe_after_block_windows(
+        &mut self,
+        _capability: &RuntimeExecutorCapability,
+    ) -> Result<(), RuntimeExecutorError> {
+        self.reprobe_after_block(&WindowsRuntimeHost)
+    }
+
+    #[cfg(any(windows, test))]
+    pub(crate) fn apply<H: RuntimeHost>(&mut self, host: &H) -> Result<(), RuntimeExecutorError> {
         self.validate()?;
         if self.checkpoint.stage() != TransactionStage::Authorized {
             return Err(RuntimeExecutorError::InvalidPlan(format!(
@@ -129,17 +187,31 @@ impl RuntimeExecutionSession {
             }
         };
 
-        let invocation = RuntimeInvocation {
-            installer: self.plan.execution.installer,
-            payload: staged,
-            expected_sha256: self.plan.package_sha256.clone(),
-            arguments: self.plan.execution_args()?,
+        let invocation = match self.plan.execution_args().and_then(|arguments| {
+            let invocation = RuntimeInvocation {
+                installer: self.plan.execution.installer,
+                payload: staged,
+                expected_sha256: self.plan.package_sha256.clone(),
+                arguments,
+            };
+            invocation.validate()?;
+            Ok(invocation)
+        }) {
+            Ok(invocation) => invocation,
+            Err(error) => {
+                let _ = store.cleanup_staging(&staging_session);
+                return Err(error);
+            }
         };
-        invocation.validate()?;
 
-        self.checkpoint.begin_apply()?;
-        self.checkpoint
-            .assert_action_pending(&self.plan.action.id)?;
+        if let Err(error) = self.checkpoint.begin_apply() {
+            let _ = store.cleanup_staging(&staging_session);
+            return Err(error.into());
+        }
+        if let Err(error) = self.checkpoint.assert_action_pending(&self.plan.action.id) {
+            let _ = store.cleanup_staging(&staging_session);
+            return Err(error.into());
+        }
 
         let process = match host.execute(&invocation) {
             Ok(result) => result,
@@ -192,7 +264,11 @@ impl RuntimeExecutionSession {
         Ok(())
     }
 
-    pub fn verify_current<H: RuntimeHost>(&mut self, host: &H) -> Result<(), RuntimeExecutorError> {
+    #[cfg(any(windows, test))]
+    pub(crate) fn verify_current<H: RuntimeHost>(
+        &mut self,
+        host: &H,
+    ) -> Result<(), RuntimeExecutorError> {
         self.validate()?;
         if self.checkpoint.stage() != TransactionStage::Verifying {
             return Err(RuntimeExecutorError::InvalidPlan(format!(
@@ -206,7 +282,8 @@ impl RuntimeExecutionSession {
         Ok(())
     }
 
-    pub fn resume_after_reboot<H: RuntimeHost>(
+    #[cfg(any(windows, test))]
+    pub(crate) fn resume_after_reboot<H: RuntimeHost>(
         &mut self,
         host: &H,
     ) -> Result<(), RuntimeExecutorError> {
@@ -220,7 +297,8 @@ impl RuntimeExecutionSession {
         Ok(())
     }
 
-    pub fn reprobe_after_block<H: RuntimeHost>(
+    #[cfg(any(windows, test))]
+    pub(crate) fn reprobe_after_block<H: RuntimeHost>(
         &mut self,
         host: &H,
     ) -> Result<(), RuntimeExecutorError> {
@@ -234,6 +312,7 @@ impl RuntimeExecutionSession {
         Ok(())
     }
 
+    #[cfg(any(windows, test))]
     fn validate_preflight(
         &self,
         inventory: &neo_runtime::RuntimeInventory,
@@ -280,6 +359,7 @@ impl RuntimeExecutionSession {
         Ok(())
     }
 
+    #[cfg(any(windows, test))]
     fn verification_observation(&self, inventory: &neo_runtime::RuntimeInventory) -> Observation {
         let target = self.plan.state_target();
         if inventory.windows_build != self.plan.windows_build {
@@ -336,6 +416,7 @@ impl RuntimeExecutionSession {
         }
     }
 
+    #[cfg(any(windows, test))]
     fn cleanup_after_execution(&mut self, store: &VaultStore, session: &VaultSegment) {
         if let Err(error) = store.cleanup_staging(session) {
             self.warnings.push(format!(
@@ -345,6 +426,7 @@ impl RuntimeExecutionSession {
     }
 }
 
+#[cfg(any(windows, test))]
 fn unique_staging_session() -> Result<VaultSegment, RuntimeExecutorError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)

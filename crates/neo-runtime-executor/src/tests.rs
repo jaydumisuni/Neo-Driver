@@ -422,3 +422,28 @@ fn exact_version_verification_rejects_wrong_installed_version() {
     session.apply(&host).unwrap();
     assert_eq!(session.checkpoint.stage(), TransactionStage::Failed);
 }
+
+#[test]
+fn persisted_relative_application_root_is_rejected() {
+    let fixture = fixture(spec());
+    let prepared = prepared(&fixture, &fixture.missing);
+    let mut value = serde_json::to_value(&prepared.plan).unwrap();
+    value["application_root"] = serde_json::json!("relative-neo-root");
+    assert!(serde_json::from_value::<RuntimeExecutionPlan>(value).is_err());
+}
+
+#[test]
+fn persisted_duplicate_package_evidence_key_is_rejected() {
+    let fixture = fixture(spec());
+    let prepared = prepared(&fixture, &fixture.missing);
+    let mut value = serde_json::to_value(&prepared.plan).unwrap();
+    value["action"]["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "key": "package_id",
+            "value": "neo.attacker.package",
+            "source": "phase8-tamper"
+        }));
+    assert!(serde_json::from_value::<RuntimeExecutionPlan>(value).is_err());
+}
