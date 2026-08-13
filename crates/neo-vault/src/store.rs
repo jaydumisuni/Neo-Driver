@@ -96,6 +96,7 @@ impl VaultStore {
             Err(error) => return Err(classify_link_error(&display, error)),
         };
         validate_staging_marker(&session_dir, session, &display)?;
+        drop(session_dir);
         staging.remove_dir_all(session.as_str())?;
         Ok(true)
     }
@@ -197,6 +198,7 @@ impl VaultStore {
                 let _ = version_dir.remove_file(&destination_name);
                 return Err(VaultError::Io(error));
             }
+            drop(staged_reader);
             if let Err(error) = final_file.sync_all() {
                 drop(final_file);
                 let _ = version_dir.remove_file(&destination_name);
@@ -224,6 +226,7 @@ impl VaultStore {
             })
         })();
 
+        drop(session_dir);
         let cleanup_result = self.cleanup_staging(&session);
         match (import_result, cleanup_result) {
             (Ok(receipt), Ok(_)) => Ok(receipt),
