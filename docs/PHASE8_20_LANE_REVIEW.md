@@ -2,7 +2,7 @@
 
 **Scope:** internal, transaction-bound execution of exact local/offline single-file runtime payloads from the Phase 7 vault.
 
-**Predecessor preservation:** Phase 6 remains read-only Runtime/Gaming assessment + System X-Ray. Phase 7 remains the managed vault. Phase 8 adds a separate execution boundary and opens no public mutation CLI.
+**Predecessor preservation:** Phase 6 remains read-only Runtime/Gaming assessment + System X-Ray. Phase 7 remains the managed vault. Phase 8 adds a separate execution boundary and opens no public mutation CLI or public library execution adapter.
 
 ## Phase 8 lanes
 
@@ -25,7 +25,7 @@
 17. A started installer is conservatively considered potentially machine-changing even when it exits with failure.
 18. Completion requires re-probe verification; exit code alone cannot complete a transaction, and transient probe failure remains retryable.
 19. Required reboot uses the inherited persistent checkpoint/resume contract; host/build drift cannot become post-reboot PASS.
-20. No generic runtime rollback or public apply CLI is claimed; irreversible acknowledgement is mandatory and CI does not claim live runtime mutation proof.
+20. No generic runtime rollback or public apply authority is claimed: runtime session/host/invocation/process/Windows-host execution adapters remain crate-private, irreversible acknowledgement is mandatory internally, and CI does not claim live runtime mutation proof.
 
 ## Pre-review proof recovered during implementation
 
@@ -34,6 +34,7 @@
 - The initial Phase 8 static review exposed two proof-harness phrase dependencies after the implementation evidence was already present. Those lanes were corrected to bind to production path derivation/managed-root enforcement, adversarial tests, CLI source absence of execution authority, and irreversible-acknowledgement evidence rather than documentation wording.
 - Cargo lock helper run `31692195361` generated the complete CLI + runtime-executor graph and passed Phase 6, Phase 7, and Phase 8 static reviews before committing the lock and self-deleting its temporary workflow.
 - Microsoft documents `Local\` named kernel objects as session-local and `Global\` as cross-session. Phase 8 therefore freezes only same-session cross-process serialization; no system-wide serialization claim is made.
+- Independent PR-surface review found that `RuntimeHost`, `RuntimeInvocation`, `RuntimeProcessResult`, `RuntimeExecutionSession`, and `WindowsRuntimeHost` were publicly re-exported even though Phase 8 claimed an internal-only executor. That allowed a library caller to bypass the certified plan/session path by invoking the raw Windows host with caller-chosen payload/hash data or by supplying forged host evidence. The mutation-capable types remain implemented for internal proof but are now re-exported only as `pub(crate)`; the public crate surface retains validated planning/inspection contracts only. Phase 8 lane 20 now fails if this library authority boundary is reopened.
 
 ## Merge proof requirements
 
