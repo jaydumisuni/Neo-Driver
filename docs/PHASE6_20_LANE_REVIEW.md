@@ -62,6 +62,10 @@ Release repositories/assets are only acquisition provenance. Existing catalogue,
 
 The first authoritative PR run passed Phase 1–6 static reviews on both Ubuntu and Windows and stopped only at the lockfile guard. Cargo generated the updated graph: `neo-cli` gains `neo-vault`, and `neo-vault` depends only on the already-locked `serde`, `serde_json`, `sha2`, and `thiserror`. No external crate version changed. The generated lock was committed verbatim by a one-shot branch-only helper which deleted itself in the same commit.
 
+### P6-F7 — Initial Phase 6 source required rustfmt normalization
+
+After the exact lock was committed, the next authoritative Ubuntu gate stopped only at rustfmt. The formatter changes were layout-only across `neo-cli` and `neo-vault`. A one-shot branch-only formatter applied `cargo fmt --all`, re-ran Phase 6's 20-lane review and `cargo fmt --check`, committed only formatter output, and deleted itself in the same commit.
+
 ## Source-map evidence frozen for the first offline pack
 
 - `jaydumisuni/android-drivers` / `v1` / `android.drivers.zip`;
