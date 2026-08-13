@@ -4,6 +4,9 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_IMPORT_SESSION: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -134,30 +137,12 @@ impl VaultStore {
         self.layout.ensure_managed(&destination)?;
 
         if destination.exists() {
-            reject_link_like(&destination)?;
-            let destination_hash = sha256_file(&destination)?;
-            if destination_hash != *expected_sha256 {
-                return Err(VaultError::DestinationConflict(destination));
-            }
-            return Ok(ImportReceipt {
-                disposition: ImportDisposition::AlreadyPresent,
-                destination,
-                sha256: expected_sha256.clone(),
-                bytes: metadata.len(),
-            });
+            return existing_receipt(&destination, expected_sha256, metadata.len());
         }
 
-        let session = VaultSegment::new(format!(
-            "import-{}-{}",
-            package_id.as_str(),
-            &expected_sha256.as_str()[..16]
-        ))?;
+        let session = unique_import_session(package_id, expected_sha256)?;
         let staging = self.begin_staging(&session)?;
         let staged = staging.join("payload.pack");
-        if staged.exists() {
-            reject_link_like(&staged)?;
-            fs::remove_file(&staged)?;
-        }
         fs::copy(source, &staged)?;
         let staged_hash = sha256_file(&staged)?;
         if staged_hash != *expected_sha256 {
@@ -175,11 +160,26 @@ impl VaultStore {
         self.layout.ensure_managed(parent)?;
         ensure_directory_chain(self.layout.managed_root(), parent)?;
 
+        let promotion_lock = acquire_promotion_lock(
+            self.layout.staging(),
+            package_id,
+            version,
+            expected_sha256,
+        )?;
+
         if destination.exists() {
+            let result = existing_receipt(&destination, expected_sha256, metadata.len());
+            drop(promotion_lock);
             let _ = self.cleanup_staging(&session);
-            return Err(VaultError::DestinationConflict(destination));
+            return result;
         }
-        fs::rename(&staged, &destination)?;
+
+        let rename_result = fs::rename(&staged, &destination);
+        drop(promotion_lock);
+        if let Err(error) = rename_result {
+            let _ = self.cleanup_staging(&session);
+            return Err(VaultError::Io(error));
+        }
         self.cleanup_staging(&session)?;
 
         Ok(ImportReceipt {
@@ -210,6 +210,13 @@ impl VaultStore {
     }
 
     pub fn audit_existing_tree(&self) -> Result<(), VaultError> {
+        let app_root = self.layout.application_root();
+        if !app_root.exists() || !app_root.is_dir() {
+            return Err(VaultError::ApplicationRootUnavailable(
+                app_root.to_path_buf(),
+            ));
+        }
+        reject_link_like(app_root)?;
         if !self.layout.managed_root().exists() {
             return Ok(());
         }
@@ -244,6 +251,16 @@ struct StagingMarker {
     session: VaultSegment,
 }
 
+struct PromotionLock {
+    path: PathBuf,
+}
+
+impl Drop for PromotionLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
 pub fn sha256_file(path: impl AsRef<Path>) -> Result<Sha256Digest, VaultError> {
     let mut file = fs::File::open(path)?;
     let mut hasher = Sha256::new();
@@ -256,6 +273,68 @@ pub fn sha256_file(path: impl AsRef<Path>) -> Result<Sha256Digest, VaultError> {
         hasher.update(&buffer[..read]);
     }
     Sha256Digest::new(format!("{:x}", hasher.finalize()))
+}
+
+fn existing_receipt(
+    destination: &Path,
+    expected_sha256: &Sha256Digest,
+    bytes: u64,
+) -> Result<ImportReceipt, VaultError> {
+    reject_link_like(destination)?;
+    let destination_hash = sha256_file(destination)?;
+    if destination_hash != *expected_sha256 {
+        return Err(VaultError::DestinationConflict(destination.to_path_buf()));
+    }
+    Ok(ImportReceipt {
+        disposition: ImportDisposition::AlreadyPresent,
+        destination: destination.to_path_buf(),
+        sha256: expected_sha256.clone(),
+        bytes,
+    })
+}
+
+pub(crate) fn unique_import_session(
+    package_id: &VaultSegment,
+    expected_sha256: &Sha256Digest,
+) -> Result<VaultSegment, VaultError> {
+    let sequence = NEXT_IMPORT_SESSION.fetch_add(1, Ordering::Relaxed);
+    VaultSegment::new(format!(
+        "import-{}-{}-{}-{}",
+        package_id.as_str(),
+        &expected_sha256.as_str()[..16],
+        std::process::id(),
+        sequence
+    ))
+}
+
+pub(crate) fn acquire_promotion_lock(
+    staging_root: &Path,
+    package_id: &VaultSegment,
+    version: &VaultSegment,
+    expected_sha256: &Sha256Digest,
+) -> Result<PromotionLock, VaultError> {
+    reject_link_like(staging_root)?;
+    let lock_path = staging_root.join(format!(
+        ".promote-{}-{}-{}.lock",
+        package_id.as_str(),
+        version.as_str(),
+        &expected_sha256.as_str()[..16]
+    ));
+    match fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&lock_path)
+    {
+        Ok(mut file) => {
+            writeln!(file, "pid={}", std::process::id())?;
+            file.sync_all()?;
+            Ok(PromotionLock { path: lock_path })
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            Err(VaultError::ImportBusy(lock_path))
+        }
+        Err(error) => Err(VaultError::Io(error)),
+    }
 }
 
 fn ensure_directory_chain(base: &Path, target: &Path) -> Result<(), VaultError> {
