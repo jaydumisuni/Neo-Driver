@@ -4,6 +4,9 @@ use neo_core::{MissionPlan, UserDepth, UserIntent};
 use neo_device::DeviceRecord;
 use neo_match::{match_device, MatchContext};
 use neo_probe::scan_current_machine;
+use neo_runtime::{
+    assess_runtime_profile, component_label, RuntimeInventory, RuntimePolicy, RuntimeProfile,
+};
 use neo_transaction::{TransactionCheckpoint, TransactionPlan};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -56,6 +59,39 @@ enum Command {
         /// Windows build number.
         #[arg(long)]
         build: u32,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Read-only runtime profile assessment. Actions are reviewable plans only.
+    Runtimes {
+        /// Normalized runtime evidence JSON.
+        #[arg(long)]
+        evidence: PathBuf,
+        /// Validated Neo package catalogue JSON.
+        #[arg(long)]
+        catalogue: PathBuf,
+        /// Runtime package-to-component policy JSON.
+        #[arg(long)]
+        policy: PathBuf,
+        /// Profile to assess.
+        #[arg(long, value_enum, default_value_t = CliRuntimeProfile::FreshWindows)]
+        profile: CliRuntimeProfile,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Read-only gaming readiness assessment using the same runtime engine.
+    Gaming {
+        /// Normalized runtime evidence JSON.
+        #[arg(long)]
+        evidence: PathBuf,
+        /// Validated Neo package catalogue JSON.
+        #[arg(long)]
+        catalogue: PathBuf,
+        /// Runtime package-to-component policy JSON.
+        #[arg(long)]
+        policy: PathBuf,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -142,6 +178,25 @@ impl From<CliIntent> for UserIntent {
             CliIntent::DebloatWindows => Self::DebloatWindows,
             CliIntent::RepairDevices => Self::RepairDevices,
             CliIntent::Advanced => Self::Advanced,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum CliRuntimeProfile {
+    FreshWindows,
+    Gaming,
+    Technician,
+    Developer,
+}
+
+impl From<CliRuntimeProfile> for RuntimeProfile {
+    fn from(value: CliRuntimeProfile) -> Self {
+        match value {
+            CliRuntimeProfile::FreshWindows => Self::FreshWindows,
+            CliRuntimeProfile::Gaming => Self::Gaming,
+            CliRuntimeProfile::Technician => Self::Technician,
+            CliRuntimeProfile::Developer => Self::Developer,
         }
     }
 }
@@ -295,6 +350,25 @@ fn run(cli: Cli) -> Result<(), String> {
             }
             Ok(())
         }
+        Command::Runtimes {
+            evidence,
+            catalogue,
+            policy,
+            profile,
+            json,
+        } => run_runtime_assessment(evidence, catalogue, policy, profile.into(), json),
+        Command::Gaming {
+            evidence,
+            catalogue,
+            policy,
+            json,
+        } => run_runtime_assessment(
+            evidence,
+            catalogue,
+            policy,
+            RuntimeProfile::Gaming,
+            json,
+        ),
         Command::Transaction { command } => match command {
             TransactionCommand::ValidatePlan { path, json } => {
                 let input = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
@@ -362,14 +436,64 @@ fn run(cli: Cli) -> Result<(), String> {
             }
         },
         Command::Status => {
-            println!("Neo Driver implementation phase: transaction/rollback foundation");
-            println!("Machine mutation: intentionally disabled");
+            println!("Neo Driver implementation phase: Phase 6 runtimes/gaming assessment");
+            println!("Driver mutation backend: internal pending live attached-device proof");
+            println!("Runtime/gaming assessment: read-only and user-selectable");
+            println!("Runtime downloads/installations: intentionally disabled at this gate");
             println!("Transaction advancement from CLI: intentionally disabled");
-            println!("Package downloads/installations: intentionally disabled");
             println!("Model dependency: none");
             Ok(())
         }
     }
+}
+
+fn run_runtime_assessment(
+    evidence: PathBuf,
+    catalogue_path: PathBuf,
+    policy_path: PathBuf,
+    profile: RuntimeProfile,
+    json: bool,
+) -> Result<(), String> {
+    let catalogue = Catalogue::read_json(&catalogue_path).map_err(|error| error.to_string())?;
+    let inventory = RuntimeInventory::read_json(&evidence).map_err(|error| error.to_string())?;
+    let policy = RuntimePolicy::read_json(&policy_path, &catalogue).map_err(|error| error.to_string())?;
+    let assessment = assess_runtime_profile(profile, &inventory, &catalogue, &policy)
+        .map_err(|error| error.to_string())?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&assessment).map_err(|error| error.to_string())?
+        );
+    } else {
+        println!("Neo read-only runtime assessment");
+        println!("Profile: {:?}", assessment.profile);
+        println!("Baseline ready: {}", assessment.ready);
+        for item in &assessment.recommendations {
+            let selection = item
+                .action
+                .as_ref()
+                .map(|action| {
+                    if action.selected_by_default {
+                        "preselected / user may deselect"
+                    } else {
+                        "not selected"
+                    }
+                })
+                .unwrap_or("no action authority");
+            println!(
+                "- {}: {:?} -> {:?} ({selection})",
+                component_label(item.component),
+                item.state,
+                item.recommendation
+            );
+            for warning in &item.warnings {
+                println!("    warning: {warning}");
+            }
+        }
+        println!("Machine changes: none");
+    }
+    Ok(())
 }
 
 fn format_optional_bool(value: Option<bool>) -> &'static str {
