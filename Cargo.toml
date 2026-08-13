@@ -13,6 +13,7 @@ members = [
     "crates/neo-runtime-probe",
     "crates/neo-vault",
     "crates/neo-runtime-executor",
+    "crates/neo-state-plan",
     "crates/neo-cli",
 ]
 
