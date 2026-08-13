@@ -1,0 +1,76 @@
+name: Phase 8 one-shot CLI and CI integration
+
+on:
+  push:
+    branches: ["implementation/phase-8-runtime-executor"]
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-8-runtime-executor
+          fetch-depth: 0
+      - name: Wire read-only validator and Phase 8 proof lanes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          main = Path("crates/neo-cli/src/main.rs")
+          text = main.read_text(encoding="utf-8")
+          anchor = "use neo_runtime_probe::scan_current_runtime_inventory;\n"
+          insert = "use neo_runtime_executor::RuntimeExecutionPlan;\n" + anchor
+          if text.count(anchor) != 1 or "use neo_runtime_executor::RuntimeExecutionPlan;" in text:
+              raise SystemExit("unexpected runtime-executor import surface")
+          text = text.replace(anchor, insert, 1)
+
+          command_anchor = '''    /// Read-only transaction/checkpoint validation. No machine change is executed.\n    Transaction {\n'''
+          command_insert = '''    /// Validate an exact Phase 8 runtime execution plan without executing it.\n    RuntimeExecutorValidatePlan {\n        /// Persisted Phase 8 runtime execution plan JSON.\n        #[arg(long)]\n        plan: PathBuf,\n        /// Emit the normalized validated plan as JSON.\n        #[arg(long)]\n        json: bool,\n    },\n    /// Read-only transaction/checkpoint validation. No machine change is executed.\n    Transaction {\n'''
+          if text.count(command_anchor) != 1:
+              raise SystemExit("runtime executor command insertion point changed")
+          text = text.replace(command_anchor, command_insert, 1)
+
+          run_anchor = '''        Command::Transaction { command } => match command {\n'''
+          run_insert = '''        Command::RuntimeExecutorValidatePlan { plan, json } => {\n            let input = std::fs::read_to_string(&plan).map_err(|error| error.to_string())?;\n            let execution_plan =\n                RuntimeExecutionPlan::from_json_str(&input).map_err(|error| error.to_string())?;\n            if json {\n                println!(\n                    "{}",\n                    serde_json::to_string_pretty(&execution_plan)\n                        .map_err(|error| error.to_string())?\n                );\n            } else {\n                println!("Neo Phase 8 runtime execution-plan validation: PASS");\n                println!("File: {}", plan.display());\n                println!("Mission: {}", execution_plan.mission_id);\n                println!("Transaction: {}", execution_plan.transaction_id);\n                println!("Component: {:?}", execution_plan.component);\n                println!("Operation: {:?}", execution_plan.operation);\n                println!("Package: {}", execution_plan.package_id);\n                println!("Payload: {}", execution_plan.payload_path().map_err(|error| error.to_string())?.display());\n                println!("Execution: disabled from CLI");\n                println!("Machine changes: none");\n            }\n            Ok(())\n        }\n        Command::Transaction { command } => match command {\n'''
+          if text.count(run_anchor) != 1:
+              raise SystemExit("runtime executor run insertion point changed")
+          text = text.replace(run_anchor, run_insert, 1)
+
+          status_old = '''        Command::Status => {\n            println!("Neo Driver implementation phase: Phase 7 managed package vault");\n            println!("Driver mutation backend: internal pending live attached-device proof");\n            println!("Phase 6 runtime System X-Ray: read-only documented evidence paths");\n            println!("Runtime/gaming assessment: read-only and user-selectable");\n            println!("Managed vault root: Builder/portable root + NeoData");\n            println!("Network package acquisition: intentionally disabled at this gate");\n            println!("Runtime downloads/installations: intentionally disabled at this gate");\n            println!("Transaction advancement from CLI: intentionally disabled");\n            println!("Model dependency: none");\n            Ok(())\n        }\n'''
+          status_new = '''        Command::Status => {\n            println!("Neo Driver implementation phase: Phase 8 internal runtime executor proof");\n            println!("Driver mutation backend: internal pending live attached-device proof");\n            println!("Phase 6 runtime System X-Ray: read-only documented evidence paths");\n            println!("Runtime/gaming assessment: read-only and user-selectable");\n            println!("Phase 8 runtime executor: internal single-file EXE/MSI boundary");\n            println!("Managed vault root: Builder/portable root + NeoData");\n            println!("Network package acquisition: intentionally disabled at this gate");\n            println!("Archive extraction and Windows-feature mutation: intentionally disabled");\n            println!("Runtime execution from CLI: intentionally disabled");\n            println!("Transaction advancement from CLI: intentionally disabled");\n            println!("Model dependency: none");\n            Ok(())\n        }\n'''
+          if text.count(status_old) != 1:
+              raise SystemExit("status block changed")
+          main.write_text(text.replace(status_old, status_new, 1), encoding="utf-8")
+
+          ci = Path(".github/workflows/ci.yml")
+          text = ci.read_text(encoding="utf-8")
+          static_anchor = '''      - name: Phase 7 twenty-lane static review\n        run: python -W error tools/phase7_static_review.py\n\n      - name: Cargo lockfile proof\n'''
+          static_new = '''      - name: Phase 7 twenty-lane static review\n        run: python -W error tools/phase7_static_review.py\n\n      - name: Phase 8 twenty-lane static review\n        run: python -W error tools/phase8_static_review.py\n\n      - name: Cargo lockfile proof\n'''
+          if text.count(static_anchor) != 1:
+              raise SystemExit("Phase 8 static CI insertion point changed")
+          text = text.replace(static_anchor, static_new, 1)
+
+          fixture_anchor = '''      - name: Transaction plan CLI fixture proof\n        run: cargo run --locked -p neo-cli -- transaction validate-plan fixtures/transaction/sample_transaction_plan.json\n'''
+          fixture_new = '''      - name: Runtime executor plan CLI fixture proof (Linux)\n        if: runner.os == 'Linux'\n        run: cargo run --locked -p neo-cli -- runtime-executor-validate-plan --plan fixtures/runtime-executor/plan-linux.json\n\n      - name: Runtime executor plan CLI fixture proof (Windows)\n        if: runner.os == 'Windows'\n        run: cargo run --locked -p neo-cli -- runtime-executor-validate-plan --plan fixtures/runtime-executor/plan-windows.json\n\n      - name: Transaction plan CLI fixture proof\n        run: cargo run --locked -p neo-cli -- transaction validate-plan fixtures/transaction/sample_transaction_plan.json\n'''
+          if text.count(fixture_anchor) != 1:
+              raise SystemExit("Phase 8 fixture CI insertion point changed")
+          ci.write_text(text.replace(fixture_anchor, fixture_new, 1), encoding="utf-8")
+      - name: Format and prove integration surface
+        run: |
+          cargo fmt --all
+          git diff --check
+          git diff -- crates/neo-cli/src/main.rs .github/workflows/ci.yml
+      - name: Self-delete helper and commit
+        run: |
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git rm .github/workflows/phase8-cli-ci-helper.yml
+          git add crates/neo-cli/src/main.rs .github/workflows/ci.yml
+          git diff --cached --check
+          git commit -m "Phase 8: integrate read-only execution-plan proof"
+          git push origin HEAD:implementation/phase-8-runtime-executor
