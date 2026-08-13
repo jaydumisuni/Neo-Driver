@@ -6,8 +6,6 @@ pub enum StatePlanError {
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("transaction error: {0}")]
-    Transaction(#[from] neo_transaction::TransactionError),
     #[error("{0} cannot be empty")]
     EmptyField(&'static str),
     #[error("invalid lowercase tweak id '{0}'")]
@@ -32,12 +30,10 @@ pub enum StatePlanError {
     DuplicateSelection(String),
     #[error("unknown selected tweak '{0}'")]
     UnknownTweak(String),
-    #[error("rejected tweak '{0}' cannot become transaction authority")]
+    #[error("rejected tweak '{0}' cannot become assessment authority")]
     RejectedTweak(String),
     #[error("selected tweak '{0}' has no exact current-state observation")]
     MissingObservation(String),
     #[error("selected tweak '{tweak_id}' current-state observation is unavailable: {reason}")]
     UnavailableObservation { tweak_id: String, reason: String },
-    #[error("all selected tweaks are already in the requested state")]
-    NoChangesRequired,
 }
