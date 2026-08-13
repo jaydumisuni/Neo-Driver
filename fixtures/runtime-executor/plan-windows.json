@@ -1,0 +1,75 @@
+{
+  "mission_id": "phase8-fixture-mission",
+  "transaction_id": "phase8-fixture-transaction",
+  "profile": "technician",
+  "component": "vc_redist_2015_plus_x86",
+  "operation": "install",
+  "package_kind": "runtime",
+  "package_id": "neo.fixture.vcredist.x86",
+  "package_version": "1.2.3",
+  "package_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "package_dependencies": [],
+  "package_conflicts": [],
+  "package_security": {},
+  "execution": {
+    "installer": "exe",
+    "unattended": true,
+    "install_args": ["/quiet", "/norestart"],
+    "repair_args": ["/repair", "/quiet"],
+    "success_exit_codes": [0, 3010],
+    "reboot_exit_codes": [3010],
+    "verification": {
+      "type": "installed_state"
+    }
+  },
+  "vault_mode": "portable",
+  "application_root": "C:\\NeoPhase8Fixture",
+  "windows_build": 26100,
+  "architecture": "x64",
+  "baseline": {
+    "component": "vc_redist_2015_plus_x86",
+    "state": "missing",
+    "detected_version": null,
+    "source": "phase8-fixture",
+    "details": []
+  },
+  "action": {
+    "id": "runtime.vc_redist_2015_plus_x86",
+    "title": "Visual C++ 2015+ x86",
+    "kind": "runtime_install",
+    "risk": "normal",
+    "recommendation": "recommended",
+    "verdict": "certified",
+    "rationale": "Fixture models the exact read-only Phase 8 execution contract without executing it.",
+    "selected_by_default": true,
+    "requires_confirmation": true,
+    "requires_admin": true,
+    "reboot": "none",
+    "rollback_available": false,
+    "evidence": [
+      {
+        "key": "runtime_component",
+        "value": "vc_redist_2015_plus_x86",
+        "source": "neo-runtime"
+      },
+      {
+        "key": "package_id",
+        "value": "neo.fixture.vcredist.x86",
+        "source": "neo-catalogue"
+      },
+      {
+        "key": "package_sha256",
+        "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "source": "neo-catalogue"
+      },
+      {
+        "key": "runtime_state",
+        "value": "missing",
+        "source": "phase8-fixture"
+      }
+    ],
+    "warnings": [
+      "Fixture is validation-only; no runtime execution authority is exercised by the CLI."
+    ]
+  }
+}
