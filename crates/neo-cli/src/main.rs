@@ -635,6 +635,7 @@ fn run(cli: Cli) -> Result<(), String> {
             println!("Phase 8 runtime executor: internal single-file EXE/MSI boundary");
             println!("Managed vault root: Builder/portable root + NeoData");
             println!("Network package acquisition: intentionally disabled at this gate");
+            println!("Runtime downloads/installations: intentionally disabled on public CLI at this gate");
             println!("Archive extraction and Windows-feature mutation: intentionally disabled");
             println!("Runtime execution from CLI: intentionally disabled");
             println!("Transaction advancement from CLI: intentionally disabled");
