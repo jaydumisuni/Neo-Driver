@@ -1,7 +1,8 @@
 #[test]
 fn phase9_contract_has_twenty_frozen_assessment_lanes() {
     let review = include_str!("../../../docs/PHASE9_20_LANE_REVIEW.md");
-    let decision = include_str!("../../../docs/decisions/0009-PHASE9-STATE-ASSESSMENT-FOUNDATION.md");
+    let decision =
+        include_str!("../../../docs/decisions/0009-PHASE9-STATE-ASSESSMENT-FOUNDATION.md");
 
     assert!(decision.contains("assessment only"));
 
