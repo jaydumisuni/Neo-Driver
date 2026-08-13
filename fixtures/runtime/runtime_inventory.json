@@ -1,0 +1,81 @@
+{
+  "windows_build": 26100,
+  "architecture": "x64",
+  "observations": [
+    {
+      "component": "vc_redist_2015_plus_x86",
+      "state": "missing",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "vc_redist_2015_plus_x64",
+      "state": "installed",
+      "detected_version": "14.44.35211",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "direct_x_legacy_june_2010",
+      "state": "missing",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "web_view2",
+      "state": "installed",
+      "detected_version": "139.0",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "xna_framework40_refresh",
+      "state": "missing",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "open_al",
+      "state": "installed",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "physx",
+      "state": "missing",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "physx_legacy",
+      "state": "missing",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "dot_net_framework35",
+      "state": "missing",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "direct_play",
+      "state": "missing",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "dot_net_framework4",
+      "state": "installed",
+      "detected_version": "4.8.1",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "python",
+      "state": "partial",
+      "detected_version": "3.12",
+      "source": "phase6-fixture",
+      "details": ["Interpreter detected; launcher/PATH evidence incomplete"]
+    },
+    {
+      "component": "dot_net_runtime",
+      "state": "missing",
+      "source": "phase6-fixture"
+    },
+    {
+      "component": "dot_net_desktop_runtime",
+      "state": "missing",
+      "source": "phase6-fixture"
+    }
+  ]
+}
