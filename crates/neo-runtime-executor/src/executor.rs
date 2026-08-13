@@ -134,7 +134,6 @@ impl RuntimeExecutionSession {
             payload: staged,
             expected_sha256: self.plan.package_sha256.clone(),
             arguments: self.plan.execution_args()?,
-            execution_lock: self.plan.lock_path()?,
         };
         invocation.validate()?;
 

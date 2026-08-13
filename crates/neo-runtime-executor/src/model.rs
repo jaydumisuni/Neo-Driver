@@ -277,10 +277,6 @@ impl RuntimeExecutionPlan {
         VerificationExpectation::Equals(self.expected_verification_value())
     }
 
-    pub fn lock_path(&self) -> Result<PathBuf, RuntimeExecutorError> {
-        Ok(self.layout()?.sessions().join("runtime-executor.lock"))
-    }
-
     pub fn staged_filename(&self) -> Result<VaultSegment, RuntimeExecutorError> {
         VaultSegment::new(format!(
             "runtime-installer.{}",
@@ -296,14 +292,13 @@ pub struct RuntimeInvocation {
     pub payload: PathBuf,
     pub expected_sha256: Sha256Digest,
     pub arguments: Vec<String>,
-    pub execution_lock: PathBuf,
 }
 
 impl RuntimeInvocation {
     pub fn validate(&self) -> Result<(), RuntimeExecutorError> {
-        if self.payload.as_os_str().is_empty() || self.execution_lock.as_os_str().is_empty() {
+        if self.payload.as_os_str().is_empty() {
             return Err(RuntimeExecutorError::InvalidPlan(
-                "runtime invocation paths cannot be empty".to_string(),
+                "runtime invocation payload path cannot be empty".to_string(),
             ));
         }
         Ok(())
