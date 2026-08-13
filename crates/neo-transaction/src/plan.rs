@@ -256,7 +256,7 @@ impl TransactionPlan {
             .collect()
     }
 
-    pub(crate) fn action_by_id(&self, action_id: &str) -> Option<&TransactionAction> {
+    pub fn action_by_id(&self, action_id: &str) -> Option<&TransactionAction> {
         self.actions
             .iter()
             .find(|transaction_action| transaction_action.action.id == action_id)
@@ -286,6 +286,23 @@ impl TransactionPlan {
         self.actions
             .iter()
             .flat_map(|transaction_action| transaction_action.postconditions.iter().cloned())
+            .collect()
+    }
+
+    pub(crate) fn rollback_targets_for(
+        &self,
+        action_ids: &BTreeSet<String>,
+    ) -> BTreeSet<StateTarget> {
+        self.actions
+            .iter()
+            .filter(|transaction_action| action_ids.contains(&transaction_action.action.id))
+            .flat_map(|transaction_action| match &transaction_action.rollback {
+                RollbackPlan::Reversible {
+                    restore_targets, ..
+                } => restore_targets.as_slice(),
+                RollbackPlan::Irreversible { .. } => &[],
+            })
+            .cloned()
             .collect()
     }
 
@@ -412,10 +429,40 @@ pub enum ApplyOutcome {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "ApplyRecordWire")]
 pub struct ApplyRecord {
     pub action_id: String,
     pub outcome: ApplyOutcome,
     pub detail: String,
+    pub machine_changed: bool,
+    #[serde(default)]
+    pub reboot_required: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApplyRecordWire {
+    action_id: String,
+    outcome: ApplyOutcome,
+    detail: String,
+    #[serde(default)]
+    machine_changed: Option<bool>,
+    #[serde(default)]
+    reboot_required: bool,
+}
+
+impl From<ApplyRecordWire> for ApplyRecord {
+    fn from(value: ApplyRecordWire) -> Self {
+        let machine_changed = value
+            .machine_changed
+            .unwrap_or(value.outcome == ApplyOutcome::Success);
+        Self {
+            action_id: value.action_id,
+            outcome: value.outcome,
+            detail: value.detail,
+            machine_changed,
+            reboot_required: value.reboot_required,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -423,6 +470,8 @@ pub struct RollbackRecord {
     pub action_id: String,
     pub outcome: ApplyOutcome,
     pub detail: String,
+    #[serde(default)]
+    pub reboot_required: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -435,6 +484,7 @@ pub enum TransactionStage {
     AwaitingReboot,
     Verifying,
     RollingBack,
+    AwaitingRollbackReboot,
     Complete,
     RolledBack,
     Failed,

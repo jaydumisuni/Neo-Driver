@@ -126,6 +126,20 @@ fn direct_serde_checkpoint_deserialization_cannot_bypass_invariants() {
 }
 
 #[test]
+fn legacy_apply_record_preserves_outcome_based_change_semantics() {
+    let success: ApplyRecord = serde_json::from_str(
+        r#"{"action_id":"a","outcome":"success","detail":"legacy success","reboot_required":false}"#,
+    )
+    .unwrap();
+    let failure: ApplyRecord = serde_json::from_str(
+        r#"{"action_id":"a","outcome":"failure","detail":"legacy failure","reboot_required":false}"#,
+    )
+    .unwrap();
+    assert!(success.machine_changed);
+    assert!(!failure.machine_changed);
+}
+
+#[test]
 fn rejected_action_cannot_enter_transaction() {
     let mut action = transaction_action();
     action.action.verdict = EvidenceVerdict::Rejected;
@@ -224,6 +238,8 @@ fn apply_success_never_completes_transaction() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
         })
         .unwrap();
     assert_eq!(checkpoint.stage(), TransactionStage::Verifying);
@@ -238,6 +254,8 @@ fn verification_proof_is_required_for_completion() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
         })
         .unwrap();
     checkpoint
@@ -258,6 +276,8 @@ fn failed_postcondition_routes_reversible_change_to_rollback() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
         })
         .unwrap();
     checkpoint
@@ -278,6 +298,8 @@ fn rollback_requires_restoration_proof_before_rolled_back() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
         })
         .unwrap();
     checkpoint
@@ -291,11 +313,103 @@ fn rollback_requires_restoration_proof_before_rolled_back() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor restored captured value".to_string(),
+            reboot_required: false,
         })
         .unwrap();
     assert_eq!(checkpoint.stage(), TransactionStage::RollingBack);
     checkpoint
         .verify_rollback(vec![Observation {
+            target: target(),
+            value: ObservedValue::Present("0".to_string()),
+        }])
+        .unwrap();
+    assert_eq!(checkpoint.stage(), TransactionStage::RolledBack);
+}
+
+#[test]
+fn successful_no_change_does_not_create_rollback_obligation() {
+    let mut checkpoint = authorized_checkpoint();
+    checkpoint.begin_apply().unwrap();
+    checkpoint
+        .record_apply_result(ApplyRecord {
+            action_id: "neo.fixture.tweak".to_string(),
+            outcome: ApplyOutcome::Success,
+            detail: "operation completed without changing machine state".to_string(),
+            machine_changed: false,
+            reboot_required: false,
+        })
+        .unwrap();
+    checkpoint
+        .verify_postconditions(vec![Observation {
+            target: target(),
+            value: ObservedValue::Present("0".to_string()),
+        }])
+        .unwrap();
+    assert_eq!(checkpoint.stage(), TransactionStage::Failed);
+}
+
+#[test]
+fn failed_operation_with_observed_change_routes_to_rollback() {
+    let mut checkpoint = authorized_checkpoint();
+    checkpoint.begin_apply().unwrap();
+    checkpoint
+        .record_apply_result(ApplyRecord {
+            action_id: "neo.fixture.tweak".to_string(),
+            outcome: ApplyOutcome::Failure,
+            detail: "backend failed after state changed".to_string(),
+            machine_changed: true,
+            reboot_required: false,
+        })
+        .unwrap();
+    assert_eq!(checkpoint.stage(), TransactionStage::RollingBack);
+}
+
+#[test]
+fn runtime_apply_reboot_escalates_possible_plan() {
+    let mut checkpoint = authorized_checkpoint();
+    checkpoint.begin_apply().unwrap();
+    checkpoint
+        .record_apply_result(ApplyRecord {
+            action_id: "neo.fixture.tweak".to_string(),
+            outcome: ApplyOutcome::Success,
+            detail: "backend discovered reboot".to_string(),
+            machine_changed: true,
+            reboot_required: true,
+        })
+        .unwrap();
+    assert_eq!(checkpoint.stage(), TransactionStage::AwaitingReboot);
+}
+
+#[test]
+fn rollback_runtime_reboot_waits_before_restoration_proof() {
+    let mut checkpoint = authorized_checkpoint();
+    checkpoint.begin_apply().unwrap();
+    checkpoint
+        .record_apply_result(ApplyRecord {
+            action_id: "neo.fixture.tweak".to_string(),
+            outcome: ApplyOutcome::Success,
+            detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
+        })
+        .unwrap();
+    checkpoint
+        .verify_postconditions(vec![Observation {
+            target: target(),
+            value: ObservedValue::Present("broken".to_string()),
+        }])
+        .unwrap();
+    checkpoint
+        .record_rollback_result(RollbackRecord {
+            action_id: "neo.fixture.tweak".to_string(),
+            outcome: ApplyOutcome::Success,
+            detail: "rollback backend requested reboot".to_string(),
+            reboot_required: true,
+        })
+        .unwrap();
+    assert_eq!(checkpoint.stage(), TransactionStage::AwaitingRollbackReboot);
+    checkpoint
+        .resume_after_rollback_reboot(vec![Observation {
             target: target(),
             value: ObservedValue::Present("0".to_string()),
         }])
@@ -320,6 +434,8 @@ fn required_reboot_must_be_proven_before_continuation() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
         })
         .unwrap();
     assert_eq!(checkpoint.stage(), TransactionStage::AwaitingReboot);
@@ -330,6 +446,34 @@ fn required_reboot_must_be_proven_before_continuation() {
         }])
         .unwrap();
     assert_eq!(checkpoint.stage(), TransactionStage::Verifying);
+}
+
+#[test]
+fn persisted_apply_reboot_checkpoint_cannot_be_rebound_as_rollback() {
+    let mut action = transaction_action();
+    action.action.reboot = RebootRequirement::Required;
+    let plan = TransactionPlan::new("TX", 1, "MISSION", vec![action]).unwrap();
+    let auth = authorization(&plan);
+    let mut checkpoint = TransactionCheckpoint::new(plan).unwrap();
+    checkpoint
+        .capture_baseline(baseline(CapturedValue::Present("0".to_string())))
+        .unwrap();
+    checkpoint.authorize(auth).unwrap();
+    checkpoint.begin_apply().unwrap();
+    checkpoint
+        .record_apply_result(ApplyRecord {
+            action_id: "neo.fixture.tweak".to_string(),
+            outcome: ApplyOutcome::Success,
+            detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
+        })
+        .unwrap();
+    let mut value = serde_json::to_value(&checkpoint).unwrap();
+    value["reboot_checkpoint"]["resume_stage"] = serde_json::json!("rolled_back");
+    value["reboot_checkpoint"]["expected_post_reboot"] =
+        serde_json::to_value(vec![rollback_predicate()]).unwrap();
+    assert!(serde_json::from_value::<TransactionCheckpoint>(value).is_err());
 }
 
 #[test]
@@ -349,6 +493,8 @@ fn failed_post_reboot_probe_blocks_continuation() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
         })
         .unwrap();
     checkpoint
@@ -457,6 +603,8 @@ fn blocked_reprobe_can_recover_to_verifying() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
         })
         .unwrap();
     checkpoint
@@ -492,6 +640,8 @@ fn blocked_reprobe_routes_reversible_change_to_rollback() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
         })
         .unwrap();
     checkpoint
@@ -526,6 +676,8 @@ fn persisted_reboot_checkpoint_tampering_is_rejected_after_resume() {
             action_id: "neo.fixture.tweak".to_string(),
             outcome: ApplyOutcome::Success,
             detail: "future executor reported success".to_string(),
+            machine_changed: true,
+            reboot_required: false,
         })
         .unwrap();
     let mut value = serde_json::to_value(checkpoint).unwrap();
