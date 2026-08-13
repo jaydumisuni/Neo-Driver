@@ -33,9 +33,7 @@ fn state_for_reader(reader: &ReaderId, profile: &neo_core::MachineProfile) -> Ob
         "windows.os.current_build" => text_state(profile.os.build_number.as_deref()),
         "windows.os.architecture" => text_state(profile.os.architecture.as_deref()),
         "windows.security.test_signing" => bool_state(profile.security.test_signing),
-        "windows.security.no_integrity_checks" => {
-            bool_state(profile.security.no_integrity_checks)
-        }
+        "windows.security.no_integrity_checks" => bool_state(profile.security.no_integrity_checks),
         "windows.security.secure_boot" => bool_state(profile.security.secure_boot),
         "windows.security.memory_integrity" => bool_state(profile.security.memory_integrity),
         "windows.security.pending_reboot" => bool_state(profile.security.pending_reboot),
