@@ -19,13 +19,21 @@
 11. The promoted payload is copied into marker-owned unique staging and staged bytes are re-hashed before launch.
 12. EXE execution is direct/no-shell; MSI uses trusted System32 `msiexec.exe` and fixed install/quiet/no-restart switches.
 13. MSI catalogue arguments cannot replace Neo's install operation with arbitrary msiexec switches.
-14. The Windows backend serializes runtime execution across Neo processes through one fixed named mutex and rejects link/reparse payload state; serialization does not create a path-based lock outside the retained vault capability model.
+14. The Windows backend serializes concurrent Neo runtime-executor processes **within one Windows session** through one fixed `Local\` named mutex and rejects link/reparse payload state; it does not claim system-wide cross-session serialization or create a path-based lock outside the retained vault capability model.
 15. The Windows backend re-hashes a write/delete-locked staged file immediately before launch and retains the handle through process exit.
 16. Exit-code success and reboot semantics are typed; reboot codes are a subset of successful codes.
 17. A started installer is conservatively considered potentially machine-changing even when it exits with failure.
 18. Completion requires re-probe verification; exit code alone cannot complete a transaction, and transient probe failure remains retryable.
 19. Required reboot uses the inherited persistent checkpoint/resume contract; host/build drift cannot become post-reboot PASS.
 20. No generic runtime rollback or public apply CLI is claimed; irreversible acknowledgement is mandatory and CI does not claim live runtime mutation proof.
+
+## Pre-review proof recovered during implementation
+
+- The original catalogue extension preserved JSON compatibility but Rust compiler proof identified exactly three literal/binding follow-ups: `runtime_execution: None` in existing test constructors plus the `Win32_Security` feature required by the locked Windows `CreateMutexW` binding. Those compiler-proven corrections were applied without widening runtime authority.
+- The Phase 7 vault was extended with one narrow `stage_managed_file` primitive that reuses retained no-follow capabilities, exact staging ownership markers, and SHA-256 verification instead of introducing path-based copy authority.
+- The initial Phase 8 static review exposed two proof-harness phrase dependencies after the implementation evidence was already present. Those lanes were corrected to bind to production path derivation/managed-root enforcement, adversarial tests, CLI source absence of execution authority, and irreversible-acknowledgement evidence rather than documentation wording.
+- Cargo lock helper run `31692195361` generated the complete CLI + runtime-executor graph and passed Phase 6, Phase 7, and Phase 8 static reviews before committing the lock and self-deleting its temporary workflow.
+- Microsoft documents `Local\` named kernel objects as session-local and `Global\` as cross-session. Phase 8 therefore freezes only same-session cross-process serialization; no system-wide serialization claim is made.
 
 ## Merge proof requirements
 
