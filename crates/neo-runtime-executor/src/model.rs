@@ -10,7 +10,7 @@ use neo_runtime::{
 use neo_transaction::{StateTarget, StateTargetKind, VerificationExpectation};
 use neo_vault::{Sha256Digest, VaultLayout, VaultMode, VaultSegment};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -421,15 +421,6 @@ fn require_exact_evidence(
         return Err(RuntimeExecutorError::ActionMismatch(format!(
             "expected exactly one {key} evidence item matching {expected}"
         )));
-    }
-    Ok(())
-}
-
-pub(crate) fn ensure_same_path(expected: &Path, actual: &Path) -> Result<(), RuntimeExecutorError> {
-    if expected != actual {
-        return Err(RuntimeExecutorError::InvalidPlan(
-            "runtime payload path is not the derived vault path".to_string(),
-        ));
     }
     Ok(())
 }
