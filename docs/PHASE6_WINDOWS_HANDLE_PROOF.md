@@ -1,4 +1,4 @@
-# Phase 6 — Windows Handle-Lifetime Proof
+# Phase 6 — Windows Handle-Lifetime and Final Implementation Proof
 
 ## P6-F11 — Retained capability handles blocked Windows staging cleanup
 
@@ -21,4 +21,24 @@ Only after those gates passed did it commit the correction as `5cd91718eaace96cc
 
 This correction changes handle lifetime only. It does not weaken the retained no-follow directory-capability model from P6-F9, nor does it add any public write/download/install command.
 
-The complete Phase 6 branch must still pass the normal Ubuntu + Windows CI pipeline from a user-authored clean head before merge.
+## Phase 6 implementation-code proof
+
+Normal user-authored CI run `31686242470` passed the complete configured release pipeline on both Ubuntu and Windows after P6-F11:
+
+- Phase 1 through Phase 6 twenty-lane static reviews;
+- Cargo lock integrity;
+- rustfmt;
+- locked full-workspace type/build proof;
+- Clippy with warnings denied;
+- all workspace unit/integration tests, including the capability/symlink/concurrent-import vault regressions;
+- catalogue CLI fixture;
+- matcher CLI fixture;
+- transaction plan CLI fixture;
+- transaction checkpoint CLI fixture;
+- vault source-map CLI fixture.
+
+## Review and surface freeze
+
+PR #7 currently has zero unresolved CodeRabbit review threads. The major TOCTOU filesystem-security finding is resolved by the retained no-follow directory-capability implementation. The frozen PR surface contains 19 intended files and no temporary proof/helper workflow.
+
+This file is the final documentation-only freeze record. No executable source is changed by this update. The resulting documentation-state head must pass the same Ubuntu + Windows CI pipeline before PR #7 may merge.
