@@ -18,6 +18,7 @@ neo-probe = { path = "../neo-probe" }
 neo-runtime = { path = "../neo-runtime" }
 neo-runtime-executor = { path = "../neo-runtime-executor" }
 neo-runtime-probe = { path = "../neo-runtime-probe" }
+neo-state-plan = { path = "../neo-state-plan" }
 neo-transaction = { path = "../neo-transaction" }
 neo-vault = { path = "../neo-vault" }
 serde_json.workspace = true
