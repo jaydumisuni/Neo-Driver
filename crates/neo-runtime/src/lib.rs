@@ -680,6 +680,7 @@ mod tests {
                 maximum_build: None,
             },
             driver_artifacts: vec![],
+            runtime_execution: None,
             dependencies: vec![],
             conflicts: vec![],
             security: SecurityRequirements::default(),

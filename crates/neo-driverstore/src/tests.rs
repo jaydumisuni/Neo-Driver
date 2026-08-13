@@ -334,6 +334,7 @@ fn fixture_catalogue() -> Catalogue {
                     verification_note: Some("fixture".to_string()),
                 },
             }],
+            runtime_execution: None,
             dependencies: vec![],
             conflicts: vec![],
             security: SecurityRequirements::default(),

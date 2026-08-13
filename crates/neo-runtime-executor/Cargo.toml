@@ -1,23 +1,20 @@
 [package]
-name = "neo-cli"
+name = "neo-runtime-executor"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
 
-[[bin]]
-name = "neo"
-path = "src/main.rs"
-
 [dependencies]
-clap.workspace = true
 neo-catalogue = { path = "../neo-catalogue" }
 neo-core = { path = "../neo-core" }
-neo-device = { path = "../neo-device" }
-neo-match = { path = "../neo-match" }
-neo-probe = { path = "../neo-probe" }
 neo-runtime = { path = "../neo-runtime" }
-neo-runtime-executor = { path = "../neo-runtime-executor" }
 neo-runtime-probe = { path = "../neo-runtime-probe" }
 neo-transaction = { path = "../neo-transaction" }
 neo-vault = { path = "../neo-vault" }
+serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true

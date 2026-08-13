@@ -258,6 +258,58 @@ impl VaultStore {
         }
     }
 
+    /// Copy one already-managed file into marker-owned staging without following
+    /// symlinks/reparse points for either the source or the staging directory.
+    pub fn stage_managed_file(
+        &self,
+        session: &VaultSegment,
+        source: impl AsRef<Path>,
+        staged_name: &VaultSegment,
+        expected_sha256: &Sha256Digest,
+    ) -> Result<PathBuf, VaultError> {
+        let source = self.layout.ensure_managed(source)?;
+        let managed = self.open_existing_managed_root()?.ok_or_else(|| {
+            VaultError::ApplicationRootUnavailable(self.layout.managed_root().to_path_buf())
+        })?;
+        let relative = relative_components(self.layout.managed_root(), &source)?;
+        let mut source_file = open_relative_file_nofollow(&managed, &relative, &source)?;
+
+        let session_display = self.begin_staging(session)?;
+        let staging = self
+            .open_existing_managed_child("staging")?
+            .ok_or_else(|| {
+                VaultError::ApplicationRootUnavailable(self.layout.staging().to_path_buf())
+            })?;
+        let session_dir = open_child_dir(&staging, session.as_str(), &session_display)?;
+        validate_staging_marker(&session_dir, session, &session_display)?;
+
+        let staged_display = session_display.join(staged_name.as_str());
+        let mut staged_file = create_new_file_nofollow(&session_dir, staged_name.as_str())?;
+        if let Err(error) = std::io::copy(&mut source_file, &mut staged_file) {
+            drop(staged_file);
+            let _ = session_dir.remove_file(staged_name.as_str());
+            return Err(VaultError::Io(error));
+        }
+        if let Err(error) = staged_file.sync_all() {
+            drop(staged_file);
+            let _ = session_dir.remove_file(staged_name.as_str());
+            return Err(VaultError::Io(error));
+        }
+        drop(staged_file);
+
+        let observed =
+            sha256_cap_file(open_read_file_nofollow(&session_dir, staged_name.as_str())?)?;
+        if observed != *expected_sha256 {
+            let _ = session_dir.remove_file(staged_name.as_str());
+            return Err(VaultError::HashMismatch {
+                path: staged_display,
+                expected: expected_sha256.to_string(),
+                observed: observed.to_string(),
+            });
+        }
+        Ok(staged_display)
+    }
+
     pub fn audit_existing_tree(&self) -> Result<(), VaultError> {
         let app_root = open_absolute_dir_nofollow(self.layout.application_root())?;
         let managed = match app_root.open_dir_nofollow("NeoData") {

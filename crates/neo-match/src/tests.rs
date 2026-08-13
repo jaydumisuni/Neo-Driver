@@ -88,6 +88,7 @@ fn package(
             maximum_build: None,
         },
         driver_artifacts: vec![artifact],
+        runtime_execution: None,
         dependencies: vec![],
         conflicts: vec![],
         security: SecurityRequirements::default(),
