@@ -11,6 +11,7 @@
 - **Phase 5:** merged and engineering-proven — controlled, manually selected Windows driver installation bound to the proven matcher + transaction engine; mutation engine remains internal pending live attached-device proof.
 - **Phase 6:** merged and engineering-proven — deterministic runtime/gaming assessment + read-only Windows runtime System X-Ray, including compiled DirectX June 2010 legacy-component completeness evidence. Runtime execution remains a bounded child stage.
 - **Phase 7:** merged and engineering-proven — Builder/portable-rooted managed package vault (`NeoData`) with verified local/offline pack intake, pinned TTG source provenance, no-follow filesystem authority, concurrent-promotion protection, marker-owned cleanup, and read-only public vault inspection. Network acquisition and public vault mutation remain blocked.
+- **Phase 8:** merged and engineering-proven — bounded internal runtime executor for exact local/offline single-file runtime payloads, bound to Phase 6 Certified assessment, Phase 7 vault authority, and Phase 4 irreversible transaction/reboot verification. Public runtime mutation remains blocked because the opaque execution capability is not issued to external callers or the CLI.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -29,6 +30,8 @@ Phase 5 final documentation-state run `31655706797` passed the complete Ubuntu a
 Phase 6 final documentation-state run `31684943307` passed the complete Ubuntu and Windows pipeline with zero unresolved inline review threads and a clean 19-file PR surface, and Phase 6 merged through PR #8 as `4747aafdb53b5731738fb99e08ddf2778c0d8707`.
 
 Phase 7 final exact-head documentation-state run `31687570246` passed the complete Ubuntu and Windows Phase 1–7 pipeline, and Phase 7 merged through PR #10 as `bca02a8a294a976debcc26b480cea0c3ba4da2e2`.
+
+Phase 8 final documentation-state run `31698767919` passed the complete Ubuntu and Windows Phase 1–8 pipeline with zero unresolved review threads, and Phase 8 merged through PR #12 as `7a26d8d9dc86ac5f5db09eaf82b58424b1babd26`.
 
 ## Phase 5 frozen implementation
 
@@ -142,22 +145,52 @@ It adds:
 
 The detailed Phase 7 contract and recovered engineering findings are frozen in `docs/decisions/0007-PHASE7-MANAGED-PACKAGE-VAULT.md` and `docs/PHASE7_20_LANE_REVIEW.md`.
 
+## Phase 8 frozen implementation
+
+Phase 8 adds a bounded internal runtime-execution boundary without replacing or weakening the read-only Phase 6 assessment/System-X-Ray layer or Phase 7 vault.
+
+It adds:
+
+- `neo-runtime-executor` as a separate first-class workspace crate;
+- runtime-only execution metadata in catalogue manifests for exact EXE/MSI payload contracts;
+- execution-plan preparation that re-derives authority from a Phase 6 `Certified` runtime recommendation;
+- exact package ID/version/SHA evidence and Builder/portable-rooted Phase 7 vault path derivation;
+- absolute application-root validation and direct-Serde revalidation of persisted execution plans;
+- dependency/conflict and boot/security-mutation hard blocks before runtime authority exists;
+- marker-owned no-follow staging through Phase 7 vault capabilities;
+- direct EXE execution and trusted System32 `msiexec.exe` MSI execution with no shell path;
+- MSI argument validation, including rejection of bare empty `PROPERTY=` assignments while preserving explicit `PROPERTY=""` semantics;
+- Windows 32-bit exit-status bit-pattern preservation, including high-bit HRESULT/Win32 representations;
+- bounded same-session cross-process serialization through a fixed `Local\` named mutex with timeout handling;
+- locked staged-file SHA-256 re-verification immediately before process launch;
+- conservative `machine_changed` evidence whenever an installer process starts;
+- irreversible Phase 4 transaction authority with exact captured runtime baseline and mandatory acknowledgement;
+- reboot/resume and post-install re-probe through the proven transaction checkpoint engine;
+- retryable verification after transient runtime observation failure;
+- an opaque `RuntimeExecutorCapability` with no public constructor, so safe external callers cannot invoke mutation even though validated plans/sessions remain inspectable;
+- crate-private raw host/invocation/process/Windows-host adapters, closing the initial library-authority bypass found during PR review;
+- read-only public CLI plan validation only; no public runtime install/apply command;
+- Phase 8 20-lane review integrated beside inherited Phase 1–7 gates.
+
+The detailed Phase 8 authority, review corrections, and proof boundary are frozen in `docs/decisions/0008-PHASE8-RUNTIME-EXECUTOR.md` and `docs/PHASE8_20_LANE_REVIEW.md`.
+
 ## Still deliberately blocked
 
 Phase 5 does **not** expose a user/technician driver mutation CLI yet. Live attached-device mutation proof is required before that public write surface is opened.
 
-Phase 6 does **not** expose runtime installation or repair execution yet.
+Phase 6 remains the read-only runtime/gaming assessment and System-X-Ray authority layer. Phase 8 implements the bounded internal EXE/MSI runtime executor, but does **not** issue its opaque execution capability to external callers or expose a public runtime installation/repair CLI.
 
 Phase 7 does **not** expose online package acquisition, archive execution, public pack import/cleanup writes, or any new driver/security mutation authority.
 
 The following remain blocked:
 
 - runtime downloads and automatic vault/network package acquisition;
-- EXE/MSI/Winget runtime execution;
+- public EXE/MSI runtime execution and any Winget runtime execution;
+- public issuance of Phase 8 `RuntimeExecutorCapability`;
 - public vault import/cleanup mutation commands;
 - archive extraction/execution as install authority;
 - .NET 3.5 or DirectPlay feature mutation;
-- runtime rollback claims before an executor-specific capture/verification/recovery contract exists;
+- generic runtime rollback claims for third-party installers without a proven package-specific restoration path;
 - forced lower-ranked driver binding;
 - force Driver Store deletion or broad stale-package cleanup;
 - blanket USB/filter replacement;
@@ -176,7 +209,8 @@ Implementation continues to honor:
 - `docs/decisions/0004-PHASE4-TRANSACTION-CONTRACT.md`;
 - `docs/decisions/0005-PHASE5-CONTROLLED-DRIVER-INSTALL.md`;
 - `docs/decisions/0006-PHASE6-RUNTIMES-GAMING.md`;
-- `docs/decisions/0007-PHASE7-MANAGED-PACKAGE-VAULT.md`.
+- `docs/decisions/0007-PHASE7-MANAGED-PACKAGE-VAULT.md`;
+- `docs/decisions/0008-PHASE8-RUNTIME-EXECUTOR.md`.
 
 ## Proof status
 
@@ -187,6 +221,7 @@ Implementation continues to honor:
 - Phase 5: **PROVEN and merged**.
 - Phase 6: **PROVEN and merged** at the read-only Runtime/Gaming System X-Ray + assessment boundary.
 - Phase 7: **PROVEN and merged** at the managed local/offline package-vault + read-only public inspection boundary.
+- Phase 8: **PROVEN and merged** at the bounded internal EXE/MSI runtime-executor + read-only public plan-validation boundary.
 - Phase 5 platform-neutral transaction/driverstore core: compiler/Clippy/adversarial proof passed before freeze.
 - Phase 5 Windows SetupAPI/NewDev backend: Windows compiler proof passed; Windows Clippy with warnings denied passed; Windows-specific validation regressions passed.
 - Windows fail-closed observation correction run `31650621429`: **PASS**.
@@ -230,4 +265,14 @@ Implementation continues to honor:
 - Phase 7 merged through PR #10 as `bca02a8a294a976debcc26b480cea0c3ba4da2e2`.
 - Phase 7 online acquisition/public vault mutation proof: **not claimed**.
 
-Phases 1–7 are closed at their recorded repository boundaries. The next bounded runtime child stage remains the Phase 6 runtime executor: exact package authority, package-specific apply semantics, reboot evidence, re-probe verification, and rollback/recovery where a real restoration path exists. Phase 7 network acquisition, archive execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, and recovery contracts are frozen and proven.
+- Phase 8 Windows review-correction pre-proof run `31697713764`: **PASS** across Phase 8 20/20, locked workspace build, Clippy with warnings denied, runtime-executor tests, catalogue tests, and diff validation before the temporary helper self-cleaned.
+- Phase 8 Linux cfg-hygiene pre-proof run `31698343953`: **PASS** across Phase 8 20/20, locked workspace build, Clippy with warnings denied and no warning suppression, runtime-executor tests, and diff validation before the temporary helper self-cleaned.
+- Phase 8 corrected implementation run `31698473273`: **PASS on Ubuntu and Windows** across Phase 1–8 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, complete workspace tests, Windows live read-only Runtime System X-Ray, and every applicable CLI fixture.
+- Final Phase 8 documentation-state run `31698767919`: **PASS on Ubuntu and Windows** across the complete configured Phase 1–8 pipeline.
+- Phase 8 PR #12 external review: **all review threads resolved or explicitly dispositioned as outdated; zero unresolved review threads at merge**.
+- Phase 8 merged through PR #12 as `7a26d8d9dc86ac5f5db09eaf82b58424b1babd26`.
+- Phase 8 live runtime-installer mutation proof: **not claimed**; CI compiled/tested the executor and ran read-only Runtime System X-Ray/fixtures but did not execute a real runtime installer.
+- Phase 8 public runtime mutation proof: **not claimed**; the opaque execution capability is not publicly constructible or issued by the CLI.
+
+
+Phases 1–8 are closed at their recorded repository boundaries. Phase 5 public driver mutation still requires live attached-device proof. Phase 8 public runtime mutation still requires a separately reviewed capability-issuance/live-installer proof path. Phase 7 network acquisition, archive execution, Windows-feature mutation, Winget execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, and recovery contracts are frozen and proven.
