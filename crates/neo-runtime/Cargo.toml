@@ -1,0 +1,12 @@
+[package]
+name = "neo-runtime"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-catalogue = { path = "../neo-catalogue" }
+neo-core = { path = "../neo-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
