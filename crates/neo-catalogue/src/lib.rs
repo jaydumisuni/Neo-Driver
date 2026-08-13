@@ -130,7 +130,7 @@ impl RuntimeExecutionSpec {
             .iter()
             .find(|code| !successes.contains(code))
         {
-            return Err(CatalogueError::RuntimeRebootCodeNotSuccessful(**code));
+            return Err(CatalogueError::RuntimeRebootCodeNotSuccessful(*code));
         }
         self.verification.validate()
     }
@@ -424,7 +424,10 @@ fn validate_runtime_args(
 ) -> Result<(), CatalogueError> {
     for value in values {
         require_nonempty(label, value)?;
-        if value.chars().any(|ch| ch == '\0' || ch == '\r' || ch == '\n') {
+        if value
+            .chars()
+            .any(|ch| ch == '\0' || ch == '\r' || ch == '\n')
+        {
             return Err(CatalogueError::InvalidRuntimeArgument(value.clone()));
         }
         if installer == RuntimeInstallerKind::Msi && !is_msi_property_assignment(value) {
@@ -453,7 +456,10 @@ fn ensure_unique_exit_codes(label: &'static str, values: &[i32]) -> Result<(), C
             return Err(CatalogueError::InvalidRuntimeExitCode(*value));
         }
         if !seen.insert(*value) {
-            return Err(CatalogueError::DuplicateRuntimeExitCode { label, code: *value });
+            return Err(CatalogueError::DuplicateRuntimeExitCode {
+                label,
+                code: *value,
+            });
         }
     }
     Ok(())
