@@ -79,7 +79,8 @@ The Windows backend:
 
 - launches the exact staged EXE directly with `CreateProcess` semantics through Rust `Command`, never through a shell;
 - resolves MSI execution through trusted Windows System32 rather than PATH/environment state;
-- keeps an exclusive runtime-executor lock while an installer is running so concurrent Neo processes cannot execute runtime installers simultaneously;
+- keeps one fixed `Local\` named mutex while an installer is running, serializing concurrent Neo runtime-executor processes **within the same Windows session**;
+- does not claim system-wide cross-session serialization; Microsoft defines the `Local\` kernel-object namespace as session-local, while `Global\` is the cross-session namespace;
 - opens the staged payload read-only with write/delete sharing denied, re-hashes that locked handle immediately before process launch, and keeps it open until the child exits;
 - rejects link/reparse payload state before launch.
 
