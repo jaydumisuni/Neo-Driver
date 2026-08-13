@@ -203,6 +203,7 @@ dependencies = [
  "neo-match",
  "neo-probe",
  "neo-transaction",
+ "neo-vault",
  "serde_json",
 ]
 
@@ -264,6 +265,16 @@ name = "neo-transaction"
 version = "0.1.0"
 dependencies = [
  "neo-core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
+name = "neo-vault"
+version = "0.1.0"
+dependencies = [
  "serde",
  "serde_json",
  "sha2",
