@@ -1,0 +1,12 @@
+[package]
+name = "neo-state-resolver"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-probe = { path = "../neo-probe" }
+neo-state-plan = { path = "../neo-state-plan" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
