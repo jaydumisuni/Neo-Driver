@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  driverstore-test-isolation:
+  driverstore-aggregate-diagnostic:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,39 +18,11 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
-      - name: planner impact cross-check
-        run: cargo test -p neo-driverstore planner_binds_windows_impact_to_catalogue_impact --locked -- --exact
-      - name: missing baseline package
-        run: cargo test -p neo-driverstore planner_refuses_missing_baseline_driver_package --locked -- --exact
-      - name: host build mismatch
-        run: cargo test -p neo-driverstore planner_rejects_caller_build_that_does_not_match_host --locked -- --exact
-      - name: deserialized traversal
-        run: cargo test -p neo-driverstore deserialized_driver_plan_rejects_parent_traversal --locked -- --exact
-      - name: preflight build drift
-        run: cargo test -p neo-driverstore preflight_rejects_host_build_drift_after_authority --locked -- --exact
-      - name: staging failure recovered identity
-        run: cargo test -p neo-driverstore staging_failure_with_recovered_identity_routes_rollback --locked -- --exact
-      - name: staging failure hidden identity
-        run: cargo test -p neo-driverstore staging_failure_without_recoverable_identity_never_claims_no_change --locked -- --exact
-      - name: source byte drift
-        run: cargo test -p neo-driverstore source_byte_drift_blocks_before_staging --locked -- --exact
-      - name: healthy target install
-        run: cargo test -p neo-driverstore healthy_target_install_reaches_complete --locked -- --exact
-      - name: healthy Windows no-op
-        run: cargo test -p neo-driverstore healthy_windows_noop_cleans_new_store_package_and_completes --locked -- --exact
-      - name: unhealthy Windows no-op
-        run: cargo test -p neo-driverstore unhealthy_windows_noop_fails_without_leaving_staged_package --locked -- --exact
-      - name: post-mutation inventory failure
-        run: cargo test -p neo-driverstore post_mutation_inventory_failure_routes_conservative_rollback --locked -- --exact
-      - name: transient verification retry
-        run: cargo test -p neo-driverstore transient_verification_probe_can_be_retried --locked -- --exact
-      - name: backend failure rollback
-        run: cargo test -p neo-driverstore backend_failure_after_binding_change_routes_exact_rollback --locked -- --exact
-      - name: unhealthy target rollback
-        run: cargo test -p neo-driverstore unhealthy_target_binding_routes_rollback --locked -- --exact
-      - name: runtime install reboot
-        run: cargo test -p neo-driverstore runtime_install_reboot_is_persisted_and_reproven --locked -- --exact
-      - name: rollback reboot
-        run: cargo test -p neo-driverstore rollback_reboot_defers_store_removal_until_binding_is_restored --locked -- --exact
-      - name: session deserialization binding
-        run: cargo test -p neo-driverstore direct_session_deserialization_cannot_rebind_transaction --locked -- --exact
+      - name: List all driverstore tests
+        run: cargo test -p neo-driverstore --locked -- --list
+      - name: Serialized driverstore suite
+        run: cargo test -p neo-driverstore --all-targets --locked -- --test-threads=1
+      - name: Normal parallel driverstore suite
+        run: cargo test -p neo-driverstore --all-targets --locked
+      - name: Workspace unit proof serialized
+        run: cargo test --workspace --all-targets --locked -- --test-threads=1
