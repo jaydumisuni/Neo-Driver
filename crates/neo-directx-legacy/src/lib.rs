@@ -36,7 +36,9 @@ impl WindowsArchitecture {
             "x86" | "i386" | "i686" => Ok(Self::X86),
             "x64" | "amd64" | "x86_64" => Ok(Self::X64),
             "arm64" | "aarch64" => Ok(Self::Arm64),
-            other => Err(LegacyDirectXError::UnsupportedArchitecture(other.to_string())),
+            other => Err(LegacyDirectXError::UnsupportedArchitecture(
+                other.to_string(),
+            )),
         }
     }
 }
@@ -92,7 +94,7 @@ pub fn scan_current(architecture: WindowsArchitecture) -> LegacyDirectXReport {
                 ));
             }
         };
-        return scan_at(&system_root, architecture, usize::BITS as u8);
+        scan_at(&system_root, architecture, usize::BITS as u8)
     }
 
     #[cfg(not(windows))]

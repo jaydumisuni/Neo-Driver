@@ -226,6 +226,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "neo-directx-legacy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
+ "windows",
+]
+
+[[package]]
 name = "neo-driverstore"
 version = "0.1.0"
 dependencies = [
@@ -276,6 +285,7 @@ dependencies = [
 name = "neo-runtime-probe"
 version = "0.1.0"
 dependencies = [
+ "neo-directx-legacy",
  "neo-probe",
  "neo-runtime",
  "serde",

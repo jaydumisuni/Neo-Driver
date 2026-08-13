@@ -4,6 +4,10 @@
 //! boundary and the pure `neo-runtime` assessment model. It does not install,
 //! repair, download, enable, disable, or otherwise mutate Windows state.
 
+use neo_directx_legacy::{
+    scan_current as scan_legacy_directx, LegacyDirectXReport, LegacyDirectXState,
+    WindowsArchitecture as LegacyDirectXArchitecture,
+};
 use neo_probe::{
     scan_current_machine, CommandEvidence, CommandRunner, ProbeError, SystemCommandRunner,
 };
@@ -48,6 +52,9 @@ impl<R: CommandRunner> WindowsRuntimeProbe<R> {
     ) -> Result<RuntimeProbeReport, RuntimeProbeError> {
         let canonical_architecture = canonical_architecture(architecture)
             .ok_or_else(|| RuntimeProbeError::UnsupportedArchitecture(architecture.to_string()))?;
+        let directx_architecture = LegacyDirectXArchitecture::parse(canonical_architecture)
+            .map_err(|_| RuntimeProbeError::UnsupportedArchitecture(architecture.to_string()))?;
+        let legacy_directx = scan_legacy_directx(directx_architecture);
 
         let vc_x86_native = self.capture(
             "reg.exe",
@@ -161,11 +168,7 @@ impl<R: CommandRunner> WindowsRuntimeProbe<R> {
                     &[&vc_x64_native, &vc_x64_wow],
                 )
             },
-            unknown_observation(
-                RuntimeComponent::DirectXLegacyJune2010,
-                "neo-runtime-probe:directx-legacy-predicate-pending",
-                "Modern DirectX capability and the June 2010 side-by-side legacy package are distinct; Neo does not infer legacy completeness from the OS DirectX version.",
-            ),
+            classify_legacy_directx(&legacy_directx),
             classify_windows_feature(RuntimeComponent::DotNetFramework35, "NetFx3", &netfx3),
             classify_netfx4(&netfx4),
             classify_dotnet_runtime(RuntimeComponent::DotNetRuntime, "Microsoft.NETCore.App", &dotnet),
@@ -222,7 +225,7 @@ impl<R: CommandRunner> WindowsRuntimeProbe<R> {
             py_path,
             pip_path,
         ];
-        let warnings = command_evidence
+        let mut warnings: Vec<String> = command_evidence
             .iter()
             .filter(|item| !item.succeeded() && !known_absent(item))
             .map(|item| {
@@ -235,6 +238,9 @@ impl<R: CommandRunner> WindowsRuntimeProbe<R> {
                 )
             })
             .collect();
+        warnings.extend(legacy_directx.warnings.iter().map(|warning| {
+            format!("legacy DirectX probe could not certify completeness: {warning}")
+        }));
 
         Ok(RuntimeProbeReport {
             inventory,
@@ -260,6 +266,37 @@ pub fn scan_current_runtime_inventory() -> Result<RuntimeProbeReport, RuntimePro
         .as_deref()
         .ok_or(RuntimeProbeError::MissingArchitecture)?;
     WindowsRuntimeProbe::new(SystemCommandRunner).scan_for_host(build, architecture)
+}
+
+fn classify_legacy_directx(report: &LegacyDirectXReport) -> RuntimeObservation {
+    let state = match report.state {
+        LegacyDirectXState::Installed => RuntimeState::Installed,
+        LegacyDirectXState::Partial => RuntimeState::Partial,
+        LegacyDirectXState::Missing => RuntimeState::Missing,
+        LegacyDirectXState::Unknown => RuntimeState::Unknown,
+    };
+    let mut details = vec![
+        format!("expected_files={}", report.expected_files),
+        format!("present_files={}", report.present_files),
+    ];
+    for architecture in &report.architectures {
+        details.push(format!(
+            "architecture={:?};present={}/{};missing={}",
+            architecture.architecture,
+            architecture.present_files,
+            architecture.expected_files,
+            architecture.missing_files.join(",")
+        ));
+    }
+    details.extend(report.warnings.iter().cloned());
+    RuntimeObservation {
+        component: RuntimeComponent::DirectXLegacyJune2010,
+        state,
+        detected_version: (state == RuntimeState::Installed)
+            .then_some("June 2010 legacy framework component set".to_string()),
+        source: report.source.clone(),
+        details,
+    }
 }
 
 fn classify_registry_runtime(

@@ -8,6 +8,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = (ROOT / "crates/neo-runtime/src/lib.rs").read_text(encoding="utf-8")
+DIRECTX = (ROOT / "crates/neo-directx-legacy/src/lib.rs").read_text(encoding="utf-8")
 PROBE = (ROOT / "crates/neo-runtime-probe/src/lib.rs").read_text(encoding="utf-8")
 CLI = (ROOT / "crates/neo-cli/src/main.rs").read_text(encoding="utf-8")
 WORKSPACE = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
@@ -92,14 +93,14 @@ def review() -> list[Lane]:
         Lane(
             1,
             "workspace-contract",
-            {"crates/neo-runtime", "crates/neo-runtime-probe"}.issubset(members),
+            {"crates/neo-runtime", "crates/neo-directx-legacy", "crates/neo-runtime-probe"}.issubset(members),
             "runtime assessment and runtime System X-Ray are first-class workspace crates",
         ),
         Lane(
             2,
             "shared-boundary-contract",
             {"neo-catalogue", "neo-core"}.issubset(runtime_deps)
-            and {"neo-probe", "neo-runtime"}.issubset(probe_deps),
+            and {"neo-directx-legacy", "neo-probe", "neo-runtime"}.issubset(probe_deps),
             "assessment reuses Neo catalogue/core and the scanner reuses the existing command-evidence boundary",
         ),
         Lane(
@@ -292,11 +293,14 @@ def review() -> list[Lane]:
         ),
         Lane(
             16,
-            "unproven-legacy-predicates-stay-unknown",
-            contains_all(
+            "directx-proven-other-legacy-predicates-stay-unknown",
+            contains_all(DIRECTX, ["GetWindowsDirectoryW", "expected_component_files", "D3DCompiler_", "D3DX9_", "XAudio2_", "XInput1_"])
+            and "std::env::var_os(\"SystemRoot\")" not in DIRECTX
+            and contains_all(
                 PROBE,
                 [
-                    "directx-legacy-predicate-pending",
+                    "classify_legacy_directx",
+                    "scan_legacy_directx",
                     "xna-predicate-pending",
                     "openal-predicate-pending",
                     "physx-predicate-pending",
@@ -304,7 +308,7 @@ def review() -> list[Lane]:
                     "Neo reports Unknown rather than guessing",
                 ],
             ),
-            "DirectX legacy/XNA/OpenAL/PhysX predicates remain Unknown until independently proven",
+            "DirectX June 2010 framework-component completeness is proven by the compiled detector; XNA/OpenAL/PhysX predicates remain Unknown until independently proven",
         ),
         Lane(
             17,
