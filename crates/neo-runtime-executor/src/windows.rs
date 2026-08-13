@@ -1,6 +1,4 @@
-use crate::{
-    RuntimeExecutorError, RuntimeHost, RuntimeInvocation, RuntimeProcessResult,
-};
+use crate::{RuntimeExecutorError, RuntimeHost, RuntimeInvocation, RuntimeProcessResult};
 use neo_catalogue::RuntimeInstallerKind;
 use neo_runtime::RuntimeInventory;
 use neo_runtime_probe::scan_current_runtime_inventory;
@@ -149,7 +147,9 @@ fn trusted_windows_directory() -> Result<PathBuf, RuntimeExecutorError> {
     loop {
         let length = unsafe { GetWindowsDirectoryW(Some(&mut buffer)) } as usize;
         if length == 0 {
-            return Err(RuntimeExecutorError::Host(WinError::from_thread().to_string()));
+            return Err(RuntimeExecutorError::Host(
+                WinError::from_thread().to_string(),
+            ));
         }
         if length < buffer.len() {
             return Ok(PathBuf::from(String::from_utf16_lossy(&buffer[..length])));
@@ -167,8 +167,10 @@ impl RuntimeExecutionMutex {
     fn acquire() -> Result<Self, RuntimeExecutorError> {
         let mut name = RUNTIME_MUTEX_NAME.encode_utf16().collect::<Vec<_>>();
         name.push(0);
-        let handle = unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }
-            .map_err(|error| RuntimeExecutorError::Host(format!("mutex creation failed: {error}")))?;
+        let handle =
+            unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }.map_err(|error| {
+                RuntimeExecutorError::Host(format!("mutex creation failed: {error}"))
+            })?;
         let wait = unsafe { WaitForSingleObject(handle, INFINITE) };
         if wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED {
             Ok(Self {

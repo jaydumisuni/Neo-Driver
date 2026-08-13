@@ -4,7 +4,9 @@ use neo_catalogue::{
     SecurityRequirements,
 };
 use neo_core::{ActionKind, EvidenceVerdict, PlannedAction};
-use neo_runtime::{component_key, RuntimeComponent, RuntimeObservation, RuntimeProfile, RuntimeState};
+use neo_runtime::{
+    component_key, RuntimeComponent, RuntimeObservation, RuntimeProfile, RuntimeState,
+};
 use neo_transaction::{StateTarget, StateTargetKind, VerificationExpectation};
 use neo_vault::{Sha256Digest, VaultLayout, VaultMode, VaultSegment};
 use serde::{Deserialize, Serialize};
@@ -186,10 +188,8 @@ impl RuntimeExecutionPlan {
         }
         match (self.operation, self.baseline.state) {
             (RuntimeExecutionOperation::Install, RuntimeState::Missing)
-            | (
-                RuntimeExecutionOperation::Repair,
-                RuntimeState::Broken | RuntimeState::Partial,
-            ) => {}
+            | (RuntimeExecutionOperation::Repair, RuntimeState::Broken | RuntimeState::Partial) => {
+            }
             _ => {
                 return Err(RuntimeExecutorError::OperationStateMismatch {
                     operation: self.operation.as_str(),
@@ -224,11 +224,7 @@ impl RuntimeExecutionPlan {
             ));
         }
         require_exact_evidence(&self.action, "package_id", self.package_id.as_str())?;
-        require_exact_evidence(
-            &self.action,
-            "package_sha256",
-            self.package_sha256.as_str(),
-        )?;
+        require_exact_evidence(&self.action, "package_sha256", self.package_sha256.as_str())?;
         let layout = self.layout()?;
         layout.ensure_managed(self.payload_path()?)?;
         Ok(())
@@ -253,9 +249,11 @@ impl RuntimeExecutionPlan {
     pub fn execution_args(&self) -> Result<Vec<String>, RuntimeExecutorError> {
         match self.operation {
             RuntimeExecutionOperation::Install => Ok(self.execution.install_args.clone()),
-            RuntimeExecutionOperation::Repair => self.execution.repair_args.clone().ok_or_else(|| {
-                RuntimeExecutorError::MissingRepairArguments(self.package_id.to_string())
-            }),
+            RuntimeExecutionOperation::Repair => {
+                self.execution.repair_args.clone().ok_or_else(|| {
+                    RuntimeExecutorError::MissingRepairArguments(self.package_id.to_string())
+                })
+            }
         }
     }
 
@@ -397,7 +395,10 @@ pub(crate) fn verification_value(
             if observation.state == RuntimeState::Installed {
                 Some(format!(
                     "installed:{}",
-                    observation.detected_version.as_deref().unwrap_or("<missing>")
+                    observation
+                        .detected_version
+                        .as_deref()
+                        .unwrap_or("<missing>")
                 ))
             } else {
                 Some(runtime_baseline_value(observation))

@@ -139,7 +139,8 @@ impl RuntimeExecutionSession {
         invocation.validate()?;
 
         self.checkpoint.begin_apply()?;
-        self.checkpoint.assert_action_pending(&self.plan.action.id)?;
+        self.checkpoint
+            .assert_action_pending(&self.plan.action.id)?;
 
         let process = match host.execute(&invocation) {
             Ok(result) => result,
@@ -280,10 +281,7 @@ impl RuntimeExecutionSession {
         Ok(())
     }
 
-    fn verification_observation(
-        &self,
-        inventory: &neo_runtime::RuntimeInventory,
-    ) -> Observation {
+    fn verification_observation(&self, inventory: &neo_runtime::RuntimeInventory) -> Observation {
         let target = self.plan.state_target();
         if inventory.windows_build != self.plan.windows_build {
             return Observation {

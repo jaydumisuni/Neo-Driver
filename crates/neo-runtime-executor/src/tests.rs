@@ -8,9 +8,7 @@ use neo_runtime::{
     RuntimeComponent, RuntimeInventory, RuntimeObservation, RuntimePackageBinding, RuntimePolicy,
     RuntimeProfile, RuntimeState,
 };
-use neo_transaction::{
-    ActionAcknowledgement, TransactionAuthorization, TransactionStage,
-};
+use neo_transaction::{ActionAcknowledgement, TransactionAuthorization, TransactionStage};
 use neo_vault::{sha256_file, PackClass, VaultLayout, VaultMode, VaultSegment, VaultStore};
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -80,10 +78,7 @@ impl Drop for Fixture {
 
 fn fixture(spec: RuntimeExecutionSpec) -> Fixture {
     let sequence = NEXT_TEST_ROOT.fetch_add(1, Ordering::Relaxed);
-    let root = std::env::temp_dir().join(format!(
-        "neo-phase8-{}-{sequence}",
-        std::process::id()
-    ));
+    let root = std::env::temp_dir().join(format!("neo-phase8-{}-{sequence}", std::process::id()));
     fs::create_dir_all(&root).unwrap();
     let source = root.join("fixture-redist.exe");
     fs::write(&source, b"neo-runtime-executor-fixture-v1").unwrap();
@@ -336,10 +331,7 @@ fn transient_probe_error_leaves_verification_retryable() {
     ));
     assert_eq!(session.checkpoint.stage(), TransactionStage::Verifying);
 
-    let retry = FakeHost::probe_only([Ok(inventory(
-        RuntimeState::Installed,
-        Some("1.2.3"),
-    ))]);
+    let retry = FakeHost::probe_only([Ok(inventory(RuntimeState::Installed, Some("1.2.3")))]);
     session.verify_current(&retry).unwrap();
     assert_eq!(session.checkpoint.stage(), TransactionStage::Complete);
 }
