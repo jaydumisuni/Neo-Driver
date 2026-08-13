@@ -70,7 +70,9 @@ pub fn assess_tweaks(
 
 fn satisfied(operation: &TweakOperation, state: &ObservedState) -> bool {
     match (operation, state) {
-        (TweakOperation::Set { value: expected }, ObservedState::Present { value }) => value == expected,
+        (TweakOperation::Set { value: expected }, ObservedState::Present { value }) => {
+            value == expected
+        }
         (TweakOperation::Delete, ObservedState::Absent) => true,
         _ => false,
     }
