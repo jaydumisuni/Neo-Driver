@@ -63,6 +63,10 @@ jobs:
       - name: Rust unit proof
         run: cargo test --workspace --all-targets --locked
 
+      - name: Runtime System X-Ray proof
+        if: runner.os == 'Windows'
+        run: cargo run --locked -p neo-cli -- runtime-scan --json
+
       - name: Catalogue CLI fixture proof
         run: cargo run --locked -p neo-cli -- catalogue validate fixtures/catalogue/sample_driver_catalogue.json
 
