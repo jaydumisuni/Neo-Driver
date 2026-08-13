@@ -82,7 +82,7 @@ def review() -> list[Lane]:
         "deserialized_driver_plan_rejects_parent_traversal",
         "planner_rejects_caller_build_that_does_not_match_host",
         "preflight_rejects_host_build_drift_after_authority",
-        "staging_failure_with_recovered_identity_routes_rollback",
+        "staging_failure_with_recovered_identity_restores_store_and_fails_without_net_change",
         "staging_failure_without_recoverable_identity_never_claims_no_change",
     ]
     return [

@@ -507,17 +507,18 @@ fn preflight_rejects_host_build_drift_after_authority() {
 }
 
 #[test]
-fn staging_failure_with_recovered_identity_routes_rollback() {
+fn staging_failure_with_recovered_identity_restores_store_and_fails_without_net_change() {
     let fixture = Fixture::new(None);
     let mut session = fixture.session();
     fixture
         .host
         .configure(|state| state.stage_error_after_insert = true);
     session.apply(&fixture.host).unwrap();
-    assert_eq!(session.transaction().stage(), TransactionStage::RollingBack);
+    assert_eq!(session.transaction().stage(), TransactionStage::Failed);
     assert!(session.target_package().is_some());
-    session.rollback(&fixture.host).unwrap();
-    assert_eq!(session.transaction().stage(), TransactionStage::RolledBack);
+    let packages = &fixture.host.state.borrow().packages;
+    assert!(packages.contains_key("oem1.inf"));
+    assert!(!packages.contains_key("oem42.inf"));
 }
 
 #[test]

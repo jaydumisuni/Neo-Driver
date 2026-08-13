@@ -23,7 +23,7 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_MFG, SPOST_PATH, SP_COPY_STYLE,
     SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
 };
-use windows::Win32::Devices::Properties::{DEVPKEY_Device_DriverInfPath, DEVPROPKEY, DEVPROPTYPE};
+use windows::Win32::Devices::Properties::{DEVPKEY_Device_DriverInfPath, DEVPROPTYPE};
 use windows::Win32::Foundation::ERROR_NO_MORE_ITEMS;
 use windows::Win32::System::Registry::{
     RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RRF_ZEROONFAILURE,
@@ -466,7 +466,7 @@ fn registry_property_wide(
 fn device_property_string(
     set: HDEVINFO,
     data: &SP_DEVINFO_DATA,
-    property: &DEVPROPKEY,
+    property: &windows::Win32::Foundation::DEVPROPKEY,
 ) -> Result<Option<String>, DriverStoreError> {
     let mut property_type = DEVPROPTYPE(0);
     let mut required = 0u32;
