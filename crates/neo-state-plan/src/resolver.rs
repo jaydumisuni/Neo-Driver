@@ -3,6 +3,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -82,6 +83,14 @@ impl StateBindings {
             }
         }
         Ok(None)
+    }
+
+    pub fn from_json_str(input: &str) -> Result<Self, StatePlanError> {
+        Ok(serde_json::from_str(input)?)
+    }
+
+    pub fn read_json(path: impl AsRef<Path>) -> Result<Self, StatePlanError> {
+        Self::from_json_str(&std::fs::read_to_string(path)?)
     }
 }
 
