@@ -44,6 +44,7 @@
 - CodeRabbit identified an unbounded Windows mutex wait. The `Local\` named mutex now uses a finite 300,000 ms wait and returns typed host failure on `WAIT_TIMEOUT`.
 - A CodeRabbit `windows`-module-shadowing suggestion became outdated and was explicitly dispositioned after repeated exact Windows compilation proved the locked `windows 0.62.2` imports compile in this crate layout.
 - The PathBuf formatting thread became outdated after the corrected error formatting and exact compiler proof.
+- The first normal corrected-head Linux Clippy run exposed three target-hygiene warnings introduced by the capability split: a Windows/test-only architecture import, a Windows/test-only installer-kind import, and a Windows-only `started_without_exit` helper. Those were corrected with cfg boundaries rather than warning suppression.
 
 ## Review correction pre-proof
 
@@ -57,7 +58,16 @@ Windows one-shot correction run `31697713764` passed:
 - diff validation;
 - self-clean of the temporary correction workflow/tool.
 
-All PR #12 review threads are resolved or explicitly dispositioned as outdated. This run is a bounded correction pre-proof only; the corrected helper-free head still requires the complete normal Ubuntu + Windows pipeline before merge.
+Linux cfg-hygiene correction run `31698343953` passed:
+
+- Phase 8 20/20 static review;
+- full locked workspace type/build proof;
+- Clippy with warnings denied and no `allow`/`expect` suppression;
+- `neo-runtime-executor` regression tests;
+- diff validation;
+- self-clean of the temporary correction workflow/tool.
+
+All PR #12 review threads are resolved or explicitly dispositioned as outdated. These are bounded correction pre-proofs only; the corrected helper-free head still requires the complete normal Ubuntu + Windows pipeline before merge.
 
 ## Merge proof requirements
 
