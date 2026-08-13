@@ -31,34 +31,19 @@ jobs:
           path = Path("crates/neo-vault/src/store.rs")
           text = path.read_text(encoding="utf-8")
 
-          old = '''        validate_staging_marker(&session_dir, session, &display)?;
-          staging.remove_dir_all(session.as_str())?;'''
-          new = '''        validate_staging_marker(&session_dir, session, &display)?;
-          drop(session_dir);
-          staging.remove_dir_all(session.as_str())?;'''
-          assert text.count(old) == 1, text.count(old)
+          old = "        validate_staging_marker(&session_dir, session, &display)?;\n        staging.remove_dir_all(session.as_str())?;"
+          new = "        validate_staging_marker(&session_dir, session, &display)?;\n        drop(session_dir);\n        staging.remove_dir_all(session.as_str())?;"
+          assert text.count(old) == 1, ("cleanup-marker-anchor", text.count(old))
           text = text.replace(old, new, 1)
 
-          old = '''            if let Err(error) = final_file.sync_all() {
-              drop(final_file);
-              let _ = version_dir.remove_file(&destination_name);
-              return Err(VaultError::Io(error));
-          }
-          drop(final_file);'''
-          new = '''            drop(staged_reader);
-          if let Err(error) = final_file.sync_all() {
-              drop(final_file);
-              let _ = version_dir.remove_file(&destination_name);
-              return Err(VaultError::Io(error));
-          }
-          drop(final_file);'''
-          assert text.count(old) == 1, text.count(old)
+          old = "            if let Err(error) = final_file.sync_all() {"
+          new = "            drop(staged_reader);\n            if let Err(error) = final_file.sync_all() {"
+          assert text.count(old) == 1, ("staged-reader-anchor", text.count(old))
           text = text.replace(old, new, 1)
 
-          old = '''        let cleanup_result = self.cleanup_staging(&session);'''
-          new = '''        drop(session_dir);
-          let cleanup_result = self.cleanup_staging(&session);'''
-          assert text.count(old) == 1, text.count(old)
+          old = "        let cleanup_result = self.cleanup_staging(&session);"
+          new = "        drop(session_dir);\n        let cleanup_result = self.cleanup_staging(&session);"
+          assert text.count(old) == 1, ("outer-session-anchor", text.count(old))
           text = text.replace(old, new, 1)
 
           path.write_text(text, encoding="utf-8")
