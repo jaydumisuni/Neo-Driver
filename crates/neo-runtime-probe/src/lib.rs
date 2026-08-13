@@ -4,8 +4,12 @@
 //! boundary and the pure `neo-runtime` assessment model. It does not install,
 //! repair, download, enable, disable, or otherwise mutate Windows state.
 
-use neo_probe::{scan_current_machine, CommandEvidence, CommandRunner, ProbeError, SystemCommandRunner};
-use neo_runtime::{RuntimeComponent, RuntimeError, RuntimeInventory, RuntimeObservation, RuntimeState};
+use neo_probe::{
+    scan_current_machine, CommandEvidence, CommandRunner, ProbeError, SystemCommandRunner,
+};
+use neo_runtime::{
+    RuntimeComponent, RuntimeError, RuntimeInventory, RuntimeObservation, RuntimeState,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -93,25 +97,20 @@ impl<R: CommandRunner> WindowsRuntimeProbe<R> {
         let dotnet = self.capture("dotnet.exe", &["--list-runtimes"]);
 
         let webview_machine_key = if canonical_architecture == "x86" {
-            format!(
-                r"HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_PRODUCT_GUID}"
-            )
+            format!(r"HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_PRODUCT_GUID}")
         } else {
             format!(
                 r"HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_PRODUCT_GUID}"
             )
         };
-        let webview_user_key = format!(
-            r"HKCU\Software\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_PRODUCT_GUID}"
-        );
+        let webview_user_key =
+            format!(r"HKCU\Software\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_PRODUCT_GUID}");
         let webview_machine = self.capture(
             "reg.exe",
             &["query", webview_machine_key.as_str(), "/v", "pv"],
         );
-        let webview_user = self.capture(
-            "reg.exe",
-            &["query", webview_user_key.as_str(), "/v", "pv"],
-        );
+        let webview_user =
+            self.capture("reg.exe", &["query", webview_user_key.as_str(), "/v", "pv"]);
 
         let netfx3 = self.capture(
             "dism.exe",
@@ -519,10 +518,7 @@ fn parse_dism_feature_state(output: &str) -> Option<FeatureState> {
         if !name.trim().eq_ignore_ascii_case("State") {
             return None;
         }
-        let normalized = value
-            .trim()
-            .to_ascii_lowercase()
-            .replace([' ', '-'], "");
+        let normalized = value.trim().to_ascii_lowercase().replace([' ', '-'], "");
         match normalized.as_str() {
             "enabled" | "enablepending" => Some(FeatureState::Enabled),
             "disabled" | "disablepending" => Some(FeatureState::Disabled),
