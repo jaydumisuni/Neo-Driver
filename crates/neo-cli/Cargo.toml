@@ -3,6 +3,7 @@ name = "neo-cli"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
+default-run = "neo"
 
 [[bin]]
 name = "neo"
