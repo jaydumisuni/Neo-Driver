@@ -2,7 +2,7 @@
 //!
 //! Phase 3 refines INF applicability into per-model entries so deterministic
 //! matching can preserve Windows identifier-score semantics. The catalogue
-//! remains read-only and contains no download or install authority.
+//! remains read-only and contains no download or install authority by itself.
 
 use neo_device::OpaqueDeviceId;
 use serde::{Deserialize, Serialize};
@@ -58,6 +58,82 @@ pub enum RebootRequirement {
     None,
     Recommended,
     Required,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeInstallerKind {
+    Exe,
+    Msi,
+}
+
+impl RuntimeInstallerKind {
+    pub fn staging_extension(self) -> &'static str {
+        match self {
+            Self::Exe => "exe",
+            Self::Msi => "msi",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum RuntimeVerificationRule {
+    InstalledState,
+    ExactDetectedVersion { value: String },
+}
+
+impl RuntimeVerificationRule {
+    pub fn validate(&self) -> Result<(), CatalogueError> {
+        if let Self::ExactDetectedVersion { value } = self {
+            require_nonempty("runtime verification version", value)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeExecutionSpec {
+    pub installer: RuntimeInstallerKind,
+    pub unattended: bool,
+    #[serde(default)]
+    pub install_args: Vec<String>,
+    #[serde(default)]
+    pub repair_args: Option<Vec<String>>,
+    pub success_exit_codes: Vec<i32>,
+    #[serde(default)]
+    pub reboot_exit_codes: Vec<i32>,
+    pub verification: RuntimeVerificationRule,
+}
+
+impl RuntimeExecutionSpec {
+    pub fn validate(&self) -> Result<(), CatalogueError> {
+        if !self.unattended {
+            return Err(CatalogueError::RuntimeExecutionNotUnattended);
+        }
+        validate_runtime_args(self.installer, "install argument", &self.install_args)?;
+        if let Some(repair_args) = &self.repair_args {
+            validate_runtime_args(self.installer, "repair argument", repair_args)?;
+        }
+        if self.success_exit_codes.is_empty() {
+            return Err(CatalogueError::RuntimeExecutionWithoutSuccessCode);
+        }
+        ensure_unique_exit_codes("runtime success exit code", &self.success_exit_codes)?;
+        ensure_unique_exit_codes("runtime reboot exit code", &self.reboot_exit_codes)?;
+        let successes = self
+            .success_exit_codes
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        if let Some(code) = self
+            .reboot_exit_codes
+            .iter()
+            .find(|code| !successes.contains(code))
+        {
+            return Err(CatalogueError::RuntimeRebootCodeNotSuccessful(**code));
+        }
+        self.verification.validate()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -171,6 +247,8 @@ pub struct PackageManifest {
     #[serde(default)]
     pub driver_artifacts: Vec<DriverArtifact>,
     #[serde(default)]
+    pub runtime_execution: Option<RuntimeExecutionSpec>,
+    #[serde(default)]
     pub dependencies: Vec<String>,
     #[serde(default)]
     pub conflicts: Vec<String>,
@@ -218,6 +296,15 @@ impl PackageManifest {
             return Err(CatalogueError::UnexpectedDriverArtifacts(
                 self.package_id.clone(),
             ));
+        }
+
+        if let Some(runtime_execution) = &self.runtime_execution {
+            if self.kind != PackageKind::Runtime {
+                return Err(CatalogueError::RuntimeExecutionOnNonRuntime(
+                    self.package_id.clone(),
+                ));
+            }
+            runtime_execution.validate()?;
         }
 
         let mut inf_paths = BTreeSet::new();
@@ -330,6 +417,48 @@ fn validate_windows(windows: &WindowsApplicability) -> Result<(), CatalogueError
     Ok(())
 }
 
+fn validate_runtime_args(
+    installer: RuntimeInstallerKind,
+    label: &'static str,
+    values: &[String],
+) -> Result<(), CatalogueError> {
+    for value in values {
+        require_nonempty(label, value)?;
+        if value.chars().any(|ch| ch == '\0' || ch == '\r' || ch == '\n') {
+            return Err(CatalogueError::InvalidRuntimeArgument(value.clone()));
+        }
+        if installer == RuntimeInstallerKind::Msi && !is_msi_property_assignment(value) {
+            return Err(CatalogueError::InvalidMsiRuntimeArgument(value.clone()));
+        }
+    }
+    Ok(())
+}
+
+fn is_msi_property_assignment(value: &str) -> bool {
+    let Some((name, _)) = value.split_once('=') else {
+        return false;
+    };
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn ensure_unique_exit_codes(label: &'static str, values: &[i32]) -> Result<(), CatalogueError> {
+    let mut seen = BTreeSet::new();
+    for value in values {
+        if *value < 0 {
+            return Err(CatalogueError::InvalidRuntimeExitCode(*value));
+        }
+        if !seen.insert(*value) {
+            return Err(CatalogueError::DuplicateRuntimeExitCode { label, code: *value });
+        }
+    }
+    Ok(())
+}
+
 fn validate_sha256(value: &str) -> Result<(), CatalogueError> {
     if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(CatalogueError::InvalidSha256(value.to_string()));
@@ -376,6 +505,22 @@ pub enum CatalogueError {
     DriverBundleWithoutArtifacts(String),
     #[error("non-INF package unexpectedly contains driver artifacts: {0}")]
     UnexpectedDriverArtifacts(String),
+    #[error("runtime execution metadata is only valid on runtime packages: {0}")]
+    RuntimeExecutionOnNonRuntime(String),
+    #[error("runtime execution contract must be explicitly unattended")]
+    RuntimeExecutionNotUnattended,
+    #[error("runtime execution contract requires at least one successful exit code")]
+    RuntimeExecutionWithoutSuccessCode,
+    #[error("invalid runtime process argument: {0}")]
+    InvalidRuntimeArgument(String),
+    #[error("MSI runtime custom arguments must be PROPERTY=VALUE assignments: {0}")]
+    InvalidMsiRuntimeArgument(String),
+    #[error("invalid runtime exit code: {0}")]
+    InvalidRuntimeExitCode(i32),
+    #[error("duplicate {label}: {code}")]
+    DuplicateRuntimeExitCode { label: &'static str, code: i32 },
+    #[error("runtime reboot exit code is not also successful: {0}")]
+    RuntimeRebootCodeNotSuccessful(i32),
     #[error("driver artifact has no INF model entries: {0}")]
     DriverArtifactWithoutModels(String),
     #[error("INF model entry must contain at least one hardware or compatible ID")]
@@ -453,6 +598,7 @@ mod tests {
                     verification_note: Some("fixture only".to_string()),
                 },
             }],
+            runtime_execution: None,
             dependencies: vec![],
             conflicts: vec![],
             security: SecurityRequirements::default(),
@@ -460,9 +606,62 @@ mod tests {
         }
     }
 
+    fn runtime_spec() -> RuntimeExecutionSpec {
+        RuntimeExecutionSpec {
+            installer: RuntimeInstallerKind::Exe,
+            unattended: true,
+            install_args: vec!["/quiet".to_string(), "/norestart".to_string()],
+            repair_args: Some(vec!["/repair".to_string(), "/quiet".to_string()]),
+            success_exit_codes: vec![0, 3010],
+            reboot_exit_codes: vec![3010],
+            verification: RuntimeVerificationRule::ExactDetectedVersion {
+                value: "1.2.3".to_string(),
+            },
+        }
+    }
+
     #[test]
     fn sample_manifest_validates() {
         assert!(sample_manifest().validate().is_ok());
+    }
+
+    #[test]
+    fn runtime_execution_is_optional_and_runtime_only() {
+        let mut manifest = sample_manifest();
+        manifest.kind = PackageKind::Runtime;
+        manifest.driver_artifacts.clear();
+        manifest.runtime_execution = Some(runtime_spec());
+        assert!(manifest.validate().is_ok());
+
+        manifest.kind = PackageKind::Application;
+        assert!(matches!(
+            manifest.validate(),
+            Err(CatalogueError::RuntimeExecutionOnNonRuntime(_))
+        ));
+    }
+
+    #[test]
+    fn runtime_reboot_code_must_be_successful() {
+        let mut spec = runtime_spec();
+        spec.reboot_exit_codes = vec![1641];
+        assert!(matches!(
+            spec.validate(),
+            Err(CatalogueError::RuntimeRebootCodeNotSuccessful(1641))
+        ));
+    }
+
+    #[test]
+    fn msi_arguments_cannot_replace_neos_fixed_operation_switches() {
+        let mut spec = runtime_spec();
+        spec.installer = RuntimeInstallerKind::Msi;
+        spec.install_args = vec!["/x".to_string()];
+        assert!(matches!(
+            spec.validate(),
+            Err(CatalogueError::InvalidMsiRuntimeArgument(_))
+        ));
+        spec.install_args = vec!["ADDLOCAL=ALL".to_string()];
+        spec.repair_args = Some(vec!["REINSTALL=ALL".to_string()]);
+        assert!(spec.validate().is_ok());
     }
 
     #[test]
