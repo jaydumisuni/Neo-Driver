@@ -19,6 +19,8 @@ pub enum VaultError {
     UnownedStaging(PathBuf),
     #[error("staging ownership marker does not match session {session}: {path}")]
     StagingMarkerMismatch { session: String, path: PathBuf },
+    #[error("another Neo import currently owns promotion lock: {0}")]
+    ImportBusy(PathBuf),
     #[error("SHA-256 must contain exactly 64 hexadecimal characters")]
     InvalidSha256,
     #[error("SHA-256 mismatch for {path}: expected {expected}, observed {observed}")]
