@@ -233,7 +233,15 @@ pub fn assess_runtime_profile(
 
         let mut warnings = Vec::new();
         let chosen = match candidates.as_slice() {
-            [single] => Some(*single),
+            [single] if single.dependencies.is_empty() && single.conflicts.is_empty() => {
+                Some(*single)
+            }
+            [_single] => {
+                warnings.push(
+                    "The compatible package has dependency/conflict edges; Phase 6 will not create standalone action authority until dependency-closure planning is proven.".to_string(),
+                );
+                None
+            }
             [] => {
                 if !matches!(state, RuntimeState::Installed) {
                     warnings.push(
@@ -851,6 +859,40 @@ mod tests {
         let item = &assessment.recommendations[0];
         assert_eq!(item.verdict, EvidenceVerdict::Investigate);
         assert!(item.action.is_none());
+    }
+
+    #[test]
+    fn dependency_graph_never_becomes_standalone_action_authority() {
+        let dependency = package("runtime.dependency");
+        let mut main = package("runtime.vc.x86");
+        main.dependencies.push("runtime.dependency".to_string());
+        let catalogue = Catalogue {
+            packages: vec![main, dependency],
+        };
+        let policy = RuntimePolicy {
+            bindings: vec![RuntimePackageBinding {
+                component: RuntimeComponent::VcRedist2015PlusX86,
+                package_id: "runtime.vc.x86".to_string(),
+            }],
+        };
+        let assessment = assess_runtime_profile(
+            RuntimeProfile::FreshWindows,
+            &inventory(RuntimeState::Missing),
+            &catalogue,
+            &policy,
+        )
+        .unwrap();
+        let item = assessment
+            .recommendations
+            .iter()
+            .find(|item| item.component == RuntimeComponent::VcRedist2015PlusX86)
+            .unwrap();
+        assert_eq!(item.verdict, EvidenceVerdict::Investigate);
+        assert!(item.action.is_none());
+        assert!(item
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("dependency-closure")));
     }
 
     #[test]

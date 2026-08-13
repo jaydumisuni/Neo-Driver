@@ -227,7 +227,7 @@ impl<R: CommandRunner> WindowsRuntimeProbe<R> {
         ];
         let mut warnings: Vec<String> = command_evidence
             .iter()
-            .filter(|item| !item.succeeded() && !known_absent(item))
+            .filter(|item| !item.succeeded())
             .map(|item| {
                 format!(
                     "runtime probe {} {:?} could not establish a normal result (exit={:?}, start_error={}); raw evidence retained",
@@ -323,9 +323,6 @@ fn classify_registry_runtime(
             Some("Runtime registry key exists but the documented Version value is absent."),
         );
     }
-    if evidence.iter().all(|item| known_absent(item)) {
-        return observation(component, RuntimeState::Missing, source, vec![], None);
-    }
     unknown_observation(
         component,
         source,
@@ -336,15 +333,17 @@ fn classify_registry_runtime(
 fn classify_netfx4(evidence: &CommandEvidence) -> RuntimeObservation {
     let source = "Microsoft .NET Framework v4 Full Release registry";
     if evidence.succeeded() {
-        if let Some(release) = parse_reg_value(&evidence.stdout, "Release") {
-            if parse_reg_number(&release).is_some() {
-                return observation(
-                    RuntimeComponent::DotNetFramework4,
-                    RuntimeState::Installed,
-                    source,
-                    vec![format!("Release={release}")],
-                    None,
-                );
+        if let Some(release_raw) = parse_reg_value(&evidence.stdout, "Release") {
+            if let Some(release) = parse_reg_number(&release_raw) {
+                if let Some(version) = netfx4_version(release) {
+                    return RuntimeObservation {
+                        component: RuntimeComponent::DotNetFramework4,
+                        state: RuntimeState::Installed,
+                        detected_version: Some(version.to_string()),
+                        source: source.to_string(),
+                        details: vec![format!("Release={release_raw}")],
+                    };
+                }
             }
         }
         return observation(
@@ -353,15 +352,6 @@ fn classify_netfx4(evidence: &CommandEvidence) -> RuntimeObservation {
             source,
             vec![],
             Some(".NET Framework v4 Full key exists but a valid Release DWORD was not recovered."),
-        );
-    }
-    if known_absent(evidence) {
-        return observation(
-            RuntimeComponent::DotNetFramework4,
-            RuntimeState::Missing,
-            source,
-            vec![],
-            None,
         );
     }
     unknown_observation(
@@ -422,15 +412,6 @@ fn classify_webview2(evidence: &[&CommandEvidence]) -> RuntimeObservation {
             None,
         );
     }
-    if evidence.iter().all(|item| known_absent(item)) {
-        return observation(
-            RuntimeComponent::WebView2,
-            RuntimeState::Missing,
-            source,
-            vec![],
-            None,
-        );
-    }
     if evidence.iter().any(|item| item.succeeded()) {
         return observation(
             RuntimeComponent::WebView2,
@@ -475,6 +456,20 @@ fn classify_windows_feature(
             vec!["State=Disabled".to_string()],
             None,
         ),
+        Some(FeatureState::EnablePending) => observation(
+            component,
+            RuntimeState::Partial,
+            &source,
+            vec!["State=EnablePending".to_string()],
+            Some("The feature is pending enablement and requires reboot completion before Neo can call it installed."),
+        ),
+        Some(FeatureState::DisablePending) => observation(
+            component,
+            RuntimeState::Partial,
+            &source,
+            vec!["State=DisablePending".to_string()],
+            Some("The feature is pending disablement and requires reboot completion before Neo can call it missing."),
+        ),
         Some(FeatureState::PayloadRemoved) => observation(
             component,
             RuntimeState::Missing,
@@ -504,6 +499,7 @@ fn classify_python(
         .filter(|line| line.to_ascii_lowercase().contains("python.exe"))
         .map(ToOwned::to_owned)
         .collect();
+    let runtime_versions = python_versions_from_listing(&python_list.stdout);
     let python_on_path = python_path.succeeded() && !python_path.stdout.trim().is_empty();
     let py_on_path = py_path.succeeded() && !py_path.stdout.trim().is_empty();
     let pip_on_path = pip_path.succeeded() && !pip_path.stdout.trim().is_empty();
@@ -518,7 +514,13 @@ fn classify_python(
         } else {
             RuntimeState::Partial
         };
-        return observation(RuntimeComponent::Python, state, source, details, None);
+        return RuntimeObservation {
+            component: RuntimeComponent::Python,
+            state,
+            detected_version: runtime_versions.first().cloned(),
+            source: source.to_string(),
+            details,
+        };
     }
 
     if python_on_path || py_on_path || pip_on_path {
@@ -546,6 +548,8 @@ fn classify_python(
 enum FeatureState {
     Enabled,
     Disabled,
+    EnablePending,
+    DisablePending,
     PayloadRemoved,
 }
 
@@ -557,8 +561,10 @@ fn parse_dism_feature_state(output: &str) -> Option<FeatureState> {
         }
         let normalized = value.trim().to_ascii_lowercase().replace([' ', '-'], "");
         match normalized.as_str() {
-            "enabled" | "enablepending" => Some(FeatureState::Enabled),
-            "disabled" | "disablepending" => Some(FeatureState::Disabled),
+            "enabled" => Some(FeatureState::Enabled),
+            "disabled" => Some(FeatureState::Disabled),
+            "enablepending" => Some(FeatureState::EnablePending),
+            "disablepending" => Some(FeatureState::DisablePending),
             "disabledwithpayloadremoved" | "removed" => Some(FeatureState::PayloadRemoved),
             _ => None,
         }
@@ -580,6 +586,46 @@ fn parse_reg_value(output: &str, key: &str) -> Option<String> {
         let value = parts.collect::<Vec<_>>().join(" ");
         (!value.is_empty()).then_some(value)
     })
+}
+
+fn python_versions_from_listing(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter_map(|line| {
+            line.split_whitespace()
+                .find_map(|token| token.strip_prefix("-V:"))
+                .map(|version| version.trim_end_matches('*').to_string())
+        })
+        .filter(|version| !version.is_empty())
+        .collect()
+}
+
+fn netfx4_version(release: u64) -> Option<&'static str> {
+    if release >= 533_320 {
+        Some("4.8.1 or later")
+    } else if release >= 528_040 {
+        Some("4.8")
+    } else if release >= 461_808 {
+        Some("4.7.2")
+    } else if release >= 461_308 {
+        Some("4.7.1")
+    } else if release >= 460_798 {
+        Some("4.7")
+    } else if release >= 394_802 {
+        Some("4.6.2")
+    } else if release >= 394_254 {
+        Some("4.6.1")
+    } else if release >= 393_295 {
+        Some("4.6")
+    } else if release >= 379_893 {
+        Some("4.5.2")
+    } else if release >= 378_675 {
+        Some("4.5.1")
+    } else if release >= 378_389 {
+        Some("4.5")
+    } else {
+        None
+    }
 }
 
 fn parse_reg_number(raw: &str) -> Option<u64> {
@@ -637,10 +683,6 @@ fn unknown_observation(
         source: source.to_string(),
         details: vec![detail.to_string()],
     }
-}
-
-fn known_absent(evidence: &CommandEvidence) -> bool {
-    evidence.start_error.is_none() && evidence.exit_code == Some(1)
 }
 
 fn canonical_architecture(value: &str) -> Option<&'static str> {
@@ -715,7 +757,7 @@ mod tests {
     }
 
     #[test]
-    fn vc_registry_known_absence_is_missing() {
+    fn vc_registry_failed_queries_are_unknown() {
         let a = absent();
         let b = absent();
         let result = classify_registry_runtime(
@@ -724,7 +766,7 @@ mod tests {
             "Version",
             &[&a, &b],
         );
-        assert_eq!(result.state, RuntimeState::Missing);
+        assert_eq!(result.state, RuntimeState::Unknown);
     }
 
     #[test]
@@ -739,7 +781,42 @@ mod tests {
             ),
             Some(FeatureState::PayloadRemoved)
         );
+        assert_eq!(
+            parse_dism_feature_state("State : Enable Pending\n"),
+            Some(FeatureState::EnablePending)
+        );
+        assert_eq!(
+            parse_dism_feature_state("State : Disable Pending\n"),
+            Some(FeatureState::DisablePending)
+        );
         assert_eq!(parse_dism_feature_state("State : Surprise\n"), None);
+    }
+
+    #[test]
+    fn pending_windows_features_are_partial_until_reboot() {
+        let enabling = success("Feature Name : NetFx3\nState : Enable Pending\n");
+        let disabling = success("Feature Name : DirectPlay\nState : Disable Pending\n");
+        assert_eq!(
+            classify_windows_feature(RuntimeComponent::DotNetFramework35, "NetFx3", &enabling)
+                .state,
+            RuntimeState::Partial
+        );
+        assert_eq!(
+            classify_windows_feature(RuntimeComponent::DirectPlay, "DirectPlay", &disabling).state,
+            RuntimeState::Partial
+        );
+    }
+
+    #[test]
+    fn netfx_release_maps_to_documented_version_threshold() {
+        let evidence = success("    Release    REG_DWORD    0x82405\n");
+        let result = classify_netfx4(&evidence);
+        assert_eq!(result.state, RuntimeState::Installed);
+        assert_eq!(result.detected_version.as_deref(), Some("4.8.1 or later"));
+        assert!(result
+            .details
+            .iter()
+            .any(|detail| detail == "Release=0x82405"));
     }
 
     #[test]
@@ -776,6 +853,14 @@ mod tests {
     }
 
     #[test]
+    fn webview_failed_queries_are_unknown_not_missing() {
+        let first = absent();
+        let second = absent();
+        let result = classify_webview2(&[&first, &second]);
+        assert_eq!(result.state, RuntimeState::Unknown);
+    }
+
+    #[test]
     fn python_path_gap_is_partial_not_a_second_install_trigger() {
         let list = success(" -V:3.14 * C:\\Users\\neo\\Python314\\python.exe\n");
         let python = absent();
@@ -783,6 +868,7 @@ mod tests {
         let pip = absent();
         let result = classify_python(&list, &python, &py, &pip);
         assert_eq!(result.state, RuntimeState::Partial);
+        assert_eq!(result.detected_version.as_deref(), Some("3.14"));
         assert!(result
             .details
             .iter()
