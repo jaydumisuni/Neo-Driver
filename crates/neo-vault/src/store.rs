@@ -72,18 +72,10 @@ impl VaultStore {
         }
 
         fs::create_dir(&path)?;
-        let marker = StagingMarker {
-            schema_version: 1,
-            session: session.clone(),
-        };
-        let marker_path = path.join(STAGING_MARKER_NAME);
-        let encoded = serde_json::to_vec_pretty(&marker)?;
-        let mut file = fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&marker_path)?;
-        file.write_all(&encoded)?;
-        file.sync_all()?;
+        if let Err(error) = write_staging_marker(&path, session) {
+            let _ = fs::remove_dir_all(&path);
+            return Err(error);
+        }
         Ok(path)
     }
 
@@ -140,8 +132,7 @@ impl VaultStore {
             return existing_receipt(&destination, expected_sha256, metadata.len());
         }
 
-        let session = unique_import_session(package_id, expected_sha256)?;
-        let staging = self.begin_staging(&session)?;
+        let (session, staging) = self.begin_unique_import_staging(package_id, expected_sha256)?;
         let staged = staging.join("payload.pack");
         fs::copy(source, &staged)?;
         let staged_hash = sha256_file(&staged)?;
@@ -160,12 +151,18 @@ impl VaultStore {
         self.layout.ensure_managed(parent)?;
         ensure_directory_chain(self.layout.managed_root(), parent)?;
 
-        let promotion_lock = acquire_promotion_lock(
+        let promotion_lock = match acquire_promotion_lock(
             self.layout.staging(),
             package_id,
             version,
             expected_sha256,
-        )?;
+        ) {
+            Ok(lock) => lock,
+            Err(error) => {
+                let _ = self.cleanup_staging(&session);
+                return Err(error);
+            }
+        };
 
         if destination.exists() {
             let result = existing_receipt(&destination, expected_sha256, metadata.len());
@@ -222,6 +219,30 @@ impl VaultStore {
         }
         self.layout.ensure_managed(self.layout.managed_root())?;
         audit_tree(self.layout.managed_root())
+    }
+
+    fn begin_unique_import_staging(
+        &self,
+        package_id: &VaultSegment,
+        expected_sha256: &Sha256Digest,
+    ) -> Result<(VaultSegment, PathBuf), VaultError> {
+        self.ensure_layout()?;
+        loop {
+            let session = unique_import_session(package_id, expected_sha256)?;
+            let path = self.layout.staging_session(&session);
+            self.layout.ensure_cleanup_target(&path)?;
+            match fs::create_dir(&path) {
+                Ok(()) => {
+                    if let Err(error) = write_staging_marker(&path, &session) {
+                        let _ = fs::remove_dir_all(&path);
+                        return Err(error);
+                    }
+                    return Ok((session, path));
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(VaultError::Io(error)),
+            }
+        }
     }
 
     fn validate_staging_marker(
@@ -293,7 +314,23 @@ fn existing_receipt(
     })
 }
 
-pub(crate) fn unique_import_session(
+fn write_staging_marker(path: &Path, session: &VaultSegment) -> Result<(), VaultError> {
+    let marker = StagingMarker {
+        schema_version: 1,
+        session: session.clone(),
+    };
+    let marker_path = path.join(STAGING_MARKER_NAME);
+    let encoded = serde_json::to_vec_pretty(&marker)?;
+    let mut file = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(marker_path)?;
+    file.write_all(&encoded)?;
+    file.sync_all()?;
+    Ok(())
+}
+
+fn unique_import_session(
     package_id: &VaultSegment,
     expected_sha256: &Sha256Digest,
 ) -> Result<VaultSegment, VaultError> {
@@ -307,7 +344,7 @@ pub(crate) fn unique_import_session(
     ))
 }
 
-pub(crate) fn acquire_promotion_lock(
+fn acquire_promotion_lock(
     staging_root: &Path,
     package_id: &VaultSegment,
     version: &VaultSegment,
