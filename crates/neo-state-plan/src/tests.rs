@@ -36,7 +36,8 @@ fn observation(key: &str, state: ObservedState) -> TweakObservation {
 
 #[test]
 fn catalogue_round_trip_revalidates() {
-    let catalogue = TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
+    let catalogue =
+        TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
     let json = serde_json::to_string(&catalogue).unwrap();
     let parsed: TweakCatalogue = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed, catalogue);
@@ -104,8 +105,10 @@ fn duplicate_observations_fail_closed() {
 
 #[test]
 fn explicit_selection_is_required() {
-    let catalogue = TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
-    let evidence = TweakEvidence::new(vec![observation("fixture.target", ObservedState::Absent)]).unwrap();
+    let catalogue =
+        TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
+    let evidence =
+        TweakEvidence::new(vec![observation("fixture.target", ObservedState::Absent)]).unwrap();
     assert!(matches!(
         assess_tweaks(&catalogue, &evidence, &[], "mission"),
         Err(StatePlanError::EmptySelection)
@@ -118,7 +121,8 @@ fn rejected_selection_is_blocked() {
     item.selected_by_default = false;
     item.verdict = EvidenceVerdict::Rejected;
     let catalogue = TweakCatalogue::new(vec![item]).unwrap();
-    let evidence = TweakEvidence::new(vec![observation("fixture.target", ObservedState::Absent)]).unwrap();
+    let evidence =
+        TweakEvidence::new(vec![observation("fixture.target", ObservedState::Absent)]).unwrap();
     let selected = vec!["fixture.rejected".to_string()];
     assert!(matches!(
         assess_tweaks(&catalogue, &evidence, &selected, "mission"),
@@ -128,7 +132,8 @@ fn rejected_selection_is_blocked() {
 
 #[test]
 fn missing_observation_blocks_assessment() {
-    let catalogue = TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
+    let catalogue =
+        TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
     let evidence = TweakEvidence::new(vec![]).unwrap();
     let selected = vec!["fixture.enabled".to_string()];
     assert!(matches!(
@@ -139,7 +144,8 @@ fn missing_observation_blocks_assessment() {
 
 #[test]
 fn unavailable_observation_blocks_assessment() {
-    let catalogue = TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
+    let catalogue =
+        TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
     let evidence = TweakEvidence::new(vec![observation(
         "fixture.target",
         ObservedState::Unavailable {
@@ -156,7 +162,8 @@ fn unavailable_observation_blocks_assessment() {
 
 #[test]
 fn assessment_reports_difference_without_execution() {
-    let catalogue = TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
+    let catalogue =
+        TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
     let evidence = TweakEvidence::new(vec![observation(
         "fixture.target",
         ObservedState::Present {
@@ -172,7 +179,8 @@ fn assessment_reports_difference_without_execution() {
 
 #[test]
 fn assessment_reports_already_satisfied_state() {
-    let catalogue = TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
+    let catalogue =
+        TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
     let evidence = TweakEvidence::new(vec![observation(
         "fixture.target",
         ObservedState::Present {
