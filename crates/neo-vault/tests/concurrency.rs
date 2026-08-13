@@ -113,3 +113,30 @@ fn audit_rejects_symlink_application_root() {
         Err(VaultError::UnsafeLink(path)) if path == linked_app
     ));
 }
+
+#[cfg(unix)]
+#[test]
+fn import_rejects_symlinked_package_directory_without_writing_outside() {
+    use std::os::unix::fs::symlink;
+
+    let root = TempRoot::new("package-link");
+    let source = root.path.join("source.zip");
+    fs::write(&source, b"approved pack bytes").unwrap();
+    let digest = sha256_file(&source).unwrap();
+    let layout = VaultLayout::new(VaultMode::Installed, &root.path).unwrap();
+    let store = VaultStore::new(layout);
+    store.ensure_layout().unwrap();
+
+    let outside = root.path.join("outside");
+    fs::create_dir(&outside).unwrap();
+    let package = VaultSegment::new("android-pack").unwrap();
+    let version = VaultSegment::new("v1").unwrap();
+    let package_link = store.layout().driver_packs().join(package.as_str());
+    symlink(&outside, &package_link).unwrap();
+
+    assert!(matches!(
+        store.import_pack_file(PackClass::Driver, &source, &package, &version, &digest),
+        Err(VaultError::UnsafeLink(_)) | Err(VaultError::Io(_))
+    ));
+    assert_eq!(fs::read_dir(&outside).unwrap().count(), 0);
+}
