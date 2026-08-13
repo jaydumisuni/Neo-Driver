@@ -9,6 +9,7 @@ use neo_runtime::{
 };
 use neo_runtime_probe::scan_current_runtime_inventory;
 use neo_transaction::{TransactionCheckpoint, TransactionPlan};
+use neo_vault::{DriverSourceMap, VaultLayout, VaultMode, VaultStore};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -108,6 +109,11 @@ enum Command {
         #[command(subcommand)]
         command: TransactionCommand,
     },
+    /// Read-only managed package-vault inspection and source-map validation.
+    Vault {
+        #[command(subcommand)]
+        command: VaultCommand,
+    },
     /// Show the current implementation boundary.
     Status,
 }
@@ -140,6 +146,36 @@ enum TransactionCommand {
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum VaultCommand {
+    /// Describe the NeoData layout beneath the application root supplied by Builder.
+    Describe {
+        #[arg(long)]
+        app_root: PathBuf,
+        /// Treat app_root as a portable Neo folder instead of an installed app root.
+        #[arg(long)]
+        portable: bool,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Validate a Neo driver-source map without downloading any package.
+    ValidateSources {
+        path: PathBuf,
+        /// Emit the normalized source map as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Audit an existing NeoData tree for unsafe link/reparse paths without changing it.
+    Audit {
+        #[arg(long)]
+        app_root: PathBuf,
+        /// Treat app_root as a portable Neo folder instead of an installed app root.
+        #[arg(long)]
+        portable: bool,
     },
 }
 
@@ -470,11 +506,94 @@ fn run(cli: Cli) -> Result<(), String> {
                 Ok(())
             }
         },
+        Command::Vault { command } => match command {
+            VaultCommand::Describe {
+                app_root,
+                portable,
+                json,
+            } => {
+                let mode = if portable {
+                    VaultMode::Portable
+                } else {
+                    VaultMode::Installed
+                };
+                let layout =
+                    VaultLayout::new(mode, &app_root).map_err(|error| error.to_string())?;
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "mode": layout.mode(),
+                            "application_root": layout.application_root(),
+                            "managed_root": layout.managed_root(),
+                            "catalogue": layout.catalogue(),
+                            "driver_packs": layout.driver_packs(),
+                            "packages": layout.packages(),
+                            "runtimes": layout.runtimes(),
+                            "staging": layout.staging(),
+                            "sessions": layout.sessions(),
+                            "backups": layout.backups(),
+                            "logs": layout.logs(),
+                            "cache": layout.cache(),
+                            "machine_changes": "none"
+                        })
+                    );
+                } else {
+                    println!("Neo managed vault layout");
+                    println!("Mode: {:?}", layout.mode());
+                    println!("Application root: {}", layout.application_root().display());
+                    println!("Managed root: {}", layout.managed_root().display());
+                    println!("Driver packs: {}", layout.driver_packs().display());
+                    println!("Runtimes: {}", layout.runtimes().display());
+                    println!("Staging: {}", layout.staging().display());
+                    println!("Machine changes: none");
+                }
+                Ok(())
+            }
+            VaultCommand::ValidateSources { path, json } => {
+                let input = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+                let source_map =
+                    DriverSourceMap::from_json_str(&input).map_err(|error| error.to_string())?;
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&source_map)
+                            .map_err(|error| error.to_string())?
+                    );
+                } else {
+                    println!("Neo driver source-map validation: PASS");
+                    println!("File: {}", path.display());
+                    println!("Sources: {}", source_map.sources.len());
+                    println!("Downloads: none");
+                    println!("Machine changes: none");
+                }
+                Ok(())
+            }
+            VaultCommand::Audit { app_root, portable } => {
+                let mode = if portable {
+                    VaultMode::Portable
+                } else {
+                    VaultMode::Installed
+                };
+                let layout =
+                    VaultLayout::new(mode, &app_root).map_err(|error| error.to_string())?;
+                let store = VaultStore::new(layout);
+                store
+                    .audit_existing_tree()
+                    .map_err(|error| error.to_string())?;
+                println!("Neo managed vault audit: PASS");
+                println!("Application root: {}", app_root.display());
+                println!("Machine changes: none");
+                Ok(())
+            }
+        },
         Command::Status => {
-            println!("Neo Driver implementation phase: Phase 6 runtimes/gaming System X-Ray");
+            println!("Neo Driver implementation phase: Phase 7 managed package vault");
             println!("Driver mutation backend: internal pending live attached-device proof");
-            println!("Runtime System X-Ray: read-only documented evidence paths");
+            println!("Phase 6 runtime System X-Ray: read-only documented evidence paths");
             println!("Runtime/gaming assessment: read-only and user-selectable");
+            println!("Managed vault root: Builder/portable root + NeoData");
+            println!("Network package acquisition: intentionally disabled at this gate");
             println!("Runtime downloads/installations: intentionally disabled at this gate");
             println!("Transaction advancement from CLI: intentionally disabled");
             println!("Model dependency: none");

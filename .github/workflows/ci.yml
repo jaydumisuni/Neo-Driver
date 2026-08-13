@@ -46,6 +46,9 @@ jobs:
       - name: Phase 6 twenty-lane static review
         run: python -W error tools/phase6_static_review.py
 
+      - name: Phase 7 twenty-lane static review
+        run: python -W error tools/phase7_static_review.py
+
       - name: Cargo lockfile proof
         run: |
           cargo generate-lockfile
@@ -78,6 +81,9 @@ jobs:
 
       - name: Gaming CLI fixture proof
         run: cargo run --locked -p neo-cli -- gaming --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/catalogue/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json
+
+      - name: Vault source-map CLI fixture proof
+        run: cargo run --locked -p neo-cli -- vault validate-sources config/driver-pack-sources.json
 
       - name: Transaction plan CLI fixture proof
         run: cargo run --locked -p neo-cli -- transaction validate-plan fixtures/transaction/sample_transaction_plan.json
