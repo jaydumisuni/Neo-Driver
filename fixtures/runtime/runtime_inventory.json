@@ -14,23 +14,23 @@
       "source": "phase6-fixture"
     },
     {
-      "component": "direct_x_legacy_june_2010",
+      "component": "directx_legacy_june_2010",
       "state": "missing",
       "source": "phase6-fixture"
     },
     {
-      "component": "web_view2",
+      "component": "webview2",
       "state": "installed",
       "detected_version": "139.0",
       "source": "phase6-fixture"
     },
     {
-      "component": "xna_framework40_refresh",
+      "component": "xna_framework_40_refresh",
       "state": "missing",
       "source": "phase6-fixture"
     },
     {
-      "component": "open_al",
+      "component": "openal",
       "state": "installed",
       "source": "phase6-fixture"
     },
@@ -45,17 +45,17 @@
       "source": "phase6-fixture"
     },
     {
-      "component": "dot_net_framework35",
+      "component": "dotnet_framework_35",
       "state": "missing",
       "source": "phase6-fixture"
     },
     {
-      "component": "direct_play",
+      "component": "directplay",
       "state": "missing",
       "source": "phase6-fixture"
     },
     {
-      "component": "dot_net_framework4",
+      "component": "dotnet_framework_4",
       "state": "installed",
       "detected_version": "4.8.1",
       "source": "phase6-fixture"
@@ -68,12 +68,12 @@
       "details": ["Interpreter detected; launcher/PATH evidence incomplete"]
     },
     {
-      "component": "dot_net_runtime",
+      "component": "dotnet_runtime",
       "state": "missing",
       "source": "phase6-fixture"
     },
     {
-      "component": "dot_net_desktop_runtime",
+      "component": "dotnet_desktop_runtime",
       "state": "missing",
       "source": "phase6-fixture"
     }
