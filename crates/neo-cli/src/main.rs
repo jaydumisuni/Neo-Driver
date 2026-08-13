@@ -362,13 +362,7 @@ fn run(cli: Cli) -> Result<(), String> {
             catalogue,
             policy,
             json,
-        } => run_runtime_assessment(
-            evidence,
-            catalogue,
-            policy,
-            RuntimeProfile::Gaming,
-            json,
-        ),
+        } => run_runtime_assessment(evidence, catalogue, policy, RuntimeProfile::Gaming, json),
         Command::Transaction { command } => match command {
             TransactionCommand::ValidatePlan { path, json } => {
                 let input = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
@@ -456,7 +450,8 @@ fn run_runtime_assessment(
 ) -> Result<(), String> {
     let catalogue = Catalogue::read_json(&catalogue_path).map_err(|error| error.to_string())?;
     let inventory = RuntimeInventory::read_json(&evidence).map_err(|error| error.to_string())?;
-    let policy = RuntimePolicy::read_json(&policy_path, &catalogue).map_err(|error| error.to_string())?;
+    let policy =
+        RuntimePolicy::read_json(&policy_path, &catalogue).map_err(|error| error.to_string())?;
     let assessment = assess_runtime_profile(profile, &inventory, &catalogue, &policy)
         .map_err(|error| error.to_string())?;
 
