@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum VaultError {
     #[error("application root must be an absolute path: {0}")]
     ApplicationRootNotAbsolute(PathBuf),
+    #[error("application root must already exist as a normal directory: {0}")]
+    ApplicationRootUnavailable(PathBuf),
     #[error("path contains a parent traversal component: {0}")]
     ParentTraversal(PathBuf),
     #[error("invalid Neo vault segment: {0}")]
