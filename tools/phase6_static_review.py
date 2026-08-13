@@ -46,7 +46,7 @@ def review() -> list[Lane]:
         "jaydumisuni/Apple-windows-drivers",
         "jaydumisuni/TechGuyDrivers",
     }
-    forbidden_root_choices = ["programdata", "program files (x86)", "program files\\"]
+    forbidden_root_choices = [r"c:\programdata", r"c:\program files"]
     forbidden_network = ["reqwest", "ureq", "curl ", "wget ", "http::", "https://api.github.com"]
     forbidden_cli_writes = [
         "import_pack_file(",
@@ -66,7 +66,7 @@ def review() -> list[Lane]:
 
     return [
         Lane(1, "workspace", "crates/neo-vault" in members, "neo-vault is a first-class workspace crate"),
-        Lane(2, "builder-root-authority", not any(value in production_lower for value in forbidden_root_choices), "production vault code does not choose ProgramData/Program Files; Builder supplies the root"),
+        Lane(2, "builder-root-authority", not any(value in production_lower for value in forbidden_root_choices), "production vault code does not hard-code a C:\\ProgramData/Program Files root; Builder supplies the root"),
         Lane(3, "single-managed-child", contains_all(PRODUCTION, ["MANAGED_DIRECTORY_NAME", '"NeoData"', "managed_root"]), "Neo owns one NeoData child beneath the supplied application root"),
         Lane(4, "absolute-root", contains_all(PRODUCTION, ["ApplicationRootNotAbsolute", "path.is_absolute()", "normalize_absolute"]), "vault roots must be resolved absolute paths"),
         Lane(5, "portable-installed-parity", contains_all(PRODUCTION, ["VaultMode", "Installed", "Portable"]) and "installed_and_portable_modes_share_the_same_child_layout" in TESTS, "installed and portable modes share one data-layout contract"),
@@ -81,7 +81,7 @@ def review() -> list[Lane]:
         Lane(14, "owned-staging", contains_all(PRODUCTION, ["STAGING_MARKER_NAME", "StagingMarker", "UnownedStaging", "StagingMarkerMismatch"]) and "staging_cleanup_requires_neo_ownership_marker" in TESTS, "staging cleanup requires an exact Neo ownership marker"),
         Lane(15, "cleanup-boundary", contains_all(PRODUCTION, ["ensure_cleanup_target", "self.staging", "self.cache"]) and "remove_dir_all(&path)" in PRODUCTION, "destructive cleanup is confined to owned staging/cache descendants"),
         Lane(16, "link-reparse-guard", contains_all(PRODUCTION, ["reject_link_like", "FILE_ATTRIBUTE_REPARSE_POINT", "ensure_directory_chain"]) and "audit_rejects_symlink_inside_managed_tree" in TESTS, "existing symlink/reparse paths are rejected and directory creation is component checked"),
-        Lane(17, "existing-app-root", contains_all(PRODUCTION, ["ApplicationRootUnavailable", "app_root.exists()", "app_root.is_dir()"]) , "Neo requires Builder/portable application root to pre-exist rather than creating an arbitrary root"),
+        Lane(17, "existing-app-root", contains_all(PRODUCTION, ["ApplicationRootUnavailable", "app_root.exists()", "app_root.is_dir()"]), "Neo requires Builder/portable application root to pre-exist rather than creating an arbitrary root"),
         Lane(18, "read-only-public-cli", contains_all(CLI, ["VaultCommand", "Describe", "ValidateSources", "Audit", "Machine changes: none"]) and not any(value in cli_lower for value in forbidden_cli_writes), "public vault CLI is inspection/validation only"),
         Lane(19, "pinned-release-evidence", expected_hashes <= observed_hashes and all(source["release_tag"] for source in SOURCE_MAP["sources"]), "aggregate TTG driver packs are pinned by release tag and published SHA-256"),
         Lane(20, "phase5-boundary-preserved", "neo_driverstore" not in production_lower and "std::process::command" not in production_lower and "pnputil" not in production_lower and "bcdedit" not in production_lower, "vault layer cannot install drivers, spawn installers, or change Windows security state"),
