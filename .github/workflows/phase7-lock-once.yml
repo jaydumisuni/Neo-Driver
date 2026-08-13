@@ -1,0 +1,45 @@
+name: Phase 7 Cargo Lock Once
+
+on:
+  push:
+    branches: ["implementation/phase-7-managed-vault"]
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    if: ${{ !contains(github.event.head_commit.message, '[phase7-lock-done]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-7-managed-vault
+          fetch-depth: 0
+
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Generate exact merged workspace lock
+        run: cargo generate-lockfile
+
+      - name: Verify Phase 6 + Phase 7 graph
+        shell: bash
+        run: |
+          grep -A20 'name = "neo-cli"' Cargo.lock | grep '"neo-runtime"'
+          grep -A20 'name = "neo-cli"' Cargo.lock | grep '"neo-vault"'
+          grep -A16 'name = "neo-vault"' Cargo.lock | grep '"cap-std"'
+          python -W error tools/phase6_static_review.py
+          python -W error tools/phase7_static_review.py
+
+      - name: Commit generated lock and self-clean
+        shell: bash
+        run: |
+          rm .github/workflows/phase7-lock-once.yml
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git add Cargo.lock .github/workflows/phase7-lock-once.yml
+          git diff --cached --check
+          git commit -m "Phase 7: commit Cargo-generated merged lock [phase7-lock-done]"
+          git push origin HEAD:implementation/phase-7-managed-vault
