@@ -26,17 +26,17 @@ Therefore Neo must not choose either location itself. The installer/Builder supp
 9. Source-map root validation cannot be bypassed through direct Serde.
 10. Initial source map is restricted to the four approved TTG driver repositories.
 11. Phase 6 contains no network acquisition implementation.
-12. Local pack intake hashes source bytes and copied staging bytes.
-13. Promoted packs are idempotent when identical and fail closed on content drift.
-14. Staging cleanup requires an exact Neo ownership marker.
-15. Destructive cleanup is limited to owned staging/cache descendants.
-16. Existing symlink/reparse paths are rejected and directory creation is checked component by component.
-17. Builder/portable application root must already exist as a normal directory.
+12. Local pack intake hashes source bytes, staging bytes, and promoted bytes.
+13. Final promotion uses capability-relative `create_new` semantics: identical content is idempotent, drift fails closed, and concurrent same-pack imports cannot overwrite each other.
+14. Staging cleanup requires an exact Neo ownership marker and import staging is collision-proof.
+15. Destructive cleanup is capability-relative to retained `NeoData/staging` handles rather than an ambient absolute path.
+16. Application-root traversal, managed-directory creation, file open/create, audit, promotion, and cleanup use retained no-follow filesystem capabilities.
+17. Builder/portable application root must already exist and be opened as an existing no-follow capability.
 18. Public vault CLI remains read-only: describe, validate-sources, and audit only.
 19. Aggregate TTG driver source assets are pinned by release tag and published SHA-256.
 20. The vault has no dependency on the Phase 5 mutator and cannot invoke driver install/security mutation.
 
-## Pre-proof engineering findings already corrected
+## Engineering and review findings corrected before freeze
 
 ### P6-F1 — ProgramData was incorrectly proposed as Neo's data root
 
@@ -48,7 +48,7 @@ Hard-coding the reusable fallback would also be incorrect because Builder projec
 
 ### P6-F3 — Recursive directory creation could follow an intermediate junction/symlink
 
-The initial draft used recursive directory creation for promoted pack parents. A malicious pre-created intermediate link could redirect writes outside `NeoData`. Corrected: directories are created component-by-component, checking every existing component for symlink/reparse state before descending.
+The initial draft used recursive directory creation for promoted pack parents. A malicious pre-created intermediate link could redirect writes outside `NeoData`. The first correction performed component-by-component checking. The later external security review correctly showed that path checking still leaves a check-to-use race; P6-F9 records the final stronger solution.
 
 ### P6-F4 — Cleanup must prove ownership, not merely location
 
@@ -60,11 +60,27 @@ Release repositories/assets are only acquisition provenance. Existing catalogue,
 
 ### P6-F6 — Cargo.lock had to include the new workspace crate exactly
 
-The first authoritative PR run passed Phase 1–6 static reviews on both Ubuntu and Windows and stopped only at the lockfile guard. Cargo generated the updated graph: `neo-cli` gains `neo-vault`, and `neo-vault` depends only on the already-locked `serde`, `serde_json`, `sha2`, and `thiserror`. No external crate version changed. The generated lock was committed verbatim by a one-shot branch-only helper which deleted itself in the same commit.
+The first authoritative PR run passed Phase 1–6 static reviews on both Ubuntu and Windows and stopped only at the lockfile guard. Cargo generated the updated graph for `neo-vault`; no dependency version was selected manually. A one-shot branch-only helper committed Cargo's exact lock and deleted itself.
 
 ### P6-F7 — Initial Phase 6 source required rustfmt normalization
 
-After the exact lock was committed, the next authoritative Ubuntu gate stopped only at rustfmt. The formatter changes were layout-only across `neo-cli` and `neo-vault`. A one-shot branch-only formatter applied `cargo fmt --all`, re-ran Phase 6's 20-lane review and `cargo fmt --check`, committed only formatter output, and deleted itself in the same commit.
+After the exact lock was committed, the next authoritative Ubuntu gate stopped only at rustfmt. The formatter changes were layout-only across `neo-cli` and `neo-vault`. A one-shot branch-only formatter applied `cargo fmt --all`, re-ran Phase 6's 20-lane review and `cargo fmt --check`, committed only formatter output, and deleted itself.
+
+### P6-F8 — Concurrent same-pack imports shared staging/promotion state
+
+Internal review found that deterministic staging names could make concurrent Neo processes interfere with each other's `payload.pack` and cleanup. Corrected first with unique import sessions, then strengthened so final package creation is atomic `create_new` relative to the retained package-version directory capability. A multi-worker regression proves exactly one import promotes the pack; other workers may observe the identical promoted pack or fail busy, and all worker-owned staging is cleaned.
+
+### P6-F9 — Path checks could still race against junction/symlink replacement
+
+CodeRabbit raised a valid major security finding: checking path components and later reusing those path strings cannot prove a writable tree was not swapped for a symlink/reparse point between check and use. Corrected by replacing managed write authority with `cap-std`/`cap-fs-ext` retained directory capabilities. The application root is opened from the filesystem root and each descendant is opened with no-follow semantics. Managed directory creation, staging, cleanup, final destination creation, verification, and audit operate relative to retained directory handles. Final promotion does not use a bare path `rename`; it creates the destination with exclusive `create_new` relative to the retained version-directory capability, copies/syncs, then reopens and SHA-256 verifies the promoted bytes. A regression proves a symlinked package directory cannot redirect writes outside `NeoData`.
+
+### P6-F10 — Capability filesystem dependencies required a new generated lock graph
+
+The handle-based security correction introduced `cap-std` and `cap-fs-ext`. A one-shot capability proof regenerated Cargo.lock, applied rustfmt, passed the Phase 6 20-lane gate, full workspace compiler, Clippy with warnings denied, and all `neo-vault` tests before committing. The helper self-deleted in the same commit. The resulting lock pins `cap-std`/`cap-fs-ext` 4.0.2 and their transitive graph exactly.
+
+## External review disposition
+
+PR #7 produced three CodeRabbit threads. The unique-staging and invalid-root findings were corrected first. The remaining major TOCTOU finding was corrected by the capability-held no-follow rewrite described in P6-F9. CodeRabbit subsequently marked all three threads resolved/outdated; there are currently zero unresolved review threads on the corrected Phase 6 source.
 
 ## Source-map evidence frozen for the first offline pack
 
