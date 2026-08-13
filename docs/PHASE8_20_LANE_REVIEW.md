@@ -67,23 +67,31 @@ Linux cfg-hygiene correction run `31698343953` passed:
 - diff validation;
 - self-clean of the temporary correction workflow/tool.
 
-All PR #12 review threads are resolved or explicitly dispositioned as outdated. These are bounded correction pre-proofs only; the corrected helper-free head still requires the complete normal Ubuntu + Windows pipeline before merge.
+All PR #12 review threads are resolved or explicitly dispositioned as outdated.
 
-## Merge proof requirements
+## Full corrected implementation proof
 
-Phase 8 must pass:
+Normal PR run `31698473273` passed the complete Ubuntu and Windows Phase 1–8 pipeline on corrected helper-free head `1d8b0180188d47087fd4aaf42bb3d1a8cf97b60e`:
 
 - Phase 1–8 static gates;
-- lock integrity;
+- Cargo lock integrity;
 - rustfmt;
-- locked workspace build on Ubuntu and Windows;
+- locked workspace type/build;
 - Clippy with warnings denied;
-- all workspace unit/integration tests;
-- Windows compilation of the real runtime backend;
-- live read-only Windows Runtime System X-Ray inherited from Phase 6;
-- all existing CLI fixtures;
-- a read-only Phase 8 runtime-execution-plan fixture;
-- zero unresolved correctness/security review findings;
-- clean PR surface with no temporary helper workflow at merge.
+- complete workspace unit/adversarial tests;
+- Windows live read-only Runtime System X-Ray;
+- catalogue, matcher, runtime, gaming, vault and transaction CLI fixtures;
+- Linux and Windows-native read-only Phase 8 runtime-execution-plan fixtures.
+
+This proof does **not** claim that CI executed a real runtime installer. The public CLI remains validation/inspection only and external runtime mutation still requires a non-constructible Phase 8 capability.
+
+## Final merge proof requirements
+
+Before merge, the documentation-state head must independently pass:
+
+- the complete Ubuntu + Windows Phase 1–8 pipeline above;
+- zero unresolved correctness/security review threads;
+- unchanged execution boundary;
+- clean PR surface with no temporary helper workflow.
 
 No test or green CI run is allowed to imply that a real runtime installer was executed on CI.
