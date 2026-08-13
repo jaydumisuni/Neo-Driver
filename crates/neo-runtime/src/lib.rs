@@ -215,7 +215,7 @@ pub fn assess_runtime_profile(
 
     let mut recommendations = Vec::new();
     let mut ready = true;
-    for requirement in requirements(profile) {
+    for &requirement in requirements(profile) {
         let observation = observations.get(&requirement.component).copied();
         let state = observation.map_or(RuntimeState::Unknown, |item| item.state);
         let candidates = compatible_packages(requirement.component, inventory, catalogue, policy);
