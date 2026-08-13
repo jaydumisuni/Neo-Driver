@@ -94,7 +94,8 @@ fn captured_state_keeps_provenance() {
         source: "fixture-source".to_string(),
     }])
     .unwrap();
-    let evidence = resolve_selected_evidence(&catalogue(), &bindings(), &captured, &selected).unwrap();
+    let evidence =
+        resolve_selected_evidence(&catalogue(), &bindings(), &captured, &selected).unwrap();
     assert_eq!(evidence.observations[0].target.key, "fixture.target");
     assert_eq!(evidence.observations[0].source, "fixture-source");
 }
