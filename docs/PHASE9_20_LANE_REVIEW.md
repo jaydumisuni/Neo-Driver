@@ -7,7 +7,7 @@
 3. The crate remains assessment-only.
 4. Typed values have deterministic serialization.
 5. Opaque state keys validate before use.
-6. State-key comparison is case-insensitive.
+6. State keys are ASCII-only and compare case-insensitively through ASCII canonicalization.
 7. Catalogue deserialization re-runs validation.
 8. Evidence deserialization re-runs validation.
 9. Duplicate catalogue IDs are rejected.
