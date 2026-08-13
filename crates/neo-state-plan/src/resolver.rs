@@ -1,4 +1,6 @@
-use crate::{ObservedState, StatePlanError, TweakCatalogue, TweakEvidence, TweakObservation, TweakTarget};
+use crate::{
+    ObservedState, StatePlanError, TweakCatalogue, TweakEvidence, TweakObservation, TweakTarget,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -127,7 +129,10 @@ impl CapturedStates {
     }
 
     fn indexed(&self) -> BTreeMap<&ReaderId, &CapturedState> {
-        self.values.iter().map(|item| (&item.reader, item)).collect()
+        self.values
+            .iter()
+            .map(|item| (&item.reader, item))
+            .collect()
     }
 }
 
@@ -153,9 +158,9 @@ pub fn resolve_selected_evidence(
         let definition = catalogue
             .get(id)
             .ok_or_else(|| StatePlanError::UnknownTweak(id.clone()))?;
-        let binding = bindings
-            .find(&definition.target)?
-            .ok_or_else(|| StatePlanError::MissingBinding(definition.target.canonical_key().unwrap_or_default()))?;
+        let binding = bindings.find(&definition.target)?.ok_or_else(|| {
+            StatePlanError::MissingBinding(definition.target.canonical_key().unwrap_or_default())
+        })?;
         let captured = captured_by_reader.get(&binding.reader).copied();
         let (state, source) = match captured {
             Some(item) => (item.state.clone(), item.source.clone()),
