@@ -110,7 +110,8 @@ impl VaultStore {
     ) -> Result<ImportReceipt, VaultError> {
         let source = source.as_ref();
         let metadata = fs::symlink_metadata(source)?;
-        if !metadata.is_file() || metadata.file_type().is_symlink() || has_reparse_point(&metadata) {
+        if !metadata.is_file() || metadata.file_type().is_symlink() || has_reparse_point(&metadata)
+        {
             return Err(VaultError::SourceNotFile(source.to_path_buf()));
         }
 
@@ -145,8 +146,10 @@ impl VaultStore {
         let version_display = destination
             .parent()
             .ok_or_else(|| VaultError::OutsideManagedRoot(destination.clone()))?;
-        let package_dir = open_or_create_child_dir(pack_root, package_id.as_str(), package_display)?;
-        let version_dir = open_or_create_child_dir(&package_dir, version.as_str(), version_display)?;
+        let package_dir =
+            open_or_create_child_dir(pack_root, package_id.as_str(), package_display)?;
+        let version_dir =
+            open_or_create_child_dir(&package_dir, version.as_str(), version_display)?;
         let destination_name = format!("{}.pack", expected_sha256.as_str());
 
         if let Some(receipt) = existing_receipt(
@@ -182,9 +185,7 @@ impl VaultStore {
 
             let mut final_file = match create_new_file_nofollow(&version_dir, &destination_name) {
                 Ok(file) => file,
-                Err(VaultError::Io(error))
-                    if error.kind() == std::io::ErrorKind::AlreadyExists =>
-                {
+                Err(VaultError::Io(error)) if error.kind() == std::io::ErrorKind::AlreadyExists => {
                     return Err(VaultError::ImportBusy(destination.clone()));
                 }
                 Err(error) => return Err(error),
@@ -266,7 +267,8 @@ impl VaultStore {
 
     fn open_managed_handles(&self) -> Result<VaultHandles, VaultError> {
         let application = open_absolute_dir_nofollow(self.layout.application_root())?;
-        let managed = open_or_create_child_dir(&application, "NeoData", self.layout.managed_root())?;
+        let managed =
+            open_or_create_child_dir(&application, "NeoData", self.layout.managed_root())?;
 
         let mut created = Vec::with_capacity(MANAGED_CHILDREN.len());
         for name in MANAGED_CHILDREN {
@@ -460,11 +462,7 @@ fn open_read_file_nofollow(dir: &Dir, name: impl AsRef<Path>) -> Result<CapFile,
     dir.open_with(name, &options).map_err(VaultError::Io)
 }
 
-fn open_or_create_child_dir(
-    parent: &Dir,
-    name: &str,
-    display: &Path,
-) -> Result<Dir, VaultError> {
+fn open_or_create_child_dir(parent: &Dir, name: &str, display: &Path) -> Result<Dir, VaultError> {
     match parent.open_dir_nofollow(name) {
         Ok(dir) => Ok(dir),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
