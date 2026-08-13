@@ -4,7 +4,6 @@ mod state_readback_windows;
 use clap::{Parser, Subcommand};
 use neo_state_plan::{
     assess_tweaks, resolve_selected_evidence, StateBindings, TweakCatalogue, TweakEvidence,
-    WindowsReaderSources,
 };
 use std::error::Error;
 use std::path::PathBuf;
@@ -40,8 +39,6 @@ enum Command {
         catalogue: PathBuf,
         #[arg(long)]
         bindings: PathBuf,
-        #[arg(long)]
-        readers: PathBuf,
         #[arg(long = "select", required = true)]
         select: Vec<String>,
         #[arg(long, default_value = "NEO-LIVE-STATE-ASSESSMENT")]
@@ -78,24 +75,18 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         Command::Live {
             catalogue,
             bindings,
-            readers,
             select,
             mission_id,
             json,
         } => {
             let catalogue = TweakCatalogue::read_json(catalogue)?;
-            let bindings: StateBindings = serde_json::from_str(&std::fs::read_to_string(bindings)?)?;
-            let readers: WindowsReaderSources =
-                serde_json::from_str(&std::fs::read_to_string(readers)?)?;
+            let bindings: StateBindings =
+                serde_json::from_str(&std::fs::read_to_string(bindings)?)?;
 
             #[cfg(windows)]
-            let captured = state_readback_windows::capture_with_runner(
-                &readers,
-                &neo_probe::SystemCommandRunner,
-            )?;
+            let captured = state_readback_windows::capture_live(&bindings)?;
             #[cfg(not(windows))]
             let captured = {
-                let _ = readers;
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::Unsupported,
                     "live state assessment requires Windows",
