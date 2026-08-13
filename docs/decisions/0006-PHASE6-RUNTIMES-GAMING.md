@@ -70,15 +70,19 @@ Python remains optional in Technician and Developer profiles. A partial/broken P
 Phase 6 currently freezes these read-only Windows evidence paths:
 
 - Visual C++ v14 x86/x64: Microsoft Visual Studio 14.0 VC Runtime registry `Version` evidence;
-- .NET Framework 4.x: `HKLM\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full` `Release` evidence;
+- .NET Framework 4.x: `HKLM\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full` `Release` evidence, mapped through Microsoft's documented Release-key thresholds instead of presenting the numeric DWORD as a product version;
 - modern .NET: `dotnet --list-runtimes`, distinguishing `Microsoft.NETCore.App` and `Microsoft.WindowsDesktop.App`;
 - .NET Framework 3.5: read-only DISM `/Get-FeatureInfo /FeatureName:NetFx3 /English`;
 - DirectPlay: read-only DISM `/Get-FeatureInfo /FeatureName:DirectPlay /English`;
 - WebView2: Microsoft EdgeUpdate product GUID `{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`, architecture-aware HKLM path plus HKCU path, with a non-empty/non-zero `pv` value;
-- Python: `py -0p` compatibility listing plus `where.exe` discovery for `python.exe`, `py.exe` and `pip.exe`;
+- Python: `py -0p` compatibility listing plus `where.exe` discovery for `python.exe`, `py.exe` and `pip.exe`; displayed Python version is parsed from the launcher version token, not from an executable path;
 - DirectX June 2010 legacy framework components: a deterministic file-set predicate generated from Microsoft's documented D3DCompiler/D3DCSX/D3DX/X3DAudio/XACT/XAPOFX/XAudio/XInput ranges.
 
 The Python probe deliberately does not invoke a bare `python`/`py` runtime. A PATH gap is `Partial`, not an excuse to install another interpreter. Lack of global command evidence remains `Unknown`, not `Missing`.
+
+A failed registry query is also `Unknown`; an exit code alone is not enough evidence to certify that a runtime is absent. Neo only reports `Missing` from a positive absence predicate, such as a successful Windows-feature query returning `Disabled`/payload removed or a deterministic accessible DirectX layout containing none of the expected legacy components.
+
+DISM feature states `Enable Pending` and `Disable Pending` are classified `Partial` until reboot completion. Neo does not promote a pending state to installed/missing before Windows has finished the transition.
 
 ### DirectX legacy completeness semantics
 
@@ -121,6 +125,20 @@ A runtime package is eligible only when its Windows architecture and build range
 If no compatible package is bound, Neo reports investigation/no action authority.
 
 If more than one compatible package is bound, Neo reports ambiguity/no action authority. Phase 6 does not invent a version-ranking rule for generic runtime installers.
+
+If the single compatible package has dependency or conflict edges, Phase 6 also reports investigation/no standalone action authority. Dependency/conflict closure must be planned and proven before a dependent package can become a Certified executable action.
+
+## Independent review corrections
+
+The pre-merge independent source challenge found and closed five fail-closed gaps:
+
+1. Registry command exit code `1` could be interpreted as package absence even when the query itself failed. Failed registry evidence now remains `Unknown`.
+2. DISM `Enable Pending` / `Disable Pending` could be collapsed into final enabled/disabled states. Both now remain `Partial` until reboot completion.
+3. The .NET Framework `Release` DWORD could be displayed as though it were a product version. Neo now maps the Release value through documented .NET Framework version thresholds while preserving the raw Release evidence.
+4. Python `detected_version` could contain the executable path emitted by `py -0p`. Neo now parses the launcher version token and keeps paths as evidence details.
+5. A runtime package with dependency/conflict edges could become a standalone Certified action even though Phase 6 has no dependency-closure executor. Such packages now remain `Investigate` with no action authority until dependency closure is implemented.
+
+These corrections passed Phase 1–6 static review, lock integrity, Windows compiler, Clippy with warnings denied, the complete unit suite, live Windows runtime scan, runtime fixture, and gaming fixture in pre-commit run `31684439927` before the temporary proof helpers self-cleaned and the correction was committed as `cb911bd72887e02d7d648294d793b9364c085d67`.
 
 ## Readiness
 
@@ -170,6 +188,8 @@ Phase 6 must pass:
 - catalogue/matcher/transaction regression fixtures;
 - dedicated runtime CLI fixture;
 - dedicated gaming CLI fixture;
-- external review with all correctness/security findings reconciled before merge.
+- external review disposition with all correctness/security findings reconciled before merge.
+
+If the external reviewer is unavailable or rate-limited, Neo does not claim an external-review PASS; the disposition must record the limitation and zero unresolved review threads, while deterministic CI and the independent source challenge remain the active proof authorities.
 
 A green System X-Ray/assessment foundation is not by itself the full Runtimes & Gaming execution phase. Runtime mutation and broader Gaming hardware/API readiness remain separate bounded work and must not be implied by this decision.
