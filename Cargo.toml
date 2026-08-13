@@ -8,6 +8,7 @@ members = [
     "crates/neo-match",
     "crates/neo-transaction",
     "crates/neo-driverstore",
+    "crates/neo-vault",
     "crates/neo-cli",
 ]
 
