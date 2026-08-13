@@ -23,8 +23,8 @@ jobs:
 
           test_path = Path("crates/neo-driverstore/src/tests.rs")
           text = test_path.read_text(encoding="utf-8")
-          old = "            driver_artifacts: vec![artifact],\n            dependencies: vec![],"
-          new = "            driver_artifacts: vec![artifact],\n            runtime_execution: None,\n            dependencies: vec![],"
+          old = "            }],\n            dependencies: vec![],\n            conflicts: vec![],\n            security: SecurityRequirements::default(),"
+          new = "            }],\n            runtime_execution: None,\n            dependencies: vec![],\n            conflicts: vec![],\n            security: SecurityRequirements::default(),"
           if text.count(old) != 1:
               raise SystemExit(f"driverstore compatibility site count={text.count(old)}")
           test_path.write_text(text.replace(old, new, 1), encoding="utf-8")
@@ -39,7 +39,10 @@ jobs:
 
           model = Path("crates/neo-runtime-executor/src/model.rs")
           text = model.read_text(encoding="utf-8")
-          text = text.replace("use std::path::{Path, PathBuf};", "use std::path::PathBuf;")
+          import_old = "use std::path::{Path, PathBuf};"
+          if text.count(import_old) != 1:
+              raise SystemExit(f"Path import count={text.count(import_old)}")
+          text = text.replace(import_old, "use std::path::PathBuf;", 1)
           dead = '''\npub(crate) fn ensure_same_path(expected: &Path, actual: &Path) -> Result<(), RuntimeExecutorError> {\n    if expected != actual {\n        return Err(RuntimeExecutorError::InvalidPlan(\n            "runtime payload path is not the derived vault path".to_string(),\n        ));\n    }\n    Ok(())\n}\n'''
           if text.count(dead) != 1:
               raise SystemExit(f"dead helper count={text.count(dead)}")
