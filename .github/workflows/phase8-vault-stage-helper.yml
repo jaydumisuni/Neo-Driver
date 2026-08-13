@@ -1,0 +1,96 @@
+name: Phase 8 one-shot no-follow runtime staging primitive
+
+on:
+  push:
+    branches: ["implementation/phase-8-runtime-executor"]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-8-runtime-executor
+          fetch-depth: 0
+      - name: Insert exact VaultStore staging primitive
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("crates/neo-vault/src/store.rs")
+          text = path.read_text(encoding="utf-8")
+          needle = "    pub fn audit_existing_tree(&self) -> Result<(), VaultError> {\n"
+          if text.count(needle) != 1:
+              raise SystemExit("expected exactly one audit_existing_tree insertion point")
+          method = r'''    /// Copy one already-managed file into marker-owned staging without following
+              /// symlinks/reparse points for either the source or the staging directory.
+              pub fn stage_managed_file(
+                  &self,
+                  session: &VaultSegment,
+                  source: impl AsRef<Path>,
+                  staged_name: &VaultSegment,
+                  expected_sha256: &Sha256Digest,
+              ) -> Result<PathBuf, VaultError> {
+                  let source = self.layout.ensure_managed(source)?;
+                  let managed = self.open_existing_managed_root()?.ok_or_else(|| {
+                      VaultError::ApplicationRootUnavailable(self.layout.managed_root().to_path_buf())
+                  })?;
+                  let relative = relative_components(self.layout.managed_root(), &source)?;
+                  let mut source_file = open_relative_file_nofollow(&managed, &relative, &source)?;
+
+                  let session_display = self.begin_staging(session)?;
+                  let staging = self.open_existing_managed_child("staging")?.ok_or_else(|| {
+                      VaultError::ApplicationRootUnavailable(self.layout.staging().to_path_buf())
+                  })?;
+                  let session_dir = open_child_dir(&staging, session.as_str(), &session_display)?;
+                  validate_staging_marker(&session_dir, session, &session_display)?;
+
+                  let staged_display = session_display.join(staged_name.as_str());
+                  let mut staged_file = create_new_file_nofollow(&session_dir, staged_name.as_str())?;
+                  if let Err(error) = std::io::copy(&mut source_file, &mut staged_file) {
+                      drop(staged_file);
+                      let _ = session_dir.remove_file(staged_name.as_str());
+                      return Err(VaultError::Io(error));
+                  }
+                  if let Err(error) = staged_file.sync_all() {
+                      drop(staged_file);
+                      let _ = session_dir.remove_file(staged_name.as_str());
+                      return Err(VaultError::Io(error));
+                  }
+                  drop(staged_file);
+
+                  let observed = sha256_cap_file(open_read_file_nofollow(
+                      &session_dir,
+                      staged_name.as_str(),
+                  )?)?;
+                  if observed != *expected_sha256 {
+                      let _ = session_dir.remove_file(staged_name.as_str());
+                      return Err(VaultError::HashMismatch {
+                          path: staged_display,
+                          expected: expected_sha256.to_string(),
+                          observed: observed.to_string(),
+                      });
+                  }
+                  Ok(staged_display)
+              }
+
+          '''
+          path.write_text(text.replace(needle, method + needle, 1), encoding="utf-8")
+      - name: Format and prove vault surface
+        run: |
+          cargo fmt --all
+          git diff --check
+          git diff -- crates/neo-vault/src/store.rs
+      - name: Self-delete helper and commit
+        run: |
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git rm .github/workflows/phase8-vault-stage-helper.yml
+          git add crates/neo-vault/src/store.rs
+          git diff --cached --check
+          git commit -m "Phase 8: add no-follow verified runtime staging"
+          git push origin HEAD:implementation/phase-8-runtime-executor
