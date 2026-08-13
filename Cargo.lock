@@ -203,6 +203,7 @@ dependencies = [
  "neo-match",
  "neo-probe",
  "neo-runtime",
+ "neo-runtime-probe",
  "neo-transaction",
  "serde_json",
 ]
@@ -268,6 +269,16 @@ dependencies = [
  "neo-core",
  "serde",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "neo-runtime-probe"
+version = "0.1.0"
+dependencies = [
+ "neo-probe",
+ "neo-runtime",
+ "serde",
  "thiserror",
 ]
 
