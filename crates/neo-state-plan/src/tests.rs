@@ -113,6 +113,20 @@ fn explicit_selection_is_required() {
 }
 
 #[test]
+fn rejected_selection_is_blocked() {
+    let mut item = definition("fixture.rejected", "fixture.target");
+    item.selected_by_default = false;
+    item.verdict = EvidenceVerdict::Rejected;
+    let catalogue = TweakCatalogue::new(vec![item]).unwrap();
+    let evidence = TweakEvidence::new(vec![observation("fixture.target", ObservedState::Absent)]).unwrap();
+    let selected = vec!["fixture.rejected".to_string()];
+    assert!(matches!(
+        assess_tweaks(&catalogue, &evidence, &selected, "mission"),
+        Err(StatePlanError::RejectedTweak(_))
+    ));
+}
+
+#[test]
 fn missing_observation_blocks_assessment() {
     let catalogue = TweakCatalogue::new(vec![definition("fixture.enabled", "fixture.target")]).unwrap();
     let evidence = TweakEvidence::new(vec![]).unwrap();
