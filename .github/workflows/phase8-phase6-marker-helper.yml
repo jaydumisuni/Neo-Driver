@@ -1,0 +1,44 @@
+name: Phase 8 one-shot Phase 6 marker preservation
+
+on:
+  push:
+    branches: ["implementation/phase-8-runtime-executor"]
+
+permissions:
+  contents: write
+
+jobs:
+  preserve:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-8-runtime-executor
+          fetch-depth: 0
+      - name: Restore inherited public-runtime boundary marker
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("crates/neo-cli/src/main.rs")
+          text = path.read_text(encoding="utf-8")
+          old = '            println!("Network package acquisition: intentionally disabled at this gate");\n            println!("Archive extraction and Windows-feature mutation: intentionally disabled");'
+          new = '            println!("Network package acquisition: intentionally disabled at this gate");\n            println!("Runtime downloads/installations: intentionally disabled on public CLI at this gate");\n            println!("Archive extraction and Windows-feature mutation: intentionally disabled");'
+          if text.count(old) != 1:
+              raise SystemExit(f"status preservation site count={text.count(old)}")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+      - name: Format and prove exact marker
+        run: |
+          cargo fmt --all
+          grep -F "Runtime downloads/installations: intentionally disabled" crates/neo-cli/src/main.rs
+          git diff --check
+          git diff -- crates/neo-cli/src/main.rs
+      - name: Self-delete helper and commit
+        run: |
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git rm .github/workflows/phase8-phase6-marker-helper.yml
+          git add crates/neo-cli/src/main.rs
+          git diff --cached --check
+          git commit -m "Phase 8: preserve Phase 6 public runtime boundary"
+          git push origin HEAD:implementation/phase-8-runtime-executor
