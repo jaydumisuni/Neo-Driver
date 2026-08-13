@@ -9,7 +9,7 @@
 - **Phase 3:** merged and engineering-proven — deterministic read-only driver candidate matching/ranking.
 - **Phase 4:** merged and engineering-proven — transaction, checkpoint, verification, reboot/resume, and rollback foundation.
 - **Phase 5:** merged and engineering-proven — controlled, manually selected Windows driver installation bound to the proven matcher + transaction engine; mutation engine remains internal pending live attached-device proof.
-- **Phase 6:** frozen implementation candidate, engineering-proven before final documentation-state gate — deterministic runtime/gaming assessment + read-only Windows runtime System X-Ray, including compiled DirectX June 2010 legacy-component completeness evidence. Runtime execution is not enabled.
+- **Phase 6:** merged and engineering-proven — deterministic runtime/gaming assessment + read-only Windows runtime System X-Ray, including compiled DirectX June 2010 legacy-component completeness evidence. Runtime execution remains the next bounded child stage.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -24,6 +24,8 @@ Phase 3 final documentation-state run `31619460283` passed all configured Ubuntu
 Phase 4 final documentation-state run `31642625013` passed the complete Ubuntu and Windows pipeline with zero unresolved review threads, and Phase 4 merged as `bc9712a47e27a5930b918b45dcc65a48e62f70ae`.
 
 Phase 5 final documentation-state run `31655706797` passed the complete Ubuntu and Windows pipeline with zero unresolved review threads and a clean 21-file PR surface, and Phase 5 merged through PR #5 as `d05bd65d39de283c446a40e8c5e7b78a485b4868`.
+
+Phase 6 final documentation-state run `31684943307` passed the complete Ubuntu and Windows pipeline with zero unresolved inline review threads and a clean 19-file PR surface, and Phase 6 merged through PR #8 as `4747aafdb53b5731738fb99e08ddf2778c0d8707`.
 
 ## Phase 5 frozen implementation
 
@@ -83,7 +85,7 @@ Engineering review found and corrected the following before the implementation w
 17. The planner accepted a caller-supplied Windows build without proving it against the host. The host build is now read from trusted Windows registry state, compared during planning, and rechecked at preflight so build drift blocks mutation.
 18. A regression originally required every recovered staging API failure to enter rollback even when validated compensation restored the Driver Store exactly to baseline. The regression now follows the transaction's net-mutation law: restored baseline yields `Failed` with zero net mutation; unrecovered/unproven staging state still enters recovery.
 
-## Phase 6 frozen implementation candidate
+## Phase 6 frozen implementation
 
 Phase 6 adds a read-only runtime/gaming intelligence layer over the already-proven core. It does **not** add a runtime mutator.
 
@@ -151,6 +153,7 @@ Implementation continues to honor:
 - Phase 3: **PROVEN and merged**.
 - Phase 4: **PROVEN and merged**.
 - Phase 5: **PROVEN and merged**.
+- Phase 6: **PROVEN and merged** at the read-only Runtime/Gaming System X-Ray + assessment boundary.
 - Phase 5 platform-neutral transaction/driverstore core: compiler/Clippy/adversarial proof passed before freeze.
 - Phase 5 Windows SetupAPI/NewDev backend: Windows compiler proof passed; Windows Clippy with warnings denied passed; Windows-specific validation regressions passed.
 - Windows fail-closed observation correction run `31650621429`: **PASS**.
@@ -174,11 +177,12 @@ Implementation continues to honor:
 - Phase 6 live Windows runtime scan in run `31683167998`: VC++ v14 x86/x64 installed; DirectX June 2010 legacy framework set classified `Missing` with 0/180 expected x64+x86 files present on the clean runner; NetFx3, .NET Framework 4.x, modern .NET/Desktop, Python and WebView2 detected; DirectPlay disabled; XNA/OpenAL/PhysX/PhysX Legacy remained explicitly `Unknown`.
 - Phase 6 independent-review correction pre-commit run `31684439927`: **PASS on Windows** across Phase 1–6 static gates, lock integrity, compiler, Clippy with warnings denied, all workspace units, live runtime scan, runtime fixture, and gaming fixture before the helper self-cleaned and committed `cb911bd72887e02d7d648294d793b9364c085d67`.
 - Phase 6 corrected implementation normal PR run `31684665638`: **PASS on Ubuntu and Windows** across the complete configured Phase 1–6 release pipeline, including Windows live runtime System X-Ray and all CLI fixtures.
+- Final Phase 6 documentation-state run `31684943307`: **PASS on Ubuntu and Windows** across the complete configured release pipeline.
 - Phase 6 external CodeRabbit disposition: **full review unavailable because the reviewer was rate-limited; no external-review PASS is claimed**.
-- Phase 6 unresolved inline review threads on the frozen implementation head: **0**.
+- Phase 6 unresolved inline review threads at merge: **0**.
 - Phase 6 independent source challenge: **5 valid fail-closed findings closed and proven**; see Decision 0006.
-- Phase 6 PR surface before documentation-state gate: **19 intended files; no temporary proof/helper workflows or scripts**.
-- Phase 6 final documentation-state CI: **pending on this documentation-only head**.
+- Final Phase 6 PR surface: **19 intended files; no temporary proof/helper workflows or scripts**.
+- Phase 6 merged through PR #8 as `4747aafdb53b5731738fb99e08ddf2778c0d8707`.
 - Phase 6 runtime mutation proof: **not claimed**.
 
-Phase 5 is complete at the repository implementation/proof boundary. Phase 6's read-only System X-Ray/assessment candidate is frozen and engineering-proven; the final documentation-state CI is the remaining merge gate. Runtime execution remains a separate bounded child stage.
+Phases 1–6 are closed at their recorded repository boundaries. The next bounded child stage is the Phase 6 runtime executor: exact package authority, package-specific apply semantics, reboot evidence, re-probe verification, and rollback/recovery where a real restoration path exists. No public runtime mutation surface opens before that executor is independently frozen and proven.
