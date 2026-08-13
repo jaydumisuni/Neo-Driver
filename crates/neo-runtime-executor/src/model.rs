@@ -1,7 +1,8 @@
 use crate::RuntimeExecutorError;
+#[cfg(any(windows, test))]
+use neo_catalogue::RuntimeInstallerKind;
 use neo_catalogue::{
-    PackageKind, RuntimeExecutionSpec, RuntimeInstallerKind, RuntimeVerificationRule,
-    SecurityRequirements,
+    PackageKind, RuntimeExecutionSpec, RuntimeVerificationRule, SecurityRequirements,
 };
 use neo_core::{ActionKind, EvidenceVerdict, PlannedAction};
 use neo_runtime::{
@@ -338,6 +339,7 @@ impl RuntimeProcessResult {
         }
     }
 
+    #[cfg(windows)]
     pub(crate) fn started_without_exit(detail: impl Into<String>) -> Self {
         Self {
             started: true,

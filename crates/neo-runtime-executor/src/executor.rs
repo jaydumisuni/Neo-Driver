@@ -1,3 +1,4 @@
+#[cfg(any(windows, test))]
 use crate::model::canonical_arch;
 #[cfg(any(windows, test))]
 use crate::model::{observation_matches_baseline, verification_value, RuntimeInvocation};
