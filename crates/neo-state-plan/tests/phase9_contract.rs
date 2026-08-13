@@ -6,13 +6,13 @@ fn phase9_contract_has_twenty_frozen_assessment_lanes() {
 
     assert!(decision.contains("assessment only"));
 
-    let lanes = review
+    let lanes: Vec<u8> = review
         .lines()
-        .filter(|line| {
+        .filter_map(|line| {
             line.split_once('.')
-                .map(|(prefix, _)| prefix.parse::<u8>().is_ok())
-                .unwrap_or(false)
+                .and_then(|(prefix, _)| prefix.parse::<u8>().ok())
         })
-        .count();
-    assert_eq!(lanes, 20);
+        .collect();
+    let expected: Vec<u8> = (1..=20).collect();
+    assert_eq!(lanes, expected);
 }
