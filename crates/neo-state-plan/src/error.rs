@@ -40,6 +40,12 @@ pub enum StatePlanError {
     InvalidReaderId(String),
     #[error("duplicate state binding '{0}'")]
     DuplicateBinding(String),
+    #[error("duplicate reader source '{0}'")]
+    DuplicateReaderSource(String),
+    #[error("missing reader source '{0}'")]
+    MissingReaderSource(String),
+    #[error("invalid reader source: {0}")]
+    InvalidReaderSource(&'static str),
     #[error("duplicate captured state '{0}'")]
     DuplicateCapturedState(String),
     #[error("selected tweak target has no state binding: {0}")]
