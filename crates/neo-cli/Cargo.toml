@@ -15,5 +15,7 @@ neo-core = { path = "../neo-core" }
 neo-device = { path = "../neo-device" }
 neo-match = { path = "../neo-match" }
 neo-probe = { path = "../neo-probe" }
+neo-runtime = { path = "../neo-runtime" }
+neo-runtime-probe = { path = "../neo-runtime-probe" }
 neo-transaction = { path = "../neo-transaction" }
 serde_json.workspace = true

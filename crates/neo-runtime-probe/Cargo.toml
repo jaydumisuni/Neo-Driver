@@ -1,0 +1,12 @@
+[package]
+name = "neo-runtime-probe"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-directx-legacy = { path = "../neo-directx-legacy" }
+neo-probe = { path = "../neo-probe" }
+neo-runtime = { path = "../neo-runtime" }
+serde.workspace = true
+thiserror.workspace = true

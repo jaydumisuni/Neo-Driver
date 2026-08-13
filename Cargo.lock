@@ -202,6 +202,8 @@ dependencies = [
  "neo-device",
  "neo-match",
  "neo-probe",
+ "neo-runtime",
+ "neo-runtime-probe",
  "neo-transaction",
  "serde_json",
 ]
@@ -221,6 +223,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "neo-directx-legacy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
+ "windows",
 ]
 
 [[package]]
@@ -255,6 +266,28 @@ name = "neo-probe"
 version = "0.1.0"
 dependencies = [
  "neo-core",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "neo-runtime"
+version = "0.1.0"
+dependencies = [
+ "neo-catalogue",
+ "neo-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "neo-runtime-probe"
+version = "0.1.0"
+dependencies = [
+ "neo-directx-legacy",
+ "neo-probe",
+ "neo-runtime",
  "serde",
  "thiserror",
 ]

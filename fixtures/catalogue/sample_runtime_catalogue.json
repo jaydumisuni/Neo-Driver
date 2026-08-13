@@ -1,0 +1,202 @@
+{
+  "packages": [
+    {
+      "package_id": "neo.runtime.vc2015plus.x86",
+      "name": "Visual C++ 2015+ Redistributable x86",
+      "vendor": "Microsoft",
+      "version": "fixture-current",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/vc-x86",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.vc2015plus.x64",
+      "name": "Visual C++ 2015+ Redistributable x64",
+      "vendor": "Microsoft",
+      "version": "fixture-current",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/vc-x64",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.directx.june2010",
+      "name": "DirectX End-User Runtimes (June 2010)",
+      "vendor": "Microsoft",
+      "version": "2010-06",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/directx-june-2010",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.webview2",
+      "name": "Microsoft Edge WebView2 Runtime",
+      "vendor": "Microsoft",
+      "version": "fixture-current",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/webview2",
+        "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.xna40refresh",
+      "name": "XNA Framework 4.0 Refresh",
+      "vendor": "Microsoft",
+      "version": "4.0-refresh",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/xna",
+        "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.openal",
+      "name": "OpenAL Runtime",
+      "vendor": "OpenAL",
+      "version": "fixture-current",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/openal",
+        "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "redistribution": "unknown"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.physx",
+      "name": "NVIDIA PhysX",
+      "vendor": "NVIDIA",
+      "version": "fixture-current",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/physx",
+        "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.physxlegacy",
+      "name": "NVIDIA PhysX Legacy",
+      "vendor": "NVIDIA",
+      "version": "fixture-legacy",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/physx-legacy",
+        "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.python",
+      "name": "Python",
+      "vendor": "Python Software Foundation",
+      "version": "fixture-current",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/python",
+        "sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.dotnet",
+      "name": ".NET Runtime",
+      "vendor": "Microsoft",
+      "version": "fixture-current",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/dotnet-runtime",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    },
+    {
+      "package_id": "neo.runtime.dotnetdesktop",
+      "name": ".NET Desktop Runtime",
+      "vendor": "Microsoft",
+      "version": "fixture-current",
+      "kind": "runtime",
+      "provenance": {
+        "source_name": "phase6-fixture",
+        "source_url": "https://example.invalid/dotnet-desktop-runtime",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "redistribution": "vendor_download_only"
+      },
+      "windows": {
+        "architectures": ["x64"],
+        "minimum_build": 19041
+      },
+      "reboot": "none"
+    }
+  ]
+}
