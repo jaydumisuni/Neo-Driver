@@ -16,9 +16,9 @@ impl VaultSegment {
             && trimmed != ".."
             && !trimmed.ends_with('.')
             && !trimmed.ends_with(' ')
-            && trimmed.chars().all(|ch| {
-                ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.' | '+')
-            });
+            && trimmed
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.' | '+'));
         if !valid {
             return Err(VaultError::InvalidSegment(value));
         }

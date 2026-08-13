@@ -1,6 +1,4 @@
-use crate::{
-    layout::STAGING_MARKER_NAME, Sha256Digest, VaultError, VaultLayout, VaultSegment,
-};
+use crate::{layout::STAGING_MARKER_NAME, Sha256Digest, VaultError, VaultLayout, VaultSegment};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -46,7 +44,9 @@ impl VaultStore {
     pub fn ensure_layout(&self) -> Result<(), VaultError> {
         let app_root = self.layout.application_root();
         if !app_root.exists() || !app_root.is_dir() {
-            return Err(VaultError::ApplicationRootUnavailable(app_root.to_path_buf()));
+            return Err(VaultError::ApplicationRootUnavailable(
+                app_root.to_path_buf(),
+            ));
         }
         reject_link_like(app_root)?;
 
@@ -122,16 +122,14 @@ impl VaultStore {
 
         self.ensure_layout()?;
         let destination = match class {
-            PackClass::Driver => self.layout.driver_pack_destination(
-                package_id,
-                version,
-                expected_sha256.as_str(),
-            ),
-            PackClass::Runtime => self.layout.runtime_pack_destination(
-                package_id,
-                version,
-                expected_sha256.as_str(),
-            ),
+            PackClass::Driver => {
+                self.layout
+                    .driver_pack_destination(package_id, version, expected_sha256.as_str())
+            }
+            PackClass::Runtime => {
+                self.layout
+                    .runtime_pack_destination(package_id, version, expected_sha256.as_str())
+            }
         };
         self.layout.ensure_managed(&destination)?;
 

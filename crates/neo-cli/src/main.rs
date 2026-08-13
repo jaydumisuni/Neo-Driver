@@ -408,7 +408,8 @@ fn run(cli: Cli) -> Result<(), String> {
                 } else {
                     VaultMode::Installed
                 };
-                let layout = VaultLayout::new(mode, &app_root).map_err(|error| error.to_string())?;
+                let layout =
+                    VaultLayout::new(mode, &app_root).map_err(|error| error.to_string())?;
                 if json {
                     println!(
                         "{}",
@@ -459,16 +460,14 @@ fn run(cli: Cli) -> Result<(), String> {
                 }
                 Ok(())
             }
-            VaultCommand::Audit {
-                app_root,
-                portable,
-            } => {
+            VaultCommand::Audit { app_root, portable } => {
                 let mode = if portable {
                     VaultMode::Portable
                 } else {
                     VaultMode::Installed
                 };
-                let layout = VaultLayout::new(mode, &app_root).map_err(|error| error.to_string())?;
+                let layout =
+                    VaultLayout::new(mode, &app_root).map_err(|error| error.to_string())?;
                 let store = VaultStore::new(layout);
                 store
                     .audit_existing_tree()

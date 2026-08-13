@@ -42,7 +42,10 @@ fn layout_is_rooted_under_supplied_application_root() {
     let layout = layout(&root);
     assert_eq!(layout.application_root(), root.path());
     assert_eq!(layout.managed_root(), root.path().join("NeoData"));
-    assert_eq!(layout.driver_packs(), root.path().join("NeoData/driver-packs"));
+    assert_eq!(
+        layout.driver_packs(),
+        root.path().join("NeoData/driver-packs")
+    );
     assert_eq!(layout.staging(), root.path().join("NeoData/staging"));
 }
 
@@ -65,7 +68,17 @@ fn relative_application_root_is_rejected() {
 
 #[test]
 fn vault_segments_reject_traversal_and_windows_separators() {
-    for value in ["", ".", "..", "../escape", "a/b", r"a\b", "C:", "name ", "name."] {
+    for value in [
+        "",
+        ".",
+        "..",
+        "../escape",
+        "a/b",
+        r"a\b",
+        "C:",
+        "name ",
+        "name.",
+    ] {
         assert!(VaultSegment::new(value).is_err(), "accepted {value:?}");
     }
     assert!(VaultSegment::new("android.adb-1_0+usb").is_ok());
@@ -171,7 +184,10 @@ fn import_pack_hashes_before_and_after_copy_and_cleans_staging() {
     assert!(receipt.destination.exists());
     assert_eq!(sha256_file(&receipt.destination).unwrap(), expected);
     assert_eq!(fs::read_dir(store.layout().staging()).unwrap().count(), 0);
-    assert!(source.exists(), "Neo must not delete the operator source file");
+    assert!(
+        source.exists(),
+        "Neo must not delete the operator source file"
+    );
 }
 
 #[test]
