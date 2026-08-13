@@ -318,6 +318,7 @@ dependencies = [
  "neo-match",
  "neo-probe",
  "neo-runtime",
+ "neo-runtime-executor",
  "neo-runtime-probe",
  "neo-transaction",
  "neo-vault",
