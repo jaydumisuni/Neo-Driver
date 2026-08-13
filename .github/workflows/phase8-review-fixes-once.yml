@@ -1,0 +1,60 @@
+name: Phase 8 Review Fixes Once
+
+on:
+  push:
+    branches: [implementation/phase-8-runtime-executor]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-prove:
+    if: ${{ !contains(github.event.head_commit.message, '[phase8-review-fixes-done]') }}
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-8-runtime-executor
+          fetch-depth: 0
+
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup component add rustfmt clippy --toolchain stable
+          rustup default stable
+
+      - name: Apply bounded review corrections
+        run: python tools/phase8_review_fixes_once.py
+
+      - name: Format
+        run: cargo fmt --all
+
+      - name: Phase 8 static proof
+        run: python -W error tools/phase8_static_review.py
+
+      - name: Workspace type proof
+        run: cargo check --workspace --all-targets --locked
+
+      - name: Clippy proof
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Runtime executor tests
+        run: cargo test --locked -p neo-runtime-executor
+
+      - name: Catalogue tests
+        run: cargo test --locked -p neo-catalogue
+
+      - name: Diff check
+        shell: bash
+        run: git diff --check
+
+      - name: Self-clean and commit proven correction
+        shell: bash
+        run: |
+          rm tools/phase8_review_fixes_once.py .github/workflows/phase8-review-fixes-once.yml
+          git add -A
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git commit -m "Phase 8: close PR review findings [phase8-review-fixes-done]"
+          git push origin HEAD:implementation/phase-8-runtime-executor
