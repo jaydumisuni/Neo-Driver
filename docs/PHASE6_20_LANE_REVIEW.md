@@ -58,6 +58,10 @@ Being under a path named `staging` is insufficient deletion authority. Corrected
 
 Release repositories/assets are only acquisition provenance. Existing catalogue, hash, signature, compatibility, transaction, reboot, verification, and rollback gates remain authoritative for driver installation.
 
+### P6-F6 — Cargo.lock had to include the new workspace crate exactly
+
+The first authoritative PR run passed Phase 1–6 static reviews on both Ubuntu and Windows and stopped only at the lockfile guard. Cargo generated the updated graph: `neo-cli` gains `neo-vault`, and `neo-vault` depends only on the already-locked `serde`, `serde_json`, `sha2`, and `thiserror`. No external crate version changed. The generated lock was committed verbatim by a one-shot branch-only helper which deleted itself in the same commit.
+
 ## Source-map evidence frozen for the first offline pack
 
 - `jaydumisuni/android-drivers` / `v1` / `android.drivers.zip`;
