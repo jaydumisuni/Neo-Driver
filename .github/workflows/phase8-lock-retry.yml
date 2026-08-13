@@ -1,0 +1,40 @@
+name: Phase 8 one-shot final Cargo lock retry
+
+on:
+  push:
+    branches: ["implementation/phase-8-runtime-executor"]
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-8-runtime-executor
+          fetch-depth: 0
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Generate and prove exact final lock graph
+        run: |
+          cargo generate-lockfile
+          cargo metadata --locked --no-deps > /dev/null
+          python -W error tools/phase6_static_review.py
+          python -W error tools/phase7_static_review.py
+          python -W error tools/phase8_static_review.py
+          git diff --check
+          git diff -- Cargo.lock
+      - name: Self-delete helper and commit Cargo output
+        run: |
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git rm .github/workflows/phase8-lock-retry.yml
+          git add Cargo.lock
+          git diff --cached --check
+          git commit -m "Phase 8: lock final runtime executor graph"
+          git push origin HEAD:implementation/phase-8-runtime-executor
