@@ -35,6 +35,13 @@ PR #7 was built while `main` still ended at Phase 5. Before it could merge, PR #
 
 Corrective action: create `implementation/phase-7-managed-vault` from current `main`, transplant the proven vault crate and source map, merge only shared integration surfaces, rename the proof/decision layer to Phase 7, and re-run the complete Phase 1–7 Ubuntu/Windows pipeline.
 
+## Rebase proof findings
+
+- Rebase run `31686937725` proved Phase 1–6 remained 20/20 on both Ubuntu and Windows. Phase 7 stopped only because lane 14 referenced an obsolete regression name.
+- The actual concurrency regression is `concurrent_same_pack_import_never_overwrites_or_leaves_staging_noise`; the gate was corrected to bind to that existing eight-worker proof rather than adding duplicate coverage.
+- Run `31687088235` then passed Phase 1–7 20/20 on Ubuntu and stopped only at the expected stale Cargo.lock gate.
+- One-shot lock run `31687136770` generated the exact combined runtime + vault dependency graph with Cargo, re-proved Phase 6 and Phase 7, committed the generated lock, and deleted its temporary write-enabled workflow in the same commit. No dependency graph was hand-authored.
+
 ## Proof requirements before merge
 
 Phase 7 must pass:
