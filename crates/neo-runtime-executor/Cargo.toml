@@ -1,0 +1,20 @@
+[package]
+name = "neo-runtime-executor"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-catalogue = { path = "../neo-catalogue" }
+neo-core = { path = "../neo-core" }
+neo-runtime = { path = "../neo-runtime" }
+neo-runtime-probe = { path = "../neo-runtime-probe" }
+neo-transaction = { path = "../neo-transaction" }
+neo-vault = { path = "../neo-vault" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true
