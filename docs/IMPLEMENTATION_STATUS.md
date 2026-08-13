@@ -8,7 +8,7 @@
 - **Phase 2:** merged and engineering-proven — normalized device evidence + typed package catalogue contracts.
 - **Phase 3:** merged and engineering-proven — deterministic read-only driver candidate matching/ranking.
 - **Phase 4:** merged and engineering-proven — transaction, checkpoint, verification, reboot/resume, and rollback foundation.
-- **Phase 5:** corrected implementation frozen under full proof — controlled, manually selected Windows driver installation bound to the proven matcher + transaction engine; mutation engine remains internal pending live attached-device proof.
+- **Phase 5:** implementation proof complete pending the final documentation-state CI — controlled, manually selected Windows driver installation bound to the proven matcher + transaction engine; mutation engine remains internal pending live attached-device proof.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -44,6 +44,7 @@ It adds:
 - typed outside-authority blast-radius failure;
 - separation of API outcome from observed `machine_changed` evidence, including outcome-aware compatibility for persisted legacy apply records;
 - healthy Windows no-op handling that removes an unused newly staged package when the target package was absent at baseline;
+- recovered staging-error compensation: a recovered and validated unused package may be removed to restore an absent Driver Store baseline, yielding operational `Failed` with zero net mutation; an unrecoverable staging identity remains conservatively changed and routes recovery;
 - conservative rollback routing when staging or post-write observation leaves mutation uncertain;
 - runtime install and rollback reboot evidence bound into persistent checkpoints whose type is derived from the enclosing transaction stage;
 - exact rollback to each captured baseline published package using a specific driver node only in rollback;
@@ -51,7 +52,7 @@ It adds:
 - retryable verification and rollback-verification probes so observation failure cannot strand a valid persisted stage;
 - Windows fail-closed handling for ConfigMgr device-status query failure;
 - trusted Windows-directory discovery through the Windows API rather than `%WINDIR%` environment state;
-- canonical `DEVPROPKEY` typing from the Windows properties namespace;
+- locked `windows 0.62.2` device-property typing proven by Windows compilation: `DEVPKEY_Device_DriverInfPath` and `DEVPROPTYPE` from `Win32::Devices::Properties`, with the `DEVPROPKEY` parameter type from `Win32::Foundation`;
 - strict `oem<digits>.inf` published-name validation;
 - Phase 5 production-only static contract scanning, with regressions evaluated separately;
 - Phase 5 20-lane static review integrated into normal Ubuntu/Windows CI.
@@ -70,13 +71,14 @@ Engineering review found and corrected the following before the implementation w
 8. Verification/rollback verification could become stranded after a transient probe error. Explicit retry entry points now preserve the persisted state machine.
 9. Blast-radius violation used a free-form message despite an existing typed error. The path now uses `UnexpectedBindingChange`, and Phase 5's lane 13 binds to that typed contract.
 10. Existing-target equivalence matched binary-identical INF bytes plus signer/catalog metadata, while Windows permits identical INFs with different catalogs. Neo now requires identical catalog bytes as well, and preflight/staged-target validation reuses that exact equivalence rule.
-11. A staging API failure could have changed Driver Store state before returning an error, while an unrecovered package identity could be mistaken for no change. Any staging attempt without proven baseline restoration is now conservatively treated as changed and routed into recovery; recovered identities are validated before use.
+11. A staging API failure could have changed Driver Store state before returning an error, while an unrecovered package identity could be mistaken for no change. Recovered identities are validated before use; any staging attempt without proven baseline restoration is conservatively treated as changed and routed into recovery.
 12. Directly deserialized driver plans could retain lexical `..` traversal while still passing a prefix check. Root validation now rejects parent-directory components, and the regression is explicit.
-13. Windows device-property typing and Windows-directory discovery depended on weaker aliases/environment state. The backend now uses the canonical Properties `DEVPROPKEY` and `GetWindowsDirectoryW`.
+13. Windows-directory discovery depended on process-controlled environment state. The backend now uses `GetWindowsDirectoryW`. A separate review suggestion moved `DEVPROPKEY` into `Win32::Devices::Properties`, but the locked Windows compiler disproved that binding shape; the compile-proven `Win32::Foundation::DEVPROPKEY` parameter type was restored while property constants/types remain in `Devices::Properties`.
 14. Persisted reboot checkpoint `resume_stage` could influence whether a checkpoint was interpreted as apply or rollback. The expected checkpoint type is now derived from the enclosing validated transaction stage, so JSON cannot rebind the checkpoint class.
 15. Legacy persisted `ApplyRecord` objects that omit `machine_changed` needed outcome-aware compatibility. Missing legacy values now resolve to `true` for historical success and `false` for historical failure, preserving the pre-Phase-5 transaction meaning instead of manufacturing a change on failed records.
 16. The Phase 5 static aggregate included test source, allowing a production marker to be satisfied accidentally by a regression body. Production contract lanes now scan production Rust separately from `tests.rs`; regression-presence checks remain explicit.
 17. The planner accepted a caller-supplied Windows build without proving it against the host. The host build is now read from trusted Windows registry state, compared during planning, and rechecked at preflight so build drift blocks mutation.
+18. A regression originally required every recovered staging API failure to enter rollback even when validated compensation restored the Driver Store exactly to baseline. The regression now follows the transaction's net-mutation law: restored baseline yields `Failed` with zero net mutation; unrecovered/unproven staging state still enters recovery.
 
 ## Still deliberately blocked
 
@@ -118,10 +120,13 @@ Implementation continues to honor:
 - Exact catalog-equivalence Windows pre-commit run `31651850209`: **PASS** across Phase 4/5 gates, workspace compiler, Clippy, transaction regressions, driverstore regressions, and diff check.
 - Exact-catalog normal two-OS PR run `31651989426`: **PASS on Ubuntu and Windows** across all configured release gates.
 - External-review correction pre-commit run `31652793990`: **PASS on Windows** across Phase 4/5 static gates, full workspace compiler, Clippy with warnings denied, transaction regressions, driverstore regressions, and diff check.
-- CodeRabbit external review findings: **all resolved on corrected head `b13d84c708a57e1fbd05ae9da629b00f794c9f48`; zero unresolved review threads**.
-- Normal two-OS CI on the final externally corrected implementation state: **pending**. The bot-authored correction head produced an `action_required` run with no jobs, so this documentation re-anchor is the authoritative trigger for the same product source.
-- Final documentation-state CI: **pending**.
+- CodeRabbit external review findings: **all resolved; zero unresolved review threads on the frozen PR**.
+- Post-review Windows correction helper run `31655434637`: **PASS** across Phase 4/5 static gates, rustfmt, Windows workspace type proof, Clippy with warnings denied, the complete Windows unit suite, and diff proof; the temporary diagnostic/helper workflow self-cleaned before the correction commit `37f20177d0fa5ac3d7d7fd758d53c9d107771186`.
+- Final corrected implementation normal PR run `31655563452`: **PASS on Ubuntu and Windows** across Phase 1–5 gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, all workspace tests, and all four proven CLI fixtures.
+- PR surface after the corrected implementation run: **21 intended files; no temporary diagnostic workflow**.
+- External-review disposition after the corrected implementation run: **zero unresolved review threads**.
+- Final documentation-state CI: **this documentation-only freeze commit must pass before merge**.
 - Live attached-device mutation proof: **not claimed**.
 - CI machine mutation proof: **not claimed; CI compiles/tests the backend but does not execute Windows-changing calls**.
 
-Phase 5 is not merge-ready until the externally corrected source passes normal Ubuntu/Windows CI and the final documentation-state gate.
+Phase 5 is merge-ready only if this final documentation-state commit passes the complete Ubuntu/Windows pipeline with the review state still clean.
