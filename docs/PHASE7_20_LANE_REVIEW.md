@@ -55,6 +55,10 @@ The vault core transplanted into Phase 7 is byte-identical to the pre-rebase pro
 
 A fresh CodeRabbit review of PR #10 could not start because the service reported its PR-review quota exhausted for 71 minutes. Therefore Phase 7 does **not** claim a new CodeRabbit review pass. PR #10 currently has zero review threads; the rebased integration is instead proven by preservation lanes, byte-identical reviewed vault code, and two independent full Ubuntu/Windows CI runs.
 
+## Final documentation-state freeze
+
+This commit changes this review document only. Executable source, Cargo workspace integration, CI configuration, Phase 6 Runtime/Gaming code, and the proven vault source are frozen at the already-green PR #10 implementation head. The resulting documentation-state head must pass the same complete Phase 1–7 Ubuntu/Windows pipeline before merge.
+
 ## Merge gate
 
-The final documentation-state head must re-pass the complete Phase 1–7 Ubuntu/Windows pipeline. No public vault mutation or network acquisition surface is opened by this phase.
+Merge requires the final documentation-state run to pass on Ubuntu and Windows, PR #10 to remain mergeable against canonical `main`, zero unresolved review threads, and no temporary helper workflow in the PR surface. No public vault mutation or network acquisition surface is opened by this phase.
