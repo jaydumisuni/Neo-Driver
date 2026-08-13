@@ -42,17 +42,19 @@ Corrective action: create `implementation/phase-7-managed-vault` from current `m
 - Run `31687088235` then passed Phase 1–7 20/20 on Ubuntu and stopped only at the expected stale Cargo.lock gate.
 - One-shot lock run `31687136770` generated the exact combined runtime + vault dependency graph with Cargo, re-proved Phase 6 and Phase 7, committed the generated lock, and deleted its temporary write-enabled workflow in the same commit. No dependency graph was hand-authored.
 
-## Proof requirements before merge
+## Final implementation proof before documentation freeze
 
-Phase 7 must pass:
+- Branch run `31687246986`: **PASS on Ubuntu and Windows** across Phase 1–7 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, the complete workspace unit/integration suite, Windows live runtime System X-Ray, and all catalogue/matcher/runtime/gaming/vault/transaction fixtures.
+- PR run `31687289312`: **PASS on Ubuntu and Windows** across the same complete pipeline against PR #10.
+- PR surface: **18 intended files** and no temporary proof/helper workflow.
+- PR #10 is mergeable against canonical `main`.
 
-- Phase 1–7 static gates;
-- lock integrity;
-- rustfmt;
-- locked workspace build;
-- Clippy with warnings denied;
-- all workspace unit/integration tests, including vault concurrency regressions;
-- Windows live read-only runtime System X-Ray proof inherited from Phase 6;
-- catalogue, matcher, runtime, gaming, vault source-map, and transaction CLI fixtures;
-- zero unresolved review threads;
-- clean PR surface with no temporary proof/helper workflow.
+## Review disposition
+
+The vault core transplanted into Phase 7 is byte-identical to the pre-rebase proven vault head `e1a3013927b4a622816e2d3b923670d3a5f51d56`. On stale PR #7, CodeRabbit raised three major filesystem/concurrency findings; all three were corrected and resolved before that head passed the complete Ubuntu/Windows pipeline.
+
+A fresh CodeRabbit review of PR #10 could not start because the service reported its PR-review quota exhausted for 71 minutes. Therefore Phase 7 does **not** claim a new CodeRabbit review pass. PR #10 currently has zero review threads; the rebased integration is instead proven by preservation lanes, byte-identical reviewed vault code, and two independent full Ubuntu/Windows CI runs.
+
+## Merge gate
+
+The final documentation-state head must re-pass the complete Phase 1–7 Ubuntu/Windows pipeline. No public vault mutation or network acquisition surface is opened by this phase.
