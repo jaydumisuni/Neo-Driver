@@ -5,7 +5,9 @@
 //! reviewable, individually selectable plan. It does not download or install
 //! runtimes, change Windows features, or advance transactions.
 
-use neo_catalogue::{Catalogue, PackageKind, PackageManifest, RebootRequirement as CatalogueReboot};
+use neo_catalogue::{
+    Catalogue, PackageKind, PackageManifest, RebootRequirement as CatalogueReboot,
+};
 use neo_core::{
     ActionKind, EvidenceItem, EvidenceVerdict, PlannedAction, RebootRequirement,
     RecommendationState, RiskLevel,
@@ -90,9 +92,7 @@ impl RuntimeInventory {
                 ));
             }
             if !components.insert(observation.component) {
-                return Err(RuntimeError::DuplicateObservation(
-                    observation.component,
-                ));
+                return Err(RuntimeError::DuplicateObservation(observation.component));
             }
         }
         Ok(())
@@ -123,7 +123,9 @@ pub struct RuntimePolicy {
 
 impl RuntimePolicy {
     pub fn validate(&self, catalogue: &Catalogue) -> Result<(), RuntimeError> {
-        catalogue.validate().map_err(|error| RuntimeError::Catalogue(error.to_string()))?;
+        catalogue
+            .validate()
+            .map_err(|error| RuntimeError::Catalogue(error.to_string()))?;
         let packages: BTreeMap<&str, &PackageManifest> = catalogue
             .packages
             .iter()
@@ -216,19 +218,17 @@ pub fn assess_runtime_profile(
     for requirement in requirements(profile) {
         let observation = observations.get(&requirement.component).copied();
         let state = observation.map_or(RuntimeState::Unknown, |item| item.state);
-        let candidates = compatible_packages(
-            requirement.component,
-            inventory,
-            catalogue,
-            policy,
-        );
+        let candidates = compatible_packages(requirement.component, inventory, catalogue, policy);
 
         let mut warnings = Vec::new();
         let chosen = match candidates.as_slice() {
             [single] => Some(*single),
             [] => {
                 if !matches!(state, RuntimeState::Installed) {
-                    warnings.push("No compatible runtime package is bound in the validated policy.".to_string());
+                    warnings.push(
+                        "No compatible runtime package is bound in the validated policy."
+                            .to_string(),
+                    );
                 }
                 None
             }
@@ -316,16 +316,29 @@ fn build_change_recommendation(
                 RecommendationState::OptionalComponent
             },
             EvidenceVerdict::Investigate,
-            "A change may be appropriate, but no single compatible validated package is proven.".to_string(),
+            "A change may be appropriate, but no single compatible validated package is proven."
+                .to_string(),
             None,
         );
     };
 
     let mut evidence = vec![
-        EvidenceItem::new("runtime_component", component_key(requirement.component), "neo-runtime"),
+        EvidenceItem::new(
+            "runtime_component",
+            component_key(requirement.component),
+            "neo-runtime",
+        ),
         EvidenceItem::new("package_id", &package.package_id, "neo-catalogue"),
-        EvidenceItem::new("package_sha256", &package.provenance.sha256, "neo-catalogue"),
-        EvidenceItem::new("package_source", &package.provenance.source_name, "neo-catalogue"),
+        EvidenceItem::new(
+            "package_sha256",
+            &package.provenance.sha256,
+            "neo-catalogue",
+        ),
+        EvidenceItem::new(
+            "package_source",
+            &package.provenance.source_name,
+            "neo-catalogue",
+        ),
     ];
     if let Some(observation) = observation {
         evidence.push(EvidenceItem::new(
@@ -434,34 +447,100 @@ fn requirements(profile: RuntimeProfile) -> &'static [Requirement] {
     use RuntimeComponent::*;
     match profile {
         RuntimeProfile::FreshWindows => &[
-            Requirement { component: VcRedist2015PlusX86, baseline: true },
-            Requirement { component: VcRedist2015PlusX64, baseline: true },
-            Requirement { component: DirectXLegacyJune2010, baseline: true },
-            Requirement { component: WebView2, baseline: false },
+            Requirement {
+                component: VcRedist2015PlusX86,
+                baseline: true,
+            },
+            Requirement {
+                component: VcRedist2015PlusX64,
+                baseline: true,
+            },
+            Requirement {
+                component: DirectXLegacyJune2010,
+                baseline: true,
+            },
+            Requirement {
+                component: WebView2,
+                baseline: false,
+            },
         ],
         RuntimeProfile::Gaming => &[
-            Requirement { component: VcRedist2015PlusX86, baseline: true },
-            Requirement { component: VcRedist2015PlusX64, baseline: true },
-            Requirement { component: DirectXLegacyJune2010, baseline: true },
-            Requirement { component: XnaFramework40Refresh, baseline: false },
-            Requirement { component: OpenAl, baseline: false },
-            Requirement { component: Physx, baseline: false },
-            Requirement { component: PhysxLegacy, baseline: false },
-            Requirement { component: DotNetFramework35, baseline: false },
-            Requirement { component: DirectPlay, baseline: false },
+            Requirement {
+                component: VcRedist2015PlusX86,
+                baseline: true,
+            },
+            Requirement {
+                component: VcRedist2015PlusX64,
+                baseline: true,
+            },
+            Requirement {
+                component: DirectXLegacyJune2010,
+                baseline: true,
+            },
+            Requirement {
+                component: XnaFramework40Refresh,
+                baseline: false,
+            },
+            Requirement {
+                component: OpenAl,
+                baseline: false,
+            },
+            Requirement {
+                component: Physx,
+                baseline: false,
+            },
+            Requirement {
+                component: PhysxLegacy,
+                baseline: false,
+            },
+            Requirement {
+                component: DotNetFramework35,
+                baseline: false,
+            },
+            Requirement {
+                component: DirectPlay,
+                baseline: false,
+            },
         ],
         RuntimeProfile::Technician => &[
-            Requirement { component: VcRedist2015PlusX86, baseline: true },
-            Requirement { component: VcRedist2015PlusX64, baseline: true },
-            Requirement { component: DotNetFramework4, baseline: false },
-            Requirement { component: Python, baseline: false },
+            Requirement {
+                component: VcRedist2015PlusX86,
+                baseline: true,
+            },
+            Requirement {
+                component: VcRedist2015PlusX64,
+                baseline: true,
+            },
+            Requirement {
+                component: DotNetFramework4,
+                baseline: false,
+            },
+            Requirement {
+                component: Python,
+                baseline: false,
+            },
         ],
         RuntimeProfile::Developer => &[
-            Requirement { component: VcRedist2015PlusX86, baseline: true },
-            Requirement { component: VcRedist2015PlusX64, baseline: true },
-            Requirement { component: DotNetRuntime, baseline: false },
-            Requirement { component: DotNetDesktopRuntime, baseline: false },
-            Requirement { component: Python, baseline: false },
+            Requirement {
+                component: VcRedist2015PlusX86,
+                baseline: true,
+            },
+            Requirement {
+                component: VcRedist2015PlusX64,
+                baseline: true,
+            },
+            Requirement {
+                component: DotNetRuntime,
+                baseline: false,
+            },
+            Requirement {
+                component: DotNetDesktopRuntime,
+                baseline: false,
+            },
+            Requirement {
+                component: Python,
+                baseline: false,
+            },
         ],
     }
 }
@@ -572,7 +651,8 @@ mod tests {
             provenance: Provenance {
                 source_name: "fixture".to_string(),
                 source_url: None,
-                sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string(),
+                sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_string(),
                 redistribution: RedistributionPolicy::Unknown,
             },
             windows: WindowsApplicability {
@@ -620,7 +700,9 @@ mod tests {
 
     #[test]
     fn baseline_missing_is_preselected_but_confirmed_and_selectable() {
-        let catalogue = Catalogue { packages: vec![package("runtime.vc.x86")] };
+        let catalogue = Catalogue {
+            packages: vec![package("runtime.vc.x86")],
+        };
         let policy = RuntimePolicy {
             bindings: vec![RuntimePackageBinding {
                 component: RuntimeComponent::VcRedist2015PlusX86,
@@ -648,7 +730,9 @@ mod tests {
 
     #[test]
     fn optional_missing_is_never_preselected() {
-        let catalogue = Catalogue { packages: vec![package("runtime.python")] };
+        let catalogue = Catalogue {
+            packages: vec![package("runtime.python")],
+        };
         let policy = RuntimePolicy {
             bindings: vec![RuntimePackageBinding {
                 component: RuntimeComponent::Python,
@@ -682,7 +766,9 @@ mod tests {
 
     #[test]
     fn unknown_state_never_becomes_install_authority() {
-        let catalogue = Catalogue { packages: vec![package("runtime.vc.x86")] };
+        let catalogue = Catalogue {
+            packages: vec![package("runtime.vc.x86")],
+        };
         let policy = RuntimePolicy {
             bindings: vec![RuntimePackageBinding {
                 component: RuntimeComponent::VcRedist2015PlusX86,
@@ -734,7 +820,9 @@ mod tests {
     fn non_runtime_binding_is_rejected() {
         let mut invalid = package("not.runtime");
         invalid.kind = PackageKind::Application;
-        let catalogue = Catalogue { packages: vec![invalid] };
+        let catalogue = Catalogue {
+            packages: vec![invalid],
+        };
         let policy = RuntimePolicy {
             bindings: vec![RuntimePackageBinding {
                 component: RuntimeComponent::Python,
