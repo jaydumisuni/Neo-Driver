@@ -85,10 +85,25 @@ replace_once(
     "- Phase 7: **PROVEN and merged** at the managed local/offline package-vault + read-only public inspection boundary.\n- Phase 8: **PROVEN and merged** at the bounded internal EXE/MSI runtime-executor + read-only public plan-validation boundary.\n",
 )
 
-replace_once(
-    "- Phase 7 online acquisition/public vault mutation proof: **not claimed**.\n\nPhases 1–7 are closed at their recorded repository boundaries. The next bounded runtime child stage remains the Phase 6 runtime executor: exact package authority, package-specific apply semantics, reboot evidence, re-probe verification, and rollback/recovery where a real restoration path exists. Phase 7 network acquisition, archive execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, and recovery contracts are frozen and proven.\n",
-    "- Phase 7 online acquisition/public vault mutation proof: **not claimed**.\n- Phase 8 Windows review-correction pre-proof run `31697713764`: **PASS** across Phase 8 20/20, locked workspace build, Clippy with warnings denied, runtime-executor tests, catalogue tests, and diff validation before the temporary helper self-cleaned.\n- Phase 8 Linux cfg-hygiene pre-proof run `31698343953`: **PASS** across Phase 8 20/20, locked workspace build, Clippy with warnings denied and no warning suppression, runtime-executor tests, and diff validation before the temporary helper self-cleaned.\n- Phase 8 corrected implementation run `31698473273`: **PASS on Ubuntu and Windows** across Phase 1–8 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, complete workspace tests, Windows live read-only Runtime System X-Ray, and every applicable CLI fixture.\n- Final Phase 8 documentation-state run `31698767919`: **PASS on Ubuntu and Windows** across the complete configured Phase 1–8 pipeline.\n- Phase 8 PR #12 external review: **all review threads resolved or explicitly dispositioned as outdated; zero unresolved review threads at merge**.\n- Phase 8 merged through PR #12 as `7a26d8d9dc86ac5f5db09eaf82b58424b1babd26`.\n- Phase 8 live runtime-installer mutation proof: **not claimed**; CI compiled/tested the executor and ran read-only Runtime System X-Ray/fixtures but did not execute a real runtime installer.\n- Phase 8 public runtime mutation proof: **not claimed**; the opaque execution capability is not publicly constructible or issued by the CLI.\n\nPhases 1–8 are closed at their recorded repository boundaries. Phase 5 public driver mutation still requires live attached-device proof. Phase 8 public runtime mutation still requires a separately reviewed capability-issuance/live-installer proof path. Phase 7 network acquisition, archive execution, Windows-feature mutation, Winget execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, and recovery contracts are frozen and proven.\n",
-)
+closing_marker = "\nPhases 1–7 are closed at their recorded repository boundaries."
+if text.count(closing_marker) != 1:
+    raise SystemExit(f"expected one final Phase 1–7 closing marker, found {text.count(closing_marker)}")
+closing_index = text.index(closing_marker)
+proof_lines = """
+- Phase 8 Windows review-correction pre-proof run `31697713764`: **PASS** across Phase 8 20/20, locked workspace build, Clippy with warnings denied, runtime-executor tests, catalogue tests, and diff validation before the temporary helper self-cleaned.
+- Phase 8 Linux cfg-hygiene pre-proof run `31698343953`: **PASS** across Phase 8 20/20, locked workspace build, Clippy with warnings denied and no warning suppression, runtime-executor tests, and diff validation before the temporary helper self-cleaned.
+- Phase 8 corrected implementation run `31698473273`: **PASS on Ubuntu and Windows** across Phase 1–8 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, complete workspace tests, Windows live read-only Runtime System X-Ray, and every applicable CLI fixture.
+- Final Phase 8 documentation-state run `31698767919`: **PASS on Ubuntu and Windows** across the complete configured Phase 1–8 pipeline.
+- Phase 8 PR #12 external review: **all review threads resolved or explicitly dispositioned as outdated; zero unresolved review threads at merge**.
+- Phase 8 merged through PR #12 as `7a26d8d9dc86ac5f5db09eaf82b58424b1babd26`.
+- Phase 8 live runtime-installer mutation proof: **not claimed**; CI compiled/tested the executor and ran read-only Runtime System X-Ray/fixtures but did not execute a real runtime installer.
+- Phase 8 public runtime mutation proof: **not claimed**; the opaque execution capability is not publicly constructible or issued by the CLI.
+"""
+new_closing = """
+
+Phases 1–8 are closed at their recorded repository boundaries. Phase 5 public driver mutation still requires live attached-device proof. Phase 8 public runtime mutation still requires a separately reviewed capability-issuance/live-installer proof path. Phase 7 network acquisition, archive execution, Windows-feature mutation, Winget execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, and recovery contracts are frozen and proven.
+"""
+text = text[:closing_index] + proof_lines + new_closing
 
 PATH.write_text(text, encoding="utf-8")
 print("Phase 8 canonical implementation status patched")
