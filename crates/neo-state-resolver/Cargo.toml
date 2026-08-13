@@ -5,6 +5,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+neo-core = { path = "../neo-core" }
 neo-probe = { path = "../neo-probe" }
 neo-state-plan = { path = "../neo-state-plan" }
 serde.workspace = true
