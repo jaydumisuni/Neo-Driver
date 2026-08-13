@@ -16,6 +16,10 @@ PRODUCTION = "\n".join(
     if path.name != "tests.rs"
 )
 TESTS = (VAULT_ROOT / "src/tests.rs").read_text(encoding="utf-8")
+INTEGRATION_TESTS = "\n".join(
+    path.read_text(encoding="utf-8")
+    for path in sorted((VAULT_ROOT / "tests").glob("*.rs"))
+)
 CLI = (ROOT / "crates/neo-cli/src/main.rs").read_text(encoding="utf-8")
 WORKSPACE_TEXT = (ROOT / "Cargo.toml").read_text(encoding="utf-8")
 WORKSPACE = tomllib.loads(WORKSPACE_TEXT)
@@ -77,10 +81,10 @@ def review() -> list[Lane]:
         Lane(10, "ttg-source-map", source_repos == expected_repos and SOURCE_MAP.get("schema_version") == 1, "initial source map contains exactly the four approved TTG driver repositories"),
         Lane(11, "network-disabled", not any(value in production_lower for value in forbidden_network), "Phase 6 contains no network acquisition implementation"),
         Lane(12, "double-hash-intake", PRODUCTION.count("sha256_file(") >= 4 and contains_all(PRODUCTION, ["HashMismatch", "staged_hash", "expected_sha256"]), "pack intake validates source bytes and the copied staging bytes"),
-        Lane(13, "immutable-promotion", contains_all(PRODUCTION, ["AlreadyPresent", "DestinationConflict", "fs::rename"]) and "promoted_pack_is_never_overwritten" in TESTS, "promoted packs are idempotent when identical and fail closed on drift"),
-        Lane(14, "owned-staging", contains_all(PRODUCTION, ["STAGING_MARKER_NAME", "StagingMarker", "UnownedStaging", "StagingMarkerMismatch"]) and "staging_cleanup_requires_neo_ownership_marker" in TESTS, "staging cleanup requires an exact Neo ownership marker"),
+        Lane(13, "immutable-concurrent-promotion", contains_all(PRODUCTION, ["AlreadyPresent", "DestinationConflict", "ImportBusy", "acquire_promotion_lock", "create_new(true)", "fs::rename"]) and "promoted_pack_is_never_overwritten" in TESTS and "concurrent_same_pack_import_never_overwrites_or_leaves_staging_noise" in INTEGRATION_TESTS, "promotion is immutable and concurrent same-pack imports are serialized without staging noise"),
+        Lane(14, "owned-staging", contains_all(PRODUCTION, ["STAGING_MARKER_NAME", "StagingMarker", "UnownedStaging", "StagingMarkerMismatch", "begin_unique_import_staging"]) and "staging_cleanup_requires_neo_ownership_marker" in TESTS, "staging cleanup requires an exact Neo ownership marker and imports use collision-proof staging"),
         Lane(15, "cleanup-boundary", contains_all(PRODUCTION, ["ensure_cleanup_target", "self.staging", "self.cache"]) and "remove_dir_all(&path)" in PRODUCTION, "destructive cleanup is confined to owned staging/cache descendants"),
-        Lane(16, "link-reparse-guard", contains_all(PRODUCTION, ["reject_link_like", "FILE_ATTRIBUTE_REPARSE_POINT", "ensure_directory_chain"]) and "audit_rejects_symlink_inside_managed_tree" in TESTS, "existing symlink/reparse paths are rejected and directory creation is component checked"),
+        Lane(16, "link-reparse-guard", contains_all(PRODUCTION, ["reject_link_like", "FILE_ATTRIBUTE_REPARSE_POINT", "ensure_directory_chain", "reject_link_like(app_root)"]) and "audit_rejects_symlink_inside_managed_tree" in TESTS and "audit_rejects_symlink_application_root" in INTEGRATION_TESTS, "application root and managed descendants reject symlink/reparse traversal and creation is component checked"),
         Lane(17, "existing-app-root", contains_all(PRODUCTION, ["ApplicationRootUnavailable", "app_root.exists()", "app_root.is_dir()"]), "Neo requires Builder/portable application root to pre-exist rather than creating an arbitrary root"),
         Lane(18, "read-only-public-cli", contains_all(CLI, ["VaultCommand", "Describe", "ValidateSources", "Audit", "Machine changes: none"]) and not any(value in cli_lower for value in forbidden_cli_writes), "public vault CLI is inspection/validation only"),
         Lane(19, "pinned-release-evidence", expected_hashes <= observed_hashes and all(source["release_tag"] for source in SOURCE_MAP["sources"]), "aggregate TTG driver packs are pinned by release tag and published SHA-256"),
