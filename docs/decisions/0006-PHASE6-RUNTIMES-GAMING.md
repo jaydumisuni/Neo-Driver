@@ -6,14 +6,15 @@
 
 ## Decision
 
-Phase 6 introduces two model-free layers:
+Phase 6 introduces three model-free layers:
 
 - `neo-runtime` — pure normalized runtime evidence, package binding, profile readiness and reviewable action planning;
-- `neo-runtime-probe` — a read-only Windows System X-Ray adapter that reuses `neo-probe::CommandRunner` and preserves raw `CommandEvidence`.
+- `neo-directx-legacy` — read-only completeness evidence for the documented DirectX End-User Runtimes (June 2010) side-by-side framework component set;
+- `neo-runtime-probe` — a read-only Windows System X-Ray adapter that reuses `neo-probe::CommandRunner`, preserves raw `CommandEvidence`, and consumes the DirectX detector.
 
 The assessment engine consumes normalized runtime evidence, the existing validated Neo package catalogue, and an explicit runtime component-to-package binding policy. It produces reviewable runtime/gaming recommendations and `neo-core::PlannedAction` objects but does not execute them.
 
-The System X-Ray adapter may collect evidence. It may not install, repair, download, enable, disable, reboot, or otherwise mutate Windows state.
+The System X-Ray layers may collect evidence. They may not install, repair, download, enable, disable, reboot, or otherwise mutate Windows state.
 
 ## Manual authority
 
@@ -74,21 +75,36 @@ Phase 6 currently freezes these read-only Windows evidence paths:
 - .NET Framework 3.5: read-only DISM `/Get-FeatureInfo /FeatureName:NetFx3 /English`;
 - DirectPlay: read-only DISM `/Get-FeatureInfo /FeatureName:DirectPlay /English`;
 - WebView2: Microsoft EdgeUpdate product GUID `{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`, architecture-aware HKLM path plus HKCU path, with a non-empty/non-zero `pv` value;
-- Python: `py -0p` compatibility listing plus `where.exe` discovery for `python.exe`, `py.exe` and `pip.exe`.
+- Python: `py -0p` compatibility listing plus `where.exe` discovery for `python.exe`, `py.exe` and `pip.exe`;
+- DirectX June 2010 legacy framework components: a deterministic file-set predicate generated from Microsoft's documented D3DCompiler/D3DCSX/D3DX/X3DAudio/XACT/XAPOFX/XAudio/XInput ranges.
 
 The Python probe deliberately does not invoke a bare `python`/`py` runtime. A PATH gap is `Partial`, not an excuse to install another interpreter. Lack of global command evidence remains `Unknown`, not `Missing`.
 
+### DirectX legacy completeness semantics
+
+`neo-directx-legacy` uses `GetWindowsDirectoryW` as the trusted Windows-directory authority rather than `%SystemRoot%` process environment state.
+
+For x64 Windows, a 64-bit Neo process checks the documented framework-component filename set in both native `System32` and x86 `SysWOW64`. For x86 Windows it checks `System32`. ARM64 remains `Unknown` until an architecture-specific June 2010 layout is proven.
+
+The detector classifies:
+
+- `Installed` — every expected documented framework filename is present in every required architecture directory;
+- `Partial` — at least one expected component exists but the set is incomplete;
+- `Missing` — required directories are accessible but none of the expected components are present;
+- `Unknown` — the layout cannot be safely interpreted or accessed.
+
+This is a **presence/completeness predicate**, not a cryptographic or binary-health certification. It does not claim that every DLL is uncorrupted, correctly registered, or functionally healthy. Modern DirectX capability remains a separate evidence problem.
+
 ## Unproven predicates
 
-Phase 6 deliberately reports `Unknown` for these components until their predicates are independently recovered and frozen:
+Phase 6 deliberately reports `Unknown` for these components until their installation predicates are independently recovered and frozen:
 
-- DirectX June 2010 side-by-side legacy completeness;
 - XNA Framework 4.0 Refresh;
 - OpenAL;
 - PhysX;
 - PhysX Legacy.
 
-Modern DirectX capability and DirectX June 2010 legacy components remain separate evidence problems. Neo does not infer one from the other.
+Neo does not substitute uninstall display-name guesses or community folklore for a verified vendor predicate.
 
 ## Catalogue binding
 
@@ -156,4 +172,4 @@ Phase 6 must pass:
 - dedicated gaming CLI fixture;
 - external review with all correctness/security findings reconciled before merge.
 
-A green assessment foundation is not by itself Phase 6 completion. Remaining master-plan runtime/gaming predicates and Gaming readiness lanes must be implemented or explicitly deferred with evidence before the phase can be marked complete.
+A green System X-Ray/assessment foundation is not by itself the full Runtimes & Gaming execution phase. Runtime mutation and broader Gaming hardware/API readiness remain separate bounded work and must not be implied by this decision.
