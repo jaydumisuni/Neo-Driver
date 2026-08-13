@@ -40,7 +40,11 @@ fn snapshot_tree(root: &Path) -> BTreeMap<PathBuf, SnapshotEntry> {
         if is_dir {
             let mut children = fs::read_dir(path)
                 .expect("fixture directory must be readable")
-                .map(|entry| entry.expect("fixture directory entry must be readable").path())
+                .map(|entry| {
+                    entry
+                        .expect("fixture directory entry must be readable")
+                        .path()
+                })
                 .collect::<Vec<_>>();
             children.sort();
             for child in children {
@@ -156,7 +160,10 @@ fn state_assess_subcommands_leave_isolated_fixture_tree_unchanged() {
     );
 
     let after = snapshot_tree(&root);
-    assert_eq!(before, after, "Phase 9 CLI modified the isolated fixture tree");
+    assert_eq!(
+        before, after,
+        "Phase 9 CLI modified the isolated fixture tree"
+    );
 
     fs::remove_dir_all(root).expect("isolated fixture root must be removable");
 }
