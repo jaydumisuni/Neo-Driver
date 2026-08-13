@@ -58,7 +58,11 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             } else {
                 println!("Phase 9 state assessment: PASS");
                 println!("Items: {}", report.items.len());
-                let satisfied = report.items.iter().filter(|item| item.already_satisfied).count();
+                let satisfied = report
+                    .items
+                    .iter()
+                    .filter(|item| item.already_satisfied)
+                    .count();
                 println!("Already satisfied: {satisfied}");
                 println!("Machine changes: none");
             }
