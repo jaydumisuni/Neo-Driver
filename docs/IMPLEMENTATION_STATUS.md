@@ -8,7 +8,7 @@
 - **Phase 2:** merged and engineering-proven — normalized device evidence + typed package catalogue contracts.
 - **Phase 3:** merged and engineering-proven — deterministic read-only driver candidate matching/ranking.
 - **Phase 4:** merged and engineering-proven — transaction, checkpoint, verification, reboot/resume, and rollback foundation.
-- **Phase 5:** implementation proof complete pending the final documentation-state CI — controlled, manually selected Windows driver installation bound to the proven matcher + transaction engine; mutation engine remains internal pending live attached-device proof.
+- **Phase 5:** merged and engineering-proven — controlled, manually selected Windows driver installation bound to the proven matcher + transaction engine; mutation engine remains internal pending live attached-device proof.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -21,6 +21,8 @@ Phase 2 final documentation-state run `31615112238` passed all configured Ubuntu
 Phase 3 final documentation-state run `31619460283` passed all configured Ubuntu and Windows gates with no unresolved review thread, and Phase 3 merged as `76e45bd6166dee4f89eecac519cfafde8a4c47e5`.
 
 Phase 4 final documentation-state run `31642625013` passed the complete Ubuntu and Windows pipeline with zero unresolved review threads, and Phase 4 merged as `bc9712a47e27a5930b918b45dcc65a48e62f70ae`.
+
+Phase 5 final documentation-state run `31655706797` passed the complete Ubuntu and Windows pipeline with zero unresolved review threads and a clean 21-file PR surface, and Phase 5 merged through PR #5 as `d05bd65d39de283c446a40e8c5e7b78a485b4868`.
 
 ## Phase 5 frozen implementation
 
@@ -111,6 +113,7 @@ Implementation continues to honor:
 - Phase 2: **PROVEN and merged**.
 - Phase 3: **PROVEN and merged**.
 - Phase 4: **PROVEN and merged**.
+- Phase 5: **PROVEN and merged**.
 - Phase 5 platform-neutral transaction/driverstore core: compiler/Clippy/adversarial proof passed before freeze.
 - Phase 5 Windows SetupAPI/NewDev backend: Windows compiler proof passed; Windows Clippy with warnings denied passed; Windows-specific validation regressions passed.
 - Windows fail-closed observation correction run `31650621429`: **PASS**.
@@ -123,10 +126,11 @@ Implementation continues to honor:
 - CodeRabbit external review findings: **all resolved; zero unresolved review threads on the frozen PR**.
 - Post-review Windows correction helper run `31655434637`: **PASS** across Phase 4/5 static gates, rustfmt, Windows workspace type proof, Clippy with warnings denied, the complete Windows unit suite, and diff proof; the temporary diagnostic/helper workflow self-cleaned before the correction commit `37f20177d0fa5ac3d7d7fd758d53c9d107771186`.
 - Final corrected implementation normal PR run `31655563452`: **PASS on Ubuntu and Windows** across Phase 1–5 gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, all workspace tests, and all four proven CLI fixtures.
-- PR surface after the corrected implementation run: **21 intended files; no temporary diagnostic workflow**.
-- External-review disposition after the corrected implementation run: **zero unresolved review threads**.
-- Final documentation-state CI: **this documentation-only freeze commit must pass before merge**.
+- Final Phase 5 documentation-state run `31655706797`: **PASS on Ubuntu and Windows** across the complete configured release pipeline.
+- Final PR review disposition: **zero unresolved review threads**.
+- Final Phase 5 PR surface: **21 intended files; no temporary diagnostic/helper workflow**.
+- Phase 5 merged through PR #5 as `d05bd65d39de283c446a40e8c5e7b78a485b4868`.
 - Live attached-device mutation proof: **not claimed**.
 - CI machine mutation proof: **not claimed; CI compiles/tests the backend but does not execute Windows-changing calls**.
 
-Phase 5 is merge-ready only if this final documentation-state commit passes the complete Ubuntu/Windows pipeline with the review state still clean.
+Phase 5 is complete at the repository implementation/proof boundary. The next gate before any public mutation surface is live attached-device proof under the existing authority and rollback contracts.
