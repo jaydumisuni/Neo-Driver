@@ -17,7 +17,11 @@ fn snapshot_tree(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
         let relative = path.strip_prefix(root).unwrap().to_path_buf();
         entries.insert(
             relative,
-            if metadata.is_file() { fs::read(path).unwrap() } else { Vec::new() },
+            if metadata.is_file() {
+                fs::read(path).unwrap()
+            } else {
+                Vec::new()
+            },
         );
         if metadata.is_dir() {
             let mut children = fs::read_dir(path)
@@ -61,21 +65,35 @@ fn live_state_assessment_reads_proven_system_evidence_without_mutation() {
         selected_by_default: false,
         requires_admin: false,
         reboot: RebootRequirement::None,
-        target: TweakTarget { key: "fixture.build".to_string() },
-        operation: TweakOperation::Set { value: TweakValue::Text("0".to_string()) },
+        target: TweakTarget {
+            key: "fixture.build".to_string(),
+        },
+        operation: TweakOperation::Set {
+            value: TweakValue::Text("0".to_string()),
+        },
         warnings: vec![],
     }])
     .unwrap();
     let bindings = StateBindings::new(vec![StateBinding {
-        target: TweakTarget { key: "fixture.build".to_string() },
+        target: TweakTarget {
+            key: "fixture.build".to_string(),
+        },
         reader: ReaderId::new("windows.os.current_build").unwrap(),
     }])
     .unwrap();
 
     let catalogue_path = root.join("catalogue.json");
     let bindings_path = root.join("bindings.json");
-    fs::write(&catalogue_path, serde_json::to_vec_pretty(&catalogue).unwrap()).unwrap();
-    fs::write(&bindings_path, serde_json::to_vec_pretty(&bindings).unwrap()).unwrap();
+    fs::write(
+        &catalogue_path,
+        serde_json::to_vec_pretty(&catalogue).unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        &bindings_path,
+        serde_json::to_vec_pretty(&bindings).unwrap(),
+    )
+    .unwrap();
 
     let before = snapshot_tree(&root);
     let output = Command::new(env!("CARGO_BIN_EXE_neo-state-assess"))
@@ -89,7 +107,11 @@ fn live_state_assessment_reads_proven_system_evidence_without_mutation() {
         .arg("fixture.build")
         .output()
         .expect("live state assessment must start");
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert!(String::from_utf8_lossy(&output.stdout).contains("Machine changes: none"));
     assert_eq!(before, snapshot_tree(&root));
 
