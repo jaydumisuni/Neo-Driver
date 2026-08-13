@@ -19,7 +19,7 @@
 11. The promoted payload is copied into marker-owned unique staging and staged bytes are re-hashed before launch.
 12. EXE execution is direct/no-shell; MSI uses trusted System32 `msiexec.exe` and fixed install/quiet/no-restart switches.
 13. MSI catalogue arguments cannot replace Neo's install operation with arbitrary msiexec switches.
-14. The Windows backend serializes runtime execution across Neo processes and rejects link/reparse payload state.
+14. The Windows backend serializes runtime execution across Neo processes through one fixed named mutex and rejects link/reparse payload state; serialization does not create a path-based lock outside the retained vault capability model.
 15. The Windows backend re-hashes a write/delete-locked staged file immediately before launch and retains the handle through process exit.
 16. Exit-code success and reboot semantics are typed; reboot codes are a subset of successful codes.
 17. A started installer is conservatively considered potentially machine-changing even when it exits with failure.
