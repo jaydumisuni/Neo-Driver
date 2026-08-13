@@ -7,6 +7,7 @@ use neo_probe::scan_current_machine;
 use neo_runtime::{
     assess_runtime_profile, component_label, RuntimeInventory, RuntimePolicy, RuntimeProfile,
 };
+use neo_runtime_executor::RuntimeExecutionPlan;
 use neo_runtime_probe::scan_current_runtime_inventory;
 use neo_transaction::{TransactionCheckpoint, TransactionPlan};
 use neo_vault::{DriverSourceMap, VaultLayout, VaultMode, VaultStore};
@@ -101,6 +102,15 @@ enum Command {
         #[arg(long)]
         policy: PathBuf,
         /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Validate an exact Phase 8 runtime execution plan without executing it.
+    RuntimeExecutorValidatePlan {
+        /// Persisted Phase 8 runtime execution plan JSON.
+        #[arg(long)]
+        plan: PathBuf,
+        /// Emit the normalized validated plan as JSON.
         #[arg(long)]
         json: bool,
     },
@@ -440,6 +450,36 @@ fn run(cli: Cli) -> Result<(), String> {
             policy,
             json,
         } => run_runtime_assessment(evidence, catalogue, policy, RuntimeProfile::Gaming, json),
+        Command::RuntimeExecutorValidatePlan { plan, json } => {
+            let input = std::fs::read_to_string(&plan).map_err(|error| error.to_string())?;
+            let execution_plan =
+                RuntimeExecutionPlan::from_json_str(&input).map_err(|error| error.to_string())?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&execution_plan)
+                        .map_err(|error| error.to_string())?
+                );
+            } else {
+                println!("Neo Phase 8 runtime execution-plan validation: PASS");
+                println!("File: {}", plan.display());
+                println!("Mission: {}", execution_plan.mission_id);
+                println!("Transaction: {}", execution_plan.transaction_id);
+                println!("Component: {:?}", execution_plan.component);
+                println!("Operation: {:?}", execution_plan.operation);
+                println!("Package: {}", execution_plan.package_id);
+                println!(
+                    "Payload: {}",
+                    execution_plan
+                        .payload_path()
+                        .map_err(|error| error.to_string())?
+                        .display()
+                );
+                println!("Execution: disabled from CLI");
+                println!("Machine changes: none");
+            }
+            Ok(())
+        }
         Command::Transaction { command } => match command {
             TransactionCommand::ValidatePlan { path, json } => {
                 let input = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
@@ -588,13 +628,15 @@ fn run(cli: Cli) -> Result<(), String> {
             }
         },
         Command::Status => {
-            println!("Neo Driver implementation phase: Phase 7 managed package vault");
+            println!("Neo Driver implementation phase: Phase 8 internal runtime executor proof");
             println!("Driver mutation backend: internal pending live attached-device proof");
             println!("Phase 6 runtime System X-Ray: read-only documented evidence paths");
             println!("Runtime/gaming assessment: read-only and user-selectable");
+            println!("Phase 8 runtime executor: internal single-file EXE/MSI boundary");
             println!("Managed vault root: Builder/portable root + NeoData");
             println!("Network package acquisition: intentionally disabled at this gate");
-            println!("Runtime downloads/installations: intentionally disabled at this gate");
+            println!("Archive extraction and Windows-feature mutation: intentionally disabled");
+            println!("Runtime execution from CLI: intentionally disabled");
             println!("Transaction advancement from CLI: intentionally disabled");
             println!("Model dependency: none");
             Ok(())
