@@ -7,6 +7,7 @@ use neo_probe::scan_current_machine;
 use neo_runtime::{
     assess_runtime_profile, component_label, RuntimeInventory, RuntimePolicy, RuntimeProfile,
 };
+use neo_runtime_probe::scan_current_runtime_inventory;
 use neo_transaction::{TransactionCheckpoint, TransactionPlan};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -27,6 +28,12 @@ enum Command {
     /// Read-only machine scan. No driver, runtime, tweak, or security state is changed.
     Scan {
         /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Read-only Windows runtime System X-Ray using documented evidence paths.
+    RuntimeScan {
+        /// Emit machine-readable JSON including raw command evidence.
         #[arg(long)]
         json: bool,
     },
@@ -271,6 +278,40 @@ fn run(cli: Cli) -> Result<(), String> {
             }
             Ok(())
         }
+        Command::RuntimeScan { json } => {
+            let report = scan_current_runtime_inventory().map_err(|error| error.to_string())?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
+                );
+            } else {
+                println!("Neo read-only runtime System X-Ray");
+                println!("--------------------------------");
+                println!("Build: {}", report.inventory.windows_build);
+                println!("Architecture: {}", report.inventory.architecture);
+                for item in &report.inventory.observations {
+                    println!(
+                        "- {}: {:?}{}",
+                        component_label(item.component),
+                        item.state,
+                        item.detected_version
+                            .as_deref()
+                            .map(|version| format!(" ({version})"))
+                            .unwrap_or_default()
+                    );
+                }
+                println!("Raw command evidence: {}", report.command_evidence.len());
+                if !report.warnings.is_empty() {
+                    println!("Warnings:");
+                    for warning in &report.warnings {
+                        println!("  - {warning}");
+                    }
+                }
+                println!("Machine changes: none");
+            }
+            Ok(())
+        }
         Command::Plan {
             intent,
             depth,
@@ -430,8 +471,9 @@ fn run(cli: Cli) -> Result<(), String> {
             }
         },
         Command::Status => {
-            println!("Neo Driver implementation phase: Phase 6 runtimes/gaming assessment");
+            println!("Neo Driver implementation phase: Phase 6 runtimes/gaming System X-Ray");
             println!("Driver mutation backend: internal pending live attached-device proof");
+            println!("Runtime System X-Ray: read-only documented evidence paths");
             println!("Runtime/gaming assessment: read-only and user-selectable");
             println!("Runtime downloads/installations: intentionally disabled at this gate");
             println!("Transaction advancement from CLI: intentionally disabled");
