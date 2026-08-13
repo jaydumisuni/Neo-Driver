@@ -22,7 +22,7 @@ pub struct TweakTarget {
 
 impl TweakTarget {
     pub fn validate(&self) -> Result<(), StatePlanError> {
-        if self.key.trim().is_empty() || self.key.contains('\0') {
+        if self.key.trim().is_empty() || self.key.contains('\0') || !self.key.is_ascii() {
             return Err(StatePlanError::InvalidTarget(self.key.clone()));
         }
         Ok(())
