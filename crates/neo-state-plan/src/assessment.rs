@@ -1,4 +1,5 @@
 use crate::{ObservedState, StatePlanError, TweakCatalogue, TweakEvidence, TweakOperation};
+use neo_core::EvidenceVerdict;
 use serde::Serialize;
 use std::collections::BTreeSet;
 
@@ -39,6 +40,9 @@ pub fn assess_tweaks(
         let definition = catalogue
             .get(id)
             .ok_or_else(|| StatePlanError::UnknownTweak(id.clone()))?;
+        if definition.verdict == EvidenceVerdict::Rejected {
+            return Err(StatePlanError::RejectedTweak(id.clone()));
+        }
         let observation = evidence
             .find(&definition.target)?
             .ok_or_else(|| StatePlanError::MissingObservation(id.clone()))?;
