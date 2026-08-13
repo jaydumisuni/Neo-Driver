@@ -37,5 +37,7 @@ fn phase9_contract_has_twenty_frozen_assessment_lanes() {
     assert!(behavior_proof.contains("CARGO_BIN_EXE_neo-state-assess"));
     assert!(behavior_proof.contains("snapshot_tree"));
     assert!(behavior_proof.contains("before, after"));
-    assert!(behavior_proof.contains("state_assess_subcommands_leave_isolated_fixture_tree_unchanged"));
+    assert!(
+        behavior_proof.contains("state_assess_subcommands_leave_isolated_fixture_tree_unchanged")
+    );
 }
