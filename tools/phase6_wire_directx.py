@@ -10,6 +10,16 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+directx_path = ROOT / "crates/neo-directx-legacy/src/lib.rs"
+directx = directx_path.read_text(encoding="utf-8")
+directx = replace_once(
+    directx,
+    "        return scan_at(&system_root, architecture, usize::BITS as u8);\n",
+    "        scan_at(&system_root, architecture, usize::BITS as u8)\n",
+    "clippy needless return",
+)
+directx_path.write_text(directx, encoding="utf-8")
+
 probe_path = ROOT / "crates/neo-runtime-probe/src/lib.rs"
 probe = probe_path.read_text(encoding="utf-8")
 probe = replace_once(
