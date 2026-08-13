@@ -1,12 +1,17 @@
-//! Read-only DirectX End-User Runtimes (June 2010) completeness evidence.
+//! Read-only DirectX End-User Runtimes (June 2010) framework-component evidence.
 //!
-//! This crate deliberately models the legacy side-by-side DirectX component
-//! set separately from modern DirectX/GPU capability. It never downloads,
-//! installs, registers, repairs, or deletes DLLs.
+//! This crate models the documented side-by-side legacy DirectX component set
+//! separately from modern DirectX/GPU capability. It never downloads, installs,
+//! registers, repairs, or deletes DLLs.
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+
+#[cfg(windows)]
+use windows::core::Error as WinError;
+#[cfg(windows)]
+use windows::Win32::System::SystemInformation::GetWindowsDirectoryW;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -73,21 +78,43 @@ impl LegacyDirectXReport {
     }
 }
 
-/// Scan the current Windows installation using `%SystemRoot%`.
-///
-/// On x64 Windows, Neo requires a 64-bit process for this predicate so that
-/// `System32` is the native 64-bit system directory while `SysWOW64` is the
-/// 32-bit system directory. A 32-bit Neo process on x64 fails closed rather
-/// than relying on WOW64 redirection side effects.
+/// Scan the current Windows installation using the trusted Windows directory
+/// returned by `GetWindowsDirectoryW`. Process-controlled `%SystemRoot%` state
+/// is intentionally not used as authority.
 pub fn scan_current(architecture: WindowsArchitecture) -> LegacyDirectXReport {
-    let Some(system_root) = std::env::var_os("SystemRoot") else {
-        return unknown("SystemRoot is unavailable; legacy DirectX system directories cannot be proven.");
-    };
-    scan_at(
-        Path::new(&system_root),
-        architecture,
-        usize::BITS as u8,
-    )
+    #[cfg(windows)]
+    {
+        let system_root = match trusted_windows_directory() {
+            Ok(value) => value,
+            Err(error) => {
+                return unknown(&format!(
+                    "GetWindowsDirectoryW could not establish the Windows directory: {error}"
+                ));
+            }
+        };
+        return scan_at(&system_root, architecture, usize::BITS as u8);
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = architecture;
+        unknown("Current-system legacy DirectX scanning is Windows-only.")
+    }
+}
+
+#[cfg(windows)]
+fn trusted_windows_directory() -> Result<PathBuf, String> {
+    let mut buffer = vec![0u16; 260];
+    loop {
+        let length = unsafe { GetWindowsDirectoryW(Some(&mut buffer)) } as usize;
+        if length == 0 {
+            return Err(WinError::from_thread().to_string());
+        }
+        if length < buffer.len() {
+            return Ok(PathBuf::from(String::from_utf16_lossy(&buffer[..length])));
+        }
+        buffer.resize(length + 1, 0);
+    }
 }
 
 /// Deterministic filesystem predicate used by the live scanner and tests.
@@ -103,7 +130,10 @@ pub fn scan_at(
         WindowsArchitecture::X64 if process_bits != 64 => unknown(
             "A 64-bit Neo process is required to prove native x64 System32 plus x86 SysWOW64 legacy DirectX completeness without WOW64 redirection ambiguity.",
         ),
-        WindowsArchitecture::X86 => scan_directories(&[(WindowsArchitecture::X86, system_root.join("System32"))]),
+        WindowsArchitecture::X86 => scan_directories(&[(
+            WindowsArchitecture::X86,
+            system_root.join("System32"),
+        )]),
         WindowsArchitecture::X64 => scan_directories(&[
             (WindowsArchitecture::X64, system_root.join("System32")),
             (WindowsArchitecture::X86, system_root.join("SysWOW64")),
@@ -153,7 +183,7 @@ fn scan_directories(directories: &[(WindowsArchitecture, PathBuf)]) -> LegacyDir
 
     LegacyDirectXReport {
         state,
-        source: "Microsoft DirectX June 2010 side-by-side framework component set".to_string(),
+        source: "Microsoft legacy DirectX framework component set (June 2010 ranges)".to_string(),
         expected_files: total_expected,
         present_files: total_present,
         architectures: architecture_reports,
@@ -164,7 +194,7 @@ fn scan_directories(directories: &[(WindowsArchitecture, PathBuf)]) -> LegacyDir
 fn unknown(detail: &str) -> LegacyDirectXReport {
     LegacyDirectXReport {
         state: LegacyDirectXState::Unknown,
-        source: "Microsoft DirectX June 2010 side-by-side framework component set".to_string(),
+        source: "Microsoft legacy DirectX framework component set (June 2010 ranges)".to_string(),
         expected_files: 0,
         present_files: 0,
         architectures: Vec::new(),
@@ -172,12 +202,8 @@ fn unknown(detail: &str) -> LegacyDirectXReport {
     }
 }
 
-/// Canonical June 2010 legacy component filenames documented by Microsoft's
-/// Gaming Development Kit framework-package guidance.
-///
-/// The set intentionally excludes modern Direct3D/DXGI components shipped by
-/// Windows. It covers the side-by-side D3DX, D3DCompiler/D3DCSX, X3DAudio,
-/// XACT, XAPOFX, XAudio 2.x and XInput 1.x legacy families.
+/// Canonical side-by-side legacy component filenames documented by Microsoft's
+/// current GDK framework-package guidance.
 pub fn expected_component_files() -> Vec<String> {
     let mut names = Vec::new();
 
