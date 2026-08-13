@@ -20,19 +20,30 @@ use thiserror::Error;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RuntimeComponent {
+    #[serde(rename = "vc_redist_2015_plus_x86")]
     VcRedist2015PlusX86,
+    #[serde(rename = "vc_redist_2015_plus_x64")]
     VcRedist2015PlusX64,
+    #[serde(rename = "directx_legacy_june_2010")]
     DirectXLegacyJune2010,
+    #[serde(rename = "dotnet_framework_35")]
     DotNetFramework35,
+    #[serde(rename = "dotnet_framework_4")]
     DotNetFramework4,
+    #[serde(rename = "dotnet_runtime")]
     DotNetRuntime,
+    #[serde(rename = "dotnet_desktop_runtime")]
     DotNetDesktopRuntime,
     Python,
+    #[serde(rename = "webview2")]
     WebView2,
+    #[serde(rename = "xna_framework_40_refresh")]
     XnaFramework40Refresh,
+    #[serde(rename = "openal")]
     OpenAl,
     Physx,
     PhysxLegacy,
+    #[serde(rename = "directplay")]
     DirectPlay,
 }
 
@@ -695,6 +706,32 @@ mod tests {
                     details: vec![],
                 },
             ],
+        }
+    }
+
+    #[test]
+    fn serialized_component_names_match_canonical_keys() {
+        let components = [
+            RuntimeComponent::VcRedist2015PlusX86,
+            RuntimeComponent::VcRedist2015PlusX64,
+            RuntimeComponent::DirectXLegacyJune2010,
+            RuntimeComponent::DotNetFramework35,
+            RuntimeComponent::DotNetFramework4,
+            RuntimeComponent::DotNetRuntime,
+            RuntimeComponent::DotNetDesktopRuntime,
+            RuntimeComponent::Python,
+            RuntimeComponent::WebView2,
+            RuntimeComponent::XnaFramework40Refresh,
+            RuntimeComponent::OpenAl,
+            RuntimeComponent::Physx,
+            RuntimeComponent::PhysxLegacy,
+            RuntimeComponent::DirectPlay,
+        ];
+        for component in components {
+            let encoded = serde_json::to_string(&component).unwrap();
+            assert_eq!(encoded, format!("\"{}\"", component_key(component)));
+            let decoded: RuntimeComponent = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(decoded, component);
         }
     }
 
