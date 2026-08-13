@@ -44,16 +44,15 @@ impl VaultStore {
     }
 
     pub fn ensure_layout(&self) -> Result<(), VaultError> {
+        let app_root = self.layout.application_root();
+        if !app_root.exists() || !app_root.is_dir() {
+            return Err(VaultError::ApplicationRootUnavailable(app_root.to_path_buf()));
+        }
+        reject_link_like(app_root)?;
+
         for path in self.layout.all_managed_directories() {
-            if path.exists() {
-                reject_link_like(path)?;
-                if !path.is_dir() {
-                    return Err(VaultError::UnsafeLink(path.to_path_buf()));
-                }
-            } else {
-                fs::create_dir_all(path)?;
-            }
             self.layout.ensure_managed(path)?;
+            ensure_directory_chain(app_root, path)?;
         }
         Ok(())
     }
@@ -176,8 +175,7 @@ impl VaultStore {
             .parent()
             .ok_or_else(|| VaultError::OutsideManagedRoot(destination.clone()))?;
         self.layout.ensure_managed(parent)?;
-        fs::create_dir_all(parent)?;
-        reject_link_like(parent)?;
+        ensure_directory_chain(self.layout.managed_root(), parent)?;
 
         if destination.exists() {
             let _ = self.cleanup_staging(&session);
@@ -260,6 +258,29 @@ pub fn sha256_file(path: impl AsRef<Path>) -> Result<Sha256Digest, VaultError> {
         hasher.update(&buffer[..read]);
     }
     Sha256Digest::new(format!("{:x}", hasher.finalize()))
+}
+
+fn ensure_directory_chain(base: &Path, target: &Path) -> Result<(), VaultError> {
+    if !base.exists() || !base.is_dir() {
+        return Err(VaultError::ApplicationRootUnavailable(base.to_path_buf()));
+    }
+    reject_link_like(base)?;
+    let relative = target
+        .strip_prefix(base)
+        .map_err(|_| VaultError::OutsideManagedRoot(target.to_path_buf()))?;
+    let mut current = base.to_path_buf();
+    for component in relative.components() {
+        current.push(component.as_os_str());
+        if current.exists() {
+            reject_link_like(&current)?;
+            if !current.is_dir() {
+                return Err(VaultError::UnsafeLink(current));
+            }
+        } else {
+            fs::create_dir(&current)?;
+        }
+    }
+    Ok(())
 }
 
 fn audit_tree(path: &Path) -> Result<(), VaultError> {
