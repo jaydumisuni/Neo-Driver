@@ -12,6 +12,7 @@ CLI = (ROOT / "crates/neo-cli/src/main.rs").read_text(encoding="utf-8")
 WORKSPACE = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
 CRATE = tomllib.loads((ROOT / "crates/neo-runtime/Cargo.toml").read_text(encoding="utf-8"))
 CI = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+NORMALIZED_RUNTIME = " ".join(RUNTIME.split())
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,15 @@ class Lane:
 
 def contains_all(text: str, values: list[str]) -> bool:
     return all(value in text for value in values)
+
+
+def requirement_count(component: str, baseline: bool) -> int:
+    marker = f"component: {component}, baseline: {str(baseline).lower()}"
+    return NORMALIZED_RUNTIME.count(marker)
+
+
+def has_requirement(component: str, baseline: bool) -> bool:
+    return requirement_count(component, baseline) > 0
 
 
 def review() -> list[Lane]:
@@ -53,10 +63,10 @@ def review() -> list[Lane]:
         Lane(11, "manual-authority", "user_selectable: true" in RUNTIME, "every surfaced runtime recommendation remains individually user-selectable"),
         Lane(12, "baseline-confirmation", contains_all(RUNTIME, ["selected_by_default = requirement.baseline", "requires_confirmation: true"]), "profile baselines may be preselected but still require explicit confirmation"),
         Lane(13, "optional-not-preselected", contains_all(RUNTIME, ["OptionalComponent", "optional_missing_is_never_preselected"]), "optional components remain off until selected by the user"),
-        Lane(14, "directx-profile-law", RUNTIME.count("DirectXLegacyJune2010, baseline: true") >= 2, "DirectX June 2010 is a deselectable baseline recommendation for Fresh Windows and Gaming"),
-        Lane(15, "vc2015plus-profile-law", RUNTIME.count("VcRedist2015PlusX86, baseline: true") >= 4 and RUNTIME.count("VcRedist2015PlusX64, baseline: true") >= 4, "VC++ 2015+ x86/x64 are the modern baseline across defined setup profiles"),
-        Lane(16, "python-not-forced", contains_all(RUNTIME, ["component: Python, baseline: false", "RuntimeProfile::Technician", "RuntimeProfile::Developer"]), "Python is detected/recommended without being a forced technician/developer install"),
-        Lane(17, "gaming-optionals", contains_all(RUNTIME, ["XnaFramework40Refresh, baseline: false", "OpenAl, baseline: false", "Physx, baseline: false", "PhysxLegacy, baseline: false", "DotNetFramework35, baseline: false", "DirectPlay, baseline: false"]), "legacy gaming dependencies are explicit optional components"),
+        Lane(14, "directx-profile-law", requirement_count("DirectXLegacyJune2010", True) >= 2, "DirectX June 2010 is a deselectable baseline recommendation for Fresh Windows and Gaming"),
+        Lane(15, "vc2015plus-profile-law", requirement_count("VcRedist2015PlusX86", True) >= 4 and requirement_count("VcRedist2015PlusX64", True) >= 4, "VC++ 2015+ x86/x64 are the modern baseline across defined setup profiles"),
+        Lane(16, "python-not-forced", has_requirement("Python", False) and contains_all(RUNTIME, ["RuntimeProfile::Technician", "RuntimeProfile::Developer"]), "Python is detected/recommended without being a forced technician/developer install"),
+        Lane(17, "gaming-optionals", all(has_requirement(component, False) for component in ["XnaFramework40Refresh", "OpenAl", "Physx", "PhysxLegacy", "DotNetFramework35", "DirectPlay"]), "legacy gaming dependencies are explicit optional components"),
         Lane(18, "no-fake-rollback", contains_all(RUNTIME, ["rollback_available: false", "runtime execution remains behind a later bounded executor gate"]), "assessment does not claim rollback before a runtime executor/rollback contract exists"),
         Lane(19, "cli-read-only-surface", contains_all(CLI, ["Command::Runtimes", "Command::Gaming", "Machine changes: none", "Runtime downloads/installations: intentionally disabled"]), "CLI exposes assessment only and states the no-mutation boundary"),
         Lane(20, "fixtures-and-proof-gate", contains_all(CI, ["Phase 6 twenty-lane static review", "Runtime CLI fixture proof", "Gaming CLI fixture proof"]) and (ROOT / "fixtures/runtime/runtime_inventory.json").is_file() and (ROOT / "fixtures/runtime/runtime_policy.json").is_file() and (ROOT / "fixtures/catalogue/sample_runtime_catalogue.json").is_file(), "Phase 6 has deterministic fixtures and normal CI proof hooks"),
