@@ -161,9 +161,6 @@ pub fn prepare_runtime_execution(
     let layout = VaultLayout::new(plan.vault_mode, plan.application_root.clone())?;
     let store = VaultStore::new(layout);
     let payload = plan.payload_path()?;
-    if !payload.exists() {
-        return Err(RuntimeExecutorError::PayloadUnavailable(payload));
-    }
     store.verify_pack(&payload, &plan.package_sha256)?;
 
     let transaction_plan = transaction_plan_for(&plan)?;
