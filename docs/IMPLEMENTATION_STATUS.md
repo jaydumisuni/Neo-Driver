@@ -9,7 +9,7 @@
 - **Phase 3:** merged and engineering-proven — deterministic read-only driver candidate matching/ranking.
 - **Phase 4:** merged and engineering-proven — transaction, checkpoint, verification, reboot/resume, and rollback foundation.
 - **Phase 5:** merged and engineering-proven — controlled, manually selected Windows driver installation bound to the proven matcher + transaction engine; mutation engine remains internal pending live attached-device proof.
-- **Phase 6:** implementation proof active — deterministic runtime/gaming assessment + read-only Windows runtime System X-Ray, including compiled DirectX June 2010 legacy-component completeness evidence. Runtime execution is not enabled.
+- **Phase 6:** frozen implementation candidate, engineering-proven before final documentation-state gate — deterministic runtime/gaming assessment + read-only Windows runtime System X-Ray, including compiled DirectX June 2010 legacy-component completeness evidence. Runtime execution is not enabled.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -98,15 +98,22 @@ It adds:
 - optional Python, XNA, OpenAL, PhysX/Legacy, .NET 3.5 and DirectPlay behavior where appropriate;
 - explicit typed runtime-component → Neo package bindings that must target existing `PackageKind::Runtime` catalogue entries;
 - architecture/build hard gates and ambiguity rejection before a runtime package may become a planned action;
+- dependency/conflict edges blocking standalone action authority until dependency closure is implemented;
 - individual user selection and confirmation; profile baseline preselection remains deselectable;
 - unknown/ambiguous evidence never becoming install authority;
+- failed registry queries remaining `Unknown` rather than being converted into false `Missing` states;
 - live read-only evidence for VC++ v14, .NET Framework 4.x, modern .NET/Desktop runtimes, NetFx3, DirectPlay, WebView2 and conservative Python launcher/PATH state;
+- .NET Framework `Release` evidence mapped through documented version thresholds while preserving the raw release value;
+- DISM `Enable Pending` / `Disable Pending` states classified `Partial` until reboot completion;
+- Python displayed version parsed from `py -0p` version tokens rather than executable paths;
 - DirectX legacy completeness using trusted `GetWindowsDirectoryW` plus Microsoft's documented D3DCompiler/D3DCSX/D3DX/X3DAudio/XACT/XAPOFX/XAudio/XInput filename ranges;
 - DirectX x64 completeness requiring both native System32 and x86 SysWOW64 component sets; ARM64 remains `Unknown` until its architecture-specific layout is proven;
 - explicit separation of legacy DirectX presence/completeness from modern DirectX capability and from binary-health/corruption certification;
 - XNA/OpenAL/PhysX/PhysX Legacy live predicates remaining `Unknown` until independently proven rather than guessed;
 - read-only CLI surfaces `neo runtime-scan`, `neo runtimes`, and `neo gaming`;
 - Phase 6 20-lane static review and normal Ubuntu/Windows proof integration.
+
+The detailed Phase 6 review corrections are frozen in `docs/decisions/0006-PHASE6-RUNTIMES-GAMING.md`.
 
 ## Still deliberately blocked
 
@@ -153,19 +160,25 @@ Implementation continues to honor:
 - Exact catalog-equivalence Windows pre-commit run `31651850209`: **PASS** across Phase 4/5 gates, workspace compiler, Clippy, transaction regressions, driverstore regressions, and diff check.
 - Exact-catalog normal two-OS PR run `31651989426`: **PASS on Ubuntu and Windows** across all configured release gates.
 - External-review correction pre-commit run `31652793990`: **PASS on Windows** across Phase 4/5 static gates, full workspace compiler, Clippy with warnings denied, transaction regressions, driverstore regressions, and diff check.
-- CodeRabbit external review findings: **all resolved; zero unresolved review threads on the frozen PR**.
+- CodeRabbit Phase 5 external review findings: **all resolved; zero unresolved review threads on the frozen PR**.
 - Post-review Windows correction helper run `31655434637`: **PASS** across Phase 4/5 static gates, rustfmt, Windows workspace type proof, Clippy with warnings denied, the complete Windows unit suite, and diff proof; the temporary diagnostic/helper workflow self-cleaned before the correction commit `37f20177d0fa5ac3d7d7fd758d53c9d107771186`.
-- Final corrected implementation normal PR run `31655563452`: **PASS on Ubuntu and Windows** across Phase 1–5 gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, all workspace tests, and all four proven CLI fixtures.
+- Final corrected Phase 5 implementation normal PR run `31655563452`: **PASS on Ubuntu and Windows** across Phase 1–5 gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, all workspace tests, and all four proven CLI fixtures.
 - Final Phase 5 documentation-state run `31655706797`: **PASS on Ubuntu and Windows** across the complete configured release pipeline.
-- Final PR review disposition: **zero unresolved review threads**.
+- Final Phase 5 PR review disposition: **zero unresolved review threads**.
 - Final Phase 5 PR surface: **21 intended files; no temporary diagnostic/helper workflow**.
 - Phase 5 merged through PR #5 as `d05bd65d39de283c446a40e8c5e7b78a485b4868`.
 - Live attached-device mutation proof: **not claimed**.
 - CI machine mutation proof: **not claimed; CI compiles/tests the backend but does not execute Windows-changing calls**.
 - Phase 6 DirectX integration pre-commit run `31682838602`: **PASS on Windows** across Phase 1–6 static reviews, workspace compiler, Clippy with warnings denied, all workspace unit tests, and self-cleaning proof helper.
-- Phase 6 frozen implementation run `31683167998`: **PASS on Ubuntu and Windows** across Phase 1–6 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, all workspace tests, runtime/gaming/catalogue/matcher/transaction fixtures, plus a live Windows `neo runtime-scan --json` execution.
+- Phase 6 pre-review frozen implementation run `31683167998`: **PASS on Ubuntu and Windows** across Phase 1–6 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, all workspace tests, runtime/gaming/catalogue/matcher/transaction fixtures, plus a live Windows `neo runtime-scan --json` execution.
 - Phase 6 live Windows runtime scan in run `31683167998`: VC++ v14 x86/x64 installed; DirectX June 2010 legacy framework set classified `Missing` with 0/180 expected x64+x86 files present on the clean runner; NetFx3, .NET Framework 4.x, modern .NET/Desktop, Python and WebView2 detected; DirectPlay disabled; XNA/OpenAL/PhysX/PhysX Legacy remained explicitly `Unknown`.
-- Phase 6 external PR review: **pending**.
+- Phase 6 independent-review correction pre-commit run `31684439927`: **PASS on Windows** across Phase 1–6 static gates, lock integrity, compiler, Clippy with warnings denied, all workspace units, live runtime scan, runtime fixture, and gaming fixture before the helper self-cleaned and committed `cb911bd72887e02d7d648294d793b9364c085d67`.
+- Phase 6 corrected implementation normal PR run `31684665638`: **PASS on Ubuntu and Windows** across the complete configured Phase 1–6 release pipeline, including Windows live runtime System X-Ray and all CLI fixtures.
+- Phase 6 external CodeRabbit disposition: **full review unavailable because the reviewer was rate-limited; no external-review PASS is claimed**.
+- Phase 6 unresolved inline review threads on the frozen implementation head: **0**.
+- Phase 6 independent source challenge: **5 valid fail-closed findings closed and proven**; see Decision 0006.
+- Phase 6 PR surface before documentation-state gate: **19 intended files; no temporary proof/helper workflows or scripts**.
+- Phase 6 final documentation-state CI: **pending on this documentation-only head**.
 - Phase 6 runtime mutation proof: **not claimed**.
 
-Phase 5 is complete at the repository implementation/proof boundary. Phase 6's read-only System X-Ray/assessment candidate is frozen and engineering-proven before PR review; runtime execution remains a separate bounded child stage.
+Phase 5 is complete at the repository implementation/proof boundary. Phase 6's read-only System X-Ray/assessment candidate is frozen and engineering-proven; the final documentation-state CI is the remaining merge gate. Runtime execution remains a separate bounded child stage.
