@@ -1,0 +1,36 @@
+name: Phase 5 Unit Diagnostic
+
+on:
+  push:
+    branches: ["implementation/phase-5-controlled-driver-install"]
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu-unit-diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-5-controlled-driver-install
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: neo-core tests
+        run: cargo test -p neo-core --all-targets --locked
+      - name: neo-device tests
+        run: cargo test -p neo-device --all-targets --locked
+      - name: neo-catalogue tests
+        run: cargo test -p neo-catalogue --all-targets --locked
+      - name: neo-match tests
+        run: cargo test -p neo-match --all-targets --locked
+      - name: neo-probe tests
+        run: cargo test -p neo-probe --all-targets --locked
+      - name: neo-transaction tests
+        run: cargo test -p neo-transaction --all-targets --locked
+      - name: neo-driverstore tests
+        run: cargo test -p neo-driverstore --all-targets --locked
+      - name: neo-cli tests
+        run: cargo test -p neo-cli --all-targets --locked
