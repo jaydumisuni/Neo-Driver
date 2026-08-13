@@ -14,6 +14,7 @@ EXECUTOR = "\n".join(
     for path in sorted((EXECUTOR_ROOT / "src").glob("*.rs"))
     if path.name != "tests.rs"
 )
+LIB = (EXECUTOR_ROOT / "src/lib.rs").read_text(encoding="utf-8")
 TESTS = (EXECUTOR_ROOT / "src/tests.rs").read_text(encoding="utf-8")
 CATALOGUE = (ROOT / "crates/neo-catalogue/src/lib.rs").read_text(encoding="utf-8")
 RUNTIME = (ROOT / "crates/neo-runtime/src/lib.rs").read_text(encoding="utf-8")
@@ -73,6 +74,18 @@ def review() -> list[Lane]:
             "reprobe_after_block(",
         ]
     )
+    closed_library_execution_surface = (
+        "pub(crate) use executor::RuntimeExecutionSession;" in LIB
+        and "pub(crate) use host::RuntimeHost;" in LIB
+        and "pub(crate) use model::{RuntimeInvocation, RuntimeProcessResult};" in LIB
+        and "pub(crate) use windows::WindowsRuntimeHost;" in LIB
+        and "pub use executor::RuntimeExecutionSession;" not in LIB
+        and "pub use host::RuntimeHost;" not in LIB
+        and "pub use windows::WindowsRuntimeHost;" not in LIB
+        and "RuntimeInvocation, RuntimeProcessResult" not in LIB.replace(
+            "pub(crate) use model::{RuntimeInvocation, RuntimeProcessResult};", ""
+        )
+    )
 
     return [
         Lane(1, "separate-executor", "crates/neo-runtime-executor" in members and runtime_stays_read_only, "runtime mutation lives in a separate workspace crate while neo-runtime remains read-only"),
@@ -94,7 +107,7 @@ def review() -> list[Lane]:
         Lane(17, "started-means-changed", "machine_changed: process.started" in EXECUTOR and "started_failed_installer_is_conservatively_recorded_changed" in TESTS and "process_not_started_records_no_machine_change" in TESTS, "a started installer is conservatively treated as potentially machine-changing"),
         Lane(18, "reprobe-required", contains_all(EXECUTOR, ["verify_current", "verification_observation", "TransactionStage::Verifying"]) and "exit_code_zero_without_runtime_postcondition_fails" in TESTS and "transient_probe_error_leaves_verification_retryable" in TESTS, "exit code never completes the mission without deterministic re-probe and probe failures remain retryable"),
         Lane(19, "persistent-reboot", contains_all(EXECUTOR, ["resume_after_reboot", "reprobe_after_block", "ObservedValue::Unavailable"]) and "reboot_exit_uses_persistent_checkpoint_and_reprobe" in TESTS and "post_reboot_host_drift_blocks_then_fails_without_fake_rollback" in TESTS, "reboot continuation uses inherited persistent evidence and drift cannot become PASS"),
-        Lane(20, "closed-public-mutation", contains_all(EXECUTOR, ["RollbackPlan::Irreversible", "TransactionAuthorization"]) and public_cli_has_no_executor_apply and contains_all(CLI, ["RuntimeExecutorValidatePlan", "Execution: disabled from CLI", "Machine changes: none"]) and "irreversible_acknowledgements" in TESTS and "No test or green CI run is allowed to imply that a real runtime installer was executed on CI." in REVIEW, "Phase 8 remains internal, irreversible acknowledgement is exercised, and the public CLI/CI surfaces do not gain runtime execution authority"),
+        Lane(20, "closed-public-mutation", contains_all(EXECUTOR, ["RollbackPlan::Irreversible", "TransactionAuthorization"]) and public_cli_has_no_executor_apply and closed_library_execution_surface and contains_all(CLI, ["RuntimeExecutorValidatePlan", "Execution: disabled from CLI", "Machine changes: none"]) and "irreversible_acknowledgements" in TESTS and "No test or green CI run is allowed to imply that a real runtime installer was executed on CI." in REVIEW, "Phase 8 keeps session/host/invocation/Windows execution authority crate-private, requires irreversible acknowledgement internally, and exposes only read-only planning/validation publicly"),
     ]
 
 
