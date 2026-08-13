@@ -9,7 +9,8 @@
 - **Phase 3:** merged and engineering-proven — deterministic read-only driver candidate matching/ranking.
 - **Phase 4:** merged and engineering-proven — transaction, checkpoint, verification, reboot/resume, and rollback foundation.
 - **Phase 5:** merged and engineering-proven — controlled, manually selected Windows driver installation bound to the proven matcher + transaction engine; mutation engine remains internal pending live attached-device proof.
-- **Phase 6:** merged and engineering-proven — deterministic runtime/gaming assessment + read-only Windows runtime System X-Ray, including compiled DirectX June 2010 legacy-component completeness evidence. Runtime execution remains the next bounded child stage.
+- **Phase 6:** merged and engineering-proven — deterministic runtime/gaming assessment + read-only Windows runtime System X-Ray, including compiled DirectX June 2010 legacy-component completeness evidence. Runtime execution remains a bounded child stage.
+- **Phase 7:** merged and engineering-proven — Builder/portable-rooted managed package vault (`NeoData`) with verified local/offline pack intake, pinned TTG source provenance, no-follow filesystem authority, concurrent-promotion protection, marker-owned cleanup, and read-only public vault inspection. Network acquisition and public vault mutation remain blocked.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -26,6 +27,8 @@ Phase 4 final documentation-state run `31642625013` passed the complete Ubuntu a
 Phase 5 final documentation-state run `31655706797` passed the complete Ubuntu and Windows pipeline with zero unresolved review threads and a clean 21-file PR surface, and Phase 5 merged through PR #5 as `d05bd65d39de283c446a40e8c5e7b78a485b4868`.
 
 Phase 6 final documentation-state run `31684943307` passed the complete Ubuntu and Windows pipeline with zero unresolved inline review threads and a clean 19-file PR surface, and Phase 6 merged through PR #8 as `4747aafdb53b5731738fb99e08ddf2778c0d8707`.
+
+Phase 7 final exact-head documentation-state run `31687570246` passed the complete Ubuntu and Windows Phase 1–7 pipeline, and Phase 7 merged through PR #10 as `bca02a8a294a976debcc26b480cea0c3ba4da2e2`.
 
 ## Phase 5 frozen implementation
 
@@ -117,14 +120,42 @@ It adds:
 
 The detailed Phase 6 review corrections are frozen in `docs/decisions/0006-PHASE6-RUNTIMES-GAMING.md`.
 
+## Phase 7 frozen implementation
+
+Phase 7 adds the managed package-vault boundary without replacing or weakening Phase 6. It does **not** add network acquisition or a public vault mutator.
+
+It adds:
+
+- `neo-vault` as a first-class workspace crate;
+- application-root authority inherited from THETECHGUY Software Builder or the portable Neo folder;
+- exactly one Neo-owned child, `NeoData`, with explicit `catalogue`, `driver-packs`, `packages`, `runtimes`, `staging`, `sessions`, `backups`, `logs`, and `cache` directories;
+- one installed/portable package identity and storage model;
+- validated `VaultSegment`, `Sha256Digest`, and `DriverSourceMap` identities, including direct-Serde validation;
+- pinned provenance for the approved Android, Exynos/UsbDk, Apple Windows, and TechGuy driver-source families;
+- source, staged, and promoted SHA-256 verification;
+- unique import staging identities and exclusive final creation so concurrent same-pack imports cannot overwrite promoted content;
+- exact staging ownership markers before cleanup authority exists;
+- retained no-follow directory capabilities for traversal and promotion, closing path check/use link/reparse races;
+- application-root and existing-tree audit that fails closed on unsafe link/reparse state;
+- read-only public CLI surfaces `neo vault describe`, `neo vault validate-sources`, and `neo vault audit`;
+- Phase 7 20-lane static review integrated beside the inherited Phase 1–6 gates.
+
+The detailed Phase 7 contract and recovered engineering findings are frozen in `docs/decisions/0007-PHASE7-MANAGED-PACKAGE-VAULT.md` and `docs/PHASE7_20_LANE_REVIEW.md`.
+
 ## Still deliberately blocked
 
 Phase 5 does **not** expose a user/technician driver mutation CLI yet. Live attached-device mutation proof is required before that public write surface is opened.
 
-Phase 6 does **not** expose runtime installation or repair execution yet. The following remain blocked:
+Phase 6 does **not** expose runtime installation or repair execution yet.
 
-- runtime downloads;
+Phase 7 does **not** expose online package acquisition, archive execution, public pack import/cleanup writes, or any new driver/security mutation authority.
+
+The following remain blocked:
+
+- runtime downloads and automatic vault/network package acquisition;
 - EXE/MSI/Winget runtime execution;
+- public vault import/cleanup mutation commands;
+- archive extraction/execution as install authority;
 - .NET 3.5 or DirectPlay feature mutation;
 - runtime rollback claims before an executor-specific capture/verification/recovery contract exists;
 - forced lower-ranked driver binding;
@@ -144,7 +175,8 @@ Implementation continues to honor:
 - `docs/decisions/0003-PHASE3-WINDOWS-MATCHING-CONTRACT.md`;
 - `docs/decisions/0004-PHASE4-TRANSACTION-CONTRACT.md`;
 - `docs/decisions/0005-PHASE5-CONTROLLED-DRIVER-INSTALL.md`;
-- `docs/decisions/0006-PHASE6-RUNTIMES-GAMING.md`.
+- `docs/decisions/0006-PHASE6-RUNTIMES-GAMING.md`;
+- `docs/decisions/0007-PHASE7-MANAGED-PACKAGE-VAULT.md`.
 
 ## Proof status
 
@@ -154,6 +186,7 @@ Implementation continues to honor:
 - Phase 4: **PROVEN and merged**.
 - Phase 5: **PROVEN and merged**.
 - Phase 6: **PROVEN and merged** at the read-only Runtime/Gaming System X-Ray + assessment boundary.
+- Phase 7: **PROVEN and merged** at the managed local/offline package-vault + read-only public inspection boundary.
 - Phase 5 platform-neutral transaction/driverstore core: compiler/Clippy/adversarial proof passed before freeze.
 - Phase 5 Windows SetupAPI/NewDev backend: Windows compiler proof passed; Windows Clippy with warnings denied passed; Windows-specific validation regressions passed.
 - Windows fail-closed observation correction run `31650621429`: **PASS**.
@@ -184,5 +217,17 @@ Implementation continues to honor:
 - Final Phase 6 PR surface: **19 intended files; no temporary proof/helper workflows or scripts**.
 - Phase 6 merged through PR #8 as `4747aafdb53b5731738fb99e08ddf2778c0d8707`.
 - Phase 6 runtime mutation proof: **not claimed**.
+- Phase 7 rebase preservation run `31686937725`: **Phase 1–6 20/20 on Ubuntu and Windows**; the only failure was an obsolete Phase 7 regression-name binding, which was corrected to the existing eight-worker concurrency regression.
+- Phase 7 combined-lock helper run `31687136770`: **PASS**; Cargo generated the combined runtime + vault dependency graph, re-proved Phase 6/7, and the write-enabled helper self-deleted in the same commit.
+- Phase 7 branch run `31687246986`: **PASS on Ubuntu and Windows** across the complete Phase 1–7 pipeline.
+- Phase 7 PR run `31687289312`: **PASS on Ubuntu and Windows** across the complete Phase 1–7 pipeline.
+- Phase 7 frozen-head run `31687514717`: **PASS on Ubuntu and Windows** across the complete Phase 1–7 pipeline.
+- Final exact-head Phase 7 documentation-state run `31687570246`: **PASS on Ubuntu and Windows** across Phase 1–7 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, all workspace unit/integration tests, Windows live runtime System X-Ray, and every catalogue/matcher/runtime/gaming/vault/transaction fixture.
+- Phase 7 prior CodeRabbit findings from stale PR #7: **3 Major findings resolved** — concurrent staging identity, invalid-root audit, and path TOCTOU/no-follow promotion.
+- Phase 7 PR #10 fresh CodeRabbit review: **quota-blocked; no new external-review PASS is claimed**.
+- Phase 7 unresolved PR #10 review threads at merge: **0**.
+- Final Phase 7 PR surface: **18 intended files; no temporary proof/helper workflow**.
+- Phase 7 merged through PR #10 as `bca02a8a294a976debcc26b480cea0c3ba4da2e2`.
+- Phase 7 online acquisition/public vault mutation proof: **not claimed**.
 
-Phases 1–6 are closed at their recorded repository boundaries. The next bounded child stage is the Phase 6 runtime executor: exact package authority, package-specific apply semantics, reboot evidence, re-probe verification, and rollback/recovery where a real restoration path exists. No public runtime mutation surface opens before that executor is independently frozen and proven.
+Phases 1–7 are closed at their recorded repository boundaries. The next bounded runtime child stage remains the Phase 6 runtime executor: exact package authority, package-specific apply semantics, reboot evidence, re-probe verification, and rollback/recovery where a real restoration path exists. Phase 7 network acquisition, archive execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, and recovery contracts are frozen and proven.
