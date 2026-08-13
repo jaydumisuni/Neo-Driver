@@ -27,6 +27,11 @@ The executable gate is `tools/phase5_static_review.py`. It must pass on both Ubu
 | 19 | Rollback reboot and Driver Store cleanup remain persistent and require exact baseline verification. |
 | 20 | The mutation engine remains internal in Phase 5; no CLI write surface is exposed before live attached-device proof, and adversarial/Windows validation regressions remain present. |
 
+## Review clarifications proven after external-review correction
+
+- With the locked `windows 0.62.2` bindings, `DEVPKEY_Device_DriverInfPath` and `DEVPROPTYPE` are exposed from `Win32::Devices::Properties`, while the `DEVPROPKEY` parameter type used by `SetupDiGetDevicePropertyW` is `Win32::Foundation::DEVPROPKEY`. Windows compilation is the authority for this binding shape.
+- If staging returns an error after materializing a package, Neo first recovers and validates that exact package identity. When the package is unused and non-force cleanup restores the captured absent Driver Store baseline, the transaction records the operational failure as `Failed` with zero net mutation. If package identity cannot be recovered/proven, the staging attempt is conservatively recorded as changed and enters rollback/recovery instead of claiming no change.
+
 ## Deliberate boundary
 
 Phase 5 proves the controlled selected-driver mutation engine, not broad Driver Store administration. It does not authorize forced lower-ranked binding, force package deletion, blanket USB/filter replacement, security/BCD weakening, runtime installs, downloads, or technician binding changes outside an explicit later authority path.
