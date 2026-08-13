@@ -12,6 +12,7 @@
 - **Phase 6:** merged and engineering-proven — deterministic runtime/gaming assessment + read-only Windows runtime System X-Ray, including compiled DirectX June 2010 legacy-component completeness evidence. Runtime execution remains a bounded child stage.
 - **Phase 7:** merged and engineering-proven — Builder/portable-rooted managed package vault (`NeoData`) with verified local/offline pack intake, pinned TTG source provenance, no-follow filesystem authority, concurrent-promotion protection, marker-owned cleanup, and read-only public vault inspection. Network acquisition and public vault mutation remain blocked.
 - **Phase 8:** merged and engineering-proven — bounded internal runtime executor for exact local/offline single-file runtime payloads, bound to Phase 6 Certified assessment, Phase 7 vault authority, and Phase 4 irreversible transaction/reboot verification. Public runtime mutation remains blocked because the opaque execution capability is not issued to external callers or the CLI.
+- **Phase 9:** merged and engineering-proven — read-only, platform-neutral tweak/state assessment foundation with typed desired state, validated evidence/catalogue, explicit selection, deterministic current-vs-desired comparison, and behavioral non-mutation proof. OS-specific probing, transaction binding, and tweak execution remain blocked.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -32,6 +33,8 @@ Phase 6 final documentation-state run `31684943307` passed the complete Ubuntu a
 Phase 7 final exact-head documentation-state run `31687570246` passed the complete Ubuntu and Windows Phase 1–7 pipeline, and Phase 7 merged through PR #10 as `bca02a8a294a976debcc26b480cea0c3ba4da2e2`.
 
 Phase 8 final documentation-state run `31698767919` passed the complete Ubuntu and Windows Phase 1–8 pipeline with zero unresolved review threads, and Phase 8 merged through PR #12 as `7a26d8d9dc86ac5f5db09eaf82b58424b1babd26`.
+
+Phase 9 implementation-code run `31715322010` and final documentation-state run `31715738064` passed the complete Ubuntu and Windows pipeline with all three CodeRabbit review threads resolved, and Phase 9 merged through PR #14 as `ad75a557f4787b9e1b902971b017cb71ce3ac511`.
 
 ## Phase 5 frozen implementation
 
@@ -174,6 +177,29 @@ It adds:
 
 The detailed Phase 8 authority, review corrections, and proof boundary are frozen in `docs/decisions/0008-PHASE8-RUNTIME-EXECUTOR.md` and `docs/PHASE8_20_LANE_REVIEW.md`.
 
+## Phase 9 frozen implementation
+
+Phase 9 opens the Tweaks product domain at a deliberately read-only state-assessment boundary. It does **not** add a Windows tweak mutator.
+
+It adds:
+
+- `neo-state-plan` as a first-class, platform-neutral workspace crate;
+- typed `TweakValue`, `TweakTarget`, `TweakOperation`, catalogue, evidence, observation, and assessment-report contracts;
+- ASCII-only opaque state-target identities with deterministic case-insensitive canonicalization;
+- direct-Serde validation for both tweak catalogues and supplied evidence;
+- explicit risk, recommendation, verdict, default-selection, admin, reboot, benefit/trade-off, warning, and desired-state metadata;
+- fail-closed rejection of duplicate catalogue IDs/targets, duplicate evidence targets, high-risk preselection, non-Certified preselection, unsafe recommendation preselection, duplicate/unknown/Rejected selections, and missing/unavailable observations;
+- deterministic current-vs-desired comparison with explicit `already_satisfied` evidence;
+- an internal `neo-state-assess` proof binary while the default product binary remains `neo`;
+- a behavioral read-only regression that launches both Phase 9 subcommands against an isolated fixture tree and proves identical paths, file bytes, file/directory shape, and modification timestamps before and after;
+- a CI-covered Rust contract that restricts the Phase 9 production state surface to its two existing JSON `read_to_string` calls, forbids process authority in production, and keeps the proof CLI free of filesystem/process authority;
+- exact `1..=20` frozen review-lane sequence proof;
+- all three CodeRabbit review findings closed: non-ASCII target identity, exact lane-sequence validation, and behavioral read-only proof.
+
+Phase 9 remains assessment-only. It does not resolve abstract state targets to Windows registry/service/AppX/feature targets, probe those targets live, bind them into the transaction engine, or execute a tweak.
+
+The detailed Phase 9 authority, review corrections, and proof boundary are frozen in `docs/decisions/0009-PHASE9-STATE-ASSESSMENT-FOUNDATION.md` and `docs/PHASE9_20_LANE_REVIEW.md`.
+
 ## Still deliberately blocked
 
 Phase 5 does **not** expose a user/technician driver mutation CLI yet. Live attached-device mutation proof is required before that public write surface is opened.
@@ -181,6 +207,8 @@ Phase 5 does **not** expose a user/technician driver mutation CLI yet. Live atta
 Phase 6 remains the read-only runtime/gaming assessment and System-X-Ray authority layer. Phase 8 implements the bounded internal EXE/MSI runtime executor, but does **not** issue its opaque execution capability to external callers or expose a public runtime installation/repair CLI.
 
 Phase 7 does **not** expose online package acquisition, archive execution, public pack import/cleanup writes, or any new driver/security mutation authority.
+
+Phase 9 does **not** yet resolve abstract state targets to Windows registry/service/AppX/feature targets, probe those targets live, bind those targets into the transaction engine, or execute a tweak.
 
 The following remain blocked:
 
@@ -210,7 +238,8 @@ Implementation continues to honor:
 - `docs/decisions/0005-PHASE5-CONTROLLED-DRIVER-INSTALL.md`;
 - `docs/decisions/0006-PHASE6-RUNTIMES-GAMING.md`;
 - `docs/decisions/0007-PHASE7-MANAGED-PACKAGE-VAULT.md`;
-- `docs/decisions/0008-PHASE8-RUNTIME-EXECUTOR.md`.
+- `docs/decisions/0008-PHASE8-RUNTIME-EXECUTOR.md`;
+- `docs/decisions/0009-PHASE9-STATE-ASSESSMENT-FOUNDATION.md`.
 
 ## Proof status
 
@@ -222,6 +251,7 @@ Implementation continues to honor:
 - Phase 6: **PROVEN and merged** at the read-only Runtime/Gaming System X-Ray + assessment boundary.
 - Phase 7: **PROVEN and merged** at the managed local/offline package-vault + read-only public inspection boundary.
 - Phase 8: **PROVEN and merged** at the bounded internal EXE/MSI runtime-executor + read-only public plan-validation boundary.
+- Phase 9: **PROVEN and merged** at the read-only state-assessment foundation boundary.
 - Phase 5 platform-neutral transaction/driverstore core: compiler/Clippy/adversarial proof passed before freeze.
 - Phase 5 Windows SetupAPI/NewDev backend: Windows compiler proof passed; Windows Clippy with warnings denied passed; Windows-specific validation regressions passed.
 - Windows fail-closed observation correction run `31650621429`: **PASS**.
@@ -274,5 +304,10 @@ Implementation continues to honor:
 - Phase 8 live runtime-installer mutation proof: **not claimed**; CI compiled/tested the executor and ran read-only Runtime System X-Ray/fixtures but did not execute a real runtime installer.
 - Phase 8 public runtime mutation proof: **not claimed**; the opaque execution capability is not publicly constructible or issued by the CLI.
 
+- Phase 9 implementation-code run `31715322010`: **PASS on Ubuntu and Windows** across inherited Phase 1–8 gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, complete workspace tests, Windows live read-only Runtime System X-Ray, and every applicable inherited CLI fixture. The workspace unit proof executed `state_assess_subcommands_leave_isolated_fixture_tree_unchanged` on both OSes; the Windows log explicitly records that regression as `ok`.
+- Final Phase 9 documentation-state run `31715738064`: **PASS on Ubuntu and Windows** across the complete configured pipeline.
+- Phase 9 PR #14 external review: **3/3 CodeRabbit review threads resolved** — non-ASCII identity, exact 1..20 frozen lane sequence, and behavioral read-only proof.
+- Phase 9 merged through PR #14 as `ad75a557f4787b9e1b902971b017cb71ce3ac511`.
+- Phase 9 machine mutation proof: **not claimed**; Phase 9 is assessment-only and does not probe or change live Windows tweak state.
 
-Phases 1–8 are closed at their recorded repository boundaries. Phase 5 public driver mutation still requires live attached-device proof. Phase 8 public runtime mutation still requires a separately reviewed capability-issuance/live-installer proof path. Phase 7 network acquisition, archive execution, Windows-feature mutation, Winget execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, and recovery contracts are frozen and proven.
+Phases 1–9 are closed at their recorded repository boundaries. Phase 5 public driver mutation still requires live attached-device proof. Phase 8 public runtime mutation still requires a separately reviewed capability-issuance/live-installer proof path. Phase 9 remains read-only until OS-specific target resolution, live probing, transaction binding, and tweak execution receive their own frozen authority and proof. Phase 7 network acquisition, archive execution, Windows-feature mutation, Winget execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, and recovery contracts are frozen and proven.
