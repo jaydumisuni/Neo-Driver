@@ -9,6 +9,7 @@
 - **Phase 3:** merged and engineering-proven — deterministic read-only driver candidate matching/ranking.
 - **Phase 4:** merged and engineering-proven — transaction, checkpoint, verification, reboot/resume, and rollback foundation.
 - **Phase 5:** merged and engineering-proven — controlled, manually selected Windows driver installation bound to the proven matcher + transaction engine; mutation engine remains internal pending live attached-device proof.
+- **Phase 6:** implementation proof active — deterministic runtime/gaming assessment + read-only Windows runtime System X-Ray, including compiled DirectX June 2010 legacy-component completeness evidence. Runtime execution is not enabled.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -82,16 +83,44 @@ Engineering review found and corrected the following before the implementation w
 17. The planner accepted a caller-supplied Windows build without proving it against the host. The host build is now read from trusted Windows registry state, compared during planning, and rechecked at preflight so build drift blocks mutation.
 18. A regression originally required every recovered staging API failure to enter rollback even when validated compensation restored the Driver Store exactly to baseline. The regression now follows the transaction's net-mutation law: restored baseline yields `Failed` with zero net mutation; unrecovered/unproven staging state still enters recovery.
 
+## Phase 6 frozen implementation candidate
+
+Phase 6 adds a read-only runtime/gaming intelligence layer over the already-proven core. It does **not** add a runtime mutator.
+
+It adds:
+
+- `neo-runtime` normalized runtime evidence, profile readiness, package binding and reviewable action planning;
+- `neo-runtime-probe` live Windows runtime System X-Ray over the existing read-only command-evidence boundary;
+- `neo-directx-legacy` compiled DirectX June 2010 legacy framework-component completeness evidence;
+- runtime states `Installed`, `Missing`, `Broken`, `Partial`, and `Unknown`;
+- Fresh Windows, Gaming, Technician and Developer runtime profiles;
+- modern baseline rules for Visual C++ 2015+ x86/x64 and a deselectable DirectX June 2010 baseline for Fresh Windows/Gaming;
+- optional Python, XNA, OpenAL, PhysX/Legacy, .NET 3.5 and DirectPlay behavior where appropriate;
+- explicit typed runtime-component → Neo package bindings that must target existing `PackageKind::Runtime` catalogue entries;
+- architecture/build hard gates and ambiguity rejection before a runtime package may become a planned action;
+- individual user selection and confirmation; profile baseline preselection remains deselectable;
+- unknown/ambiguous evidence never becoming install authority;
+- live read-only evidence for VC++ v14, .NET Framework 4.x, modern .NET/Desktop runtimes, NetFx3, DirectPlay, WebView2 and conservative Python launcher/PATH state;
+- DirectX legacy completeness using trusted `GetWindowsDirectoryW` plus Microsoft's documented D3DCompiler/D3DCSX/D3DX/X3DAudio/XACT/XAPOFX/XAudio/XInput filename ranges;
+- DirectX x64 completeness requiring both native System32 and x86 SysWOW64 component sets; ARM64 remains `Unknown` until its architecture-specific layout is proven;
+- explicit separation of legacy DirectX presence/completeness from modern DirectX capability and from binary-health/corruption certification;
+- XNA/OpenAL/PhysX/PhysX Legacy live predicates remaining `Unknown` until independently proven rather than guessed;
+- read-only CLI surfaces `neo runtime-scan`, `neo runtimes`, and `neo gaming`;
+- Phase 6 20-lane static review and normal Ubuntu/Windows proof integration.
+
 ## Still deliberately blocked
 
-Phase 5 does **not** expose a user/technician mutation CLI yet. Live attached-device mutation proof is required before that public write surface is opened.
+Phase 5 does **not** expose a user/technician driver mutation CLI yet. Live attached-device mutation proof is required before that public write surface is opened.
 
-The following also remain blocked:
+Phase 6 does **not** expose runtime installation or repair execution yet. The following remain blocked:
 
+- runtime downloads;
+- EXE/MSI/Winget runtime execution;
+- .NET 3.5 or DirectPlay feature mutation;
+- runtime rollback claims before an executor-specific capture/verification/recovery contract exists;
 - forced lower-ranked driver binding;
 - force Driver Store deletion or broad stale-package cleanup;
 - blanket USB/filter replacement;
-- driver downloads and runtime installation;
 - debloat/tweak execution;
 - BCD/security mutation;
 - GUI write actions;
@@ -105,7 +134,8 @@ Implementation continues to honor:
 - `docs/decisions/0002-DFU-PRO-TECHNICIAN-DRIVERS.md`;
 - `docs/decisions/0003-PHASE3-WINDOWS-MATCHING-CONTRACT.md`;
 - `docs/decisions/0004-PHASE4-TRANSACTION-CONTRACT.md`;
-- `docs/decisions/0005-PHASE5-CONTROLLED-DRIVER-INSTALL.md`.
+- `docs/decisions/0005-PHASE5-CONTROLLED-DRIVER-INSTALL.md`;
+- `docs/decisions/0006-PHASE6-RUNTIMES-GAMING.md`.
 
 ## Proof status
 
@@ -132,5 +162,10 @@ Implementation continues to honor:
 - Phase 5 merged through PR #5 as `d05bd65d39de283c446a40e8c5e7b78a485b4868`.
 - Live attached-device mutation proof: **not claimed**.
 - CI machine mutation proof: **not claimed; CI compiles/tests the backend but does not execute Windows-changing calls**.
+- Phase 6 DirectX integration pre-commit run `31682838602`: **PASS on Windows** across Phase 1–6 static reviews, workspace compiler, Clippy with warnings denied, all workspace unit tests, and self-cleaning proof helper.
+- Phase 6 frozen implementation run `31683167998`: **PASS on Ubuntu and Windows** across Phase 1–6 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, all workspace tests, runtime/gaming/catalogue/matcher/transaction fixtures, plus a live Windows `neo runtime-scan --json` execution.
+- Phase 6 live Windows runtime scan in run `31683167998`: VC++ v14 x86/x64 installed; DirectX June 2010 legacy framework set classified `Missing` with 0/180 expected x64+x86 files present on the clean runner; NetFx3, .NET Framework 4.x, modern .NET/Desktop, Python and WebView2 detected; DirectPlay disabled; XNA/OpenAL/PhysX/PhysX Legacy remained explicitly `Unknown`.
+- Phase 6 external PR review: **pending**.
+- Phase 6 runtime mutation proof: **not claimed**.
 
-Phase 5 is complete at the repository implementation/proof boundary. The next gate before any public mutation surface is live attached-device proof under the existing authority and rollback contracts.
+Phase 5 is complete at the repository implementation/proof boundary. Phase 6's read-only System X-Ray/assessment candidate is frozen and engineering-proven before PR review; runtime execution remains a separate bounded child stage.
