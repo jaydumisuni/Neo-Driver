@@ -17,6 +17,7 @@ members = [
     "crates/neo-tweak-executor",
     "crates/neo-debloat",
     "crates/neo-debloat-probe",
+    "crates/neo-debloat-plan",
     "crates/neo-cli",
 ]
 
@@ -35,6 +36,8 @@ serde_json = "1.0"
 sha2 = "0.10"
 thiserror = "2.0"
 windows = { version = "0.62", features = [
+    "ApplicationModel",
+    "Management_Deployment",
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Devices_Properties",
     "Win32_Foundation",
