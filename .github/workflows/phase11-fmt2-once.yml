@@ -1,0 +1,36 @@
+name: Phase 11 fmt2 once
+
+on:
+  push:
+    branches: ["implementation/phase-11-tweak-executor"]
+
+permissions:
+  contents: write
+
+jobs:
+  fmt:
+    if: ${{ !contains(github.event.head_commit.message, '[phase11-fmt2-done]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          rustup toolchain install stable --profile minimal
+          rustup component add rustfmt --toolchain stable
+          rustup default stable
+      - name: Format exact workspace
+        run: cargo fmt --all
+      - name: Verify bounded Phase 11 source
+        run: |
+          python -W error tools/phase11_static_review.py
+          git diff --check
+      - name: Commit formatter output and self-clean
+        shell: bash
+        run: |
+          git config user.name 'THE TECH GUY'
+          git config user.email '65334711+jaydumisuni@users.noreply.github.com'
+          git rm .github/workflows/phase11-fmt2-once.yml
+          git add crates/neo-tweak-executor
+          git commit -m 'Format corrected Phase 11 executor [phase11-fmt2-done]'
+          git push origin HEAD:implementation/phase-11-tweak-executor
