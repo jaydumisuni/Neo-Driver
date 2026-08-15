@@ -1,4 +1,3 @@
-
 # Decision 0015 — Phase 15 Debloat Transaction Readiness
 
 **Status:** FROZEN FOR IMPLEMENTATION PROOF  
@@ -69,6 +68,8 @@ A prepared item becomes one Phase 4 `ActionKind::Debloat` transaction action wit
 - reversible rollback metadata requiring every captured target to match its baseline after restoration;
 - transaction fingerprint binding all of the above.
 
+`DebloatPreparedTransaction` is constructor-owned. Its assessment, prepared steps, transaction plan, checkpoint, and machine-change marker are crate-visible only; external callers receive immutable getters. This prevents callers from replacing restore-route, transaction, or checkpoint state while reusing the same prepared object and plan fingerprint.
+
 The checkpoint stops at `BaselineCaptured`. No authorization, apply record, verification result, rollback execution, or capability issuance occurs in Phase 15.
 
 ## Proof boundary
@@ -84,6 +85,7 @@ Phase 15 proves:
 - Store/vendor metadata not misrepresented as executable rollback;
 - exact provisioned twin required for main and every direct dependency;
 - Phase 4 `ActionKind::Debloat` transaction creation;
+- constructor-owned externally read-only prepared authority state;
 - baseline capture and transaction fingerprint continuity;
 - deterministic fixture proof on Ubuntu and Windows;
 - byte-for-byte fixture-tree equality around the Windows live inventory proof;
