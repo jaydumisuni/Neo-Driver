@@ -1,12 +1,12 @@
 use crate::model::TweakExecutionSession;
 #[cfg(any(windows, test))]
 use crate::model::TweakExecutorCapability;
-use crate::{prepare_windows_tweaks, RegistrySnapshot, TweakExecutionError};
 #[cfg(any(windows, test))]
 use crate::{
     engine::{prepare_with_host, TweakHost},
     session::{apply_with_host, authorize_with_host},
 };
+use crate::{prepare_windows_tweaks, RegistrySnapshot, TweakExecutionError};
 use neo_state_plan::TweakCatalogue;
 use neo_transaction::{TransactionAuthorization, TransactionStage};
 use serde::{Deserialize, Serialize};
@@ -56,7 +56,9 @@ impl TweakRpcContext {
     }
 
     fn has_scope(&self, scope: &str) -> bool {
-        self.granted_scopes.iter().any(|candidate| candidate == scope)
+        self.granted_scopes
+            .iter()
+            .any(|candidate| candidate == scope)
     }
 }
 
