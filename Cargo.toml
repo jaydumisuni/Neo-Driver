@@ -15,6 +15,7 @@ members = [
     "crates/neo-runtime-executor",
     "crates/neo-state-plan",
     "crates/neo-tweak-executor",
+    "crates/neo-debloat",
     "crates/neo-cli",
 ]
 
