@@ -10,6 +10,7 @@ WORKSPACE = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
 MANIFEST = tomllib.loads((ROOT / "crates/neo-tweak-executor/Cargo.toml").read_text(encoding="utf-8"))
 MODEL = (ROOT / "crates/neo-tweak-executor/src/model.rs").read_text(encoding="utf-8")
 ENGINE = (ROOT / "crates/neo-tweak-executor/src/engine.rs").read_text(encoding="utf-8")
+ERRORS = (ROOT / "crates/neo-tweak-executor/src/error.rs").read_text(encoding="utf-8")
 SESSION = (ROOT / "crates/neo-tweak-executor/src/session.rs").read_text(encoding="utf-8")
 WINDOWS = (ROOT / "crates/neo-tweak-executor/src/windows.rs").read_text(encoding="utf-8")
 LIB = (ROOT / "crates/neo-tweak-executor/src/lib.rs").read_text(encoding="utf-8")
@@ -47,7 +48,7 @@ def curated_forward_values_are_exact(text: str) -> bool:
 ids = set(re.findall(r'"(windows\.(?:explorer|taskbar)\.[a-z0-9_.-]+)"', MODEL))
 value_names = set(re.findall(r'value_name:\s*"([A-Za-z0-9_]+)"', MODEL))
 public_surface = LIB + MODEL
-production = "\n".join([MODEL, ENGINE, SESSION, WINDOWS, LIB])
+production = "\n".join([MODEL, ENGINE, ERRORS, SESSION, WINDOWS, LIB])
 regressions = test_functions(TESTS + "\n" + REVIEW_TESTS)
 windows_dependencies = MANIFEST.get("target", {}).get("cfg(windows)", {}).get("dependencies", {})
 normal_dependencies = MANIFEST.get("dependencies", {})
@@ -57,6 +58,7 @@ required_regressions = {
     "unsupported_tweak_fails_closed",
     "non_dword_or_out_of_range_operation_fails_closed",
     "contradictory_curated_semantics_fail_closed",
+    "empty_mission_id_is_invalid_request",
     "satisfied_selection_does_not_create_mutation_transaction",
     "prepare_captures_exact_present_baseline",
     "prepare_captures_absent_baseline",
@@ -78,6 +80,7 @@ decision_markers = {
     "Local\\\\THETECHGUY.NeoDriver.TweakExecutor.v1",
     "same-session authority only",
     "exact approved forward DWORD",
+    "MCP/RPC",
 }
 
 checks = [
@@ -99,7 +102,7 @@ checks = [
     ("unsupported-registry-type-fails", all(marker in WINDOWS for marker in ["ERROR_MORE_DATA", "value_type != REG_DWORD || size != 4", "UnsupportedRegistryState"])),
     ("direct-windows-registry-no-shell", all(marker in WINDOWS for marker in ["RegOpenKeyExW", "RegQueryValueExW", "RegSetValueExW", "RegDeleteValueW"]) and all(marker not in production for marker in ["Command::new", "powershell", "reg.exe", "cmd.exe"])),
     ("no-public-cli-mutation", "neo-tweak-executor" not in cli_dependencies and "TweakExecutorCapability" not in (ROOT / "crates/neo-cli/src/main.rs").read_text(encoding="utf-8")),
-    ("adversarial-regressions", required_regressions.issubset(regressions)),
+    ("adversarial-regressions-and-request-taxonomy", required_regressions.issubset(regressions) and "InvalidRequest" in ERRORS and "TweakExecutionError::InvalidRequest" in ENGINE),
     ("decision-boundary", all(marker in DECISION for marker in decision_markers)),
 ]
 
