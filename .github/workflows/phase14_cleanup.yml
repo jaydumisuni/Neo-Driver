@@ -1,0 +1,41 @@
+name: Phase 14 one-shot cleanup
+
+on:
+  push:
+    branches: ["implementation/phase-14-debloat-live-probe"]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-14-debloat-live-probe
+      - name: Apply target-gated import and remove diagnostics
+        shell: python
+        run: |
+          from pathlib import Path
+          source = Path('crates/neo-debloat-probe/src/lib.rs')
+          text = source.read_text(encoding='utf-8')
+          old = 'use neo_probe::{CommandEvidence, CommandRunner, SystemCommandRunner};'
+          new = 'use neo_probe::{CommandEvidence, CommandRunner};\n#[cfg(target_os = "windows")]\nuse neo_probe::SystemCommandRunner;'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one import marker, found {text.count(old)}')
+          source.write_text(text.replace(old, new), encoding='utf-8')
+          Path('.github/workflows/phase14_clippy_diagnostic.yml').unlink()
+          Path('.github/workflows/phase14_cleanup.yml').unlink()
+      - name: Format and verify
+        run: |
+          cargo fmt --all
+          git diff --check
+      - name: Commit clean correction
+        run: |
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git add crates/neo-debloat-probe/src/lib.rs .github/workflows/phase14_clippy_diagnostic.yml .github/workflows/phase14_cleanup.yml
+          git commit -m "Phase 14: target-gate Windows probe runner import"
+          git push origin HEAD:implementation/phase-14-debloat-live-probe
