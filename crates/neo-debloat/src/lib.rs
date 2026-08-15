@@ -172,13 +172,7 @@ impl DebloatDefinition {
             if self.verdict != EvidenceVerdict::Certified {
                 return Err(DebloatError::NonCertifiedDefault(self.id.clone()));
             }
-            if matches!(
-                self.recommendation,
-                RecommendationState::Conflict
-                    | RecommendationState::Unsupported
-                    | RecommendationState::DoNotTouch
-                    | RecommendationState::Unknown
-            ) {
+            if !recommendation_allows_removal(self.recommendation) {
                 return Err(DebloatError::UnsafeRecommendationDefault(self.id.clone()));
             }
             if !self.restore.available() {
@@ -188,9 +182,7 @@ impl DebloatDefinition {
                 .preserve_in_profiles
                 .contains(&DebloatProfile::SafeCleanup)
             {
-                return Err(DebloatError::DefaultPreservedBySafeCleanup(
-                    self.id.clone(),
-                ));
+                return Err(DebloatError::DefaultPreservedBySafeCleanup(self.id.clone()));
             }
         }
 
@@ -383,6 +375,7 @@ pub enum DebloatDisposition {
     NeedsReview,
     BlockedByProfile,
     BlockedProtected,
+    BlockedPolicy,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -445,9 +438,32 @@ pub fn assess_debloat(
         let disposition = if observation.absent_for_scope(definition.scope) {
             reasons.push("package is already absent for the requested scope".to_string());
             DebloatDisposition::AlreadyAbsent
+        } else if definition.class == DebloatClass::ProtectedManualOnly {
+            reasons.push(
+                "protected/manual-only package cannot become normal debloat authority".to_string(),
+            );
+            DebloatDisposition::BlockedProtected
         } else if definition.preserve_in_profiles.contains(&profile) {
             reasons.push(format!("package is preserved by the {profile:?} profile"));
             DebloatDisposition::BlockedByProfile
+        } else if definition.verdict == EvidenceVerdict::Rejected
+            || matches!(
+                definition.recommendation,
+                RecommendationState::Conflict
+                    | RecommendationState::Unsupported
+                    | RecommendationState::DoNotTouch
+            )
+        {
+            reasons.push(
+                "catalogue policy blocks this package from normal debloat candidacy".to_string(),
+            );
+            DebloatDisposition::BlockedPolicy
+        } else if !candidate_policy_allows(definition) {
+            reasons.push(
+                "package does not satisfy Neo's low-risk certified removal-candidate policy"
+                    .to_string(),
+            );
+            DebloatDisposition::NeedsReview
         } else {
             match definition.class {
                 DebloatClass::SafeOptional if definition.restore.available() => {
@@ -478,13 +494,7 @@ pub fn assess_debloat(
                     );
                     DebloatDisposition::NeedsReview
                 }
-                DebloatClass::ProtectedManualOnly => {
-                    reasons.push(
-                        "protected/manual-only package cannot become normal debloat authority"
-                            .to_string(),
-                    );
-                    DebloatDisposition::BlockedProtected
-                }
+                DebloatClass::ProtectedManualOnly => DebloatDisposition::BlockedProtected,
             }
         };
 
@@ -519,14 +529,27 @@ pub fn assess_debloat(
     })
 }
 
-pub fn assessment_index(
-    assessment: &DebloatAssessment,
-) -> BTreeMap<&str, &DebloatAssessmentItem> {
+pub fn assessment_index(assessment: &DebloatAssessment) -> BTreeMap<&str, &DebloatAssessmentItem> {
     assessment
         .items
         .iter()
         .map(|item| (item.id.as_str(), item))
         .collect()
+}
+
+fn recommendation_allows_removal(value: RecommendationState) -> bool {
+    matches!(
+        value,
+        RecommendationState::Recommended | RecommendationState::OptionalComponent
+    )
+}
+
+fn candidate_policy_allows(definition: &DebloatDefinition) -> bool {
+    definition.class == DebloatClass::SafeOptional
+        && definition.risk == RiskLevel::Low
+        && definition.verdict == EvidenceVerdict::Certified
+        && recommendation_allows_removal(definition.recommendation)
+        && definition.restore.available()
 }
 
 fn validate_id(value: &str) -> Result<(), DebloatError> {
@@ -669,12 +692,11 @@ mod tests {
 
     #[test]
     fn custom_profile_never_receives_hidden_defaults() {
-        let catalogue = DebloatCatalogue::new(vec![definition(
-            "appx.fixture",
-            "Contoso.Fixture",
-        )])
-        .unwrap();
-        assert!(catalogue.default_selection(DebloatProfile::Custom).is_empty());
+        let catalogue =
+            DebloatCatalogue::new(vec![definition("appx.fixture", "Contoso.Fixture")]).unwrap();
+        assert!(catalogue
+            .default_selection(DebloatProfile::Custom)
+            .is_empty());
     }
 
     #[test]
@@ -682,7 +704,9 @@ mod tests {
         let mut item = definition("appx.fixture", "Contoso.Fixture");
         item.preserve_in_profiles.push(DebloatProfile::Gaming);
         let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
-        assert!(catalogue.default_selection(DebloatProfile::Gaming).is_empty());
+        assert!(catalogue
+            .default_selection(DebloatProfile::Gaming)
+            .is_empty());
         assert_eq!(
             catalogue.default_selection(DebloatProfile::SafeCleanup),
             vec!["appx.fixture".to_string()]
@@ -691,11 +715,8 @@ mod tests {
 
     #[test]
     fn assessment_requires_explicit_selection() {
-        let catalogue = DebloatCatalogue::new(vec![definition(
-            "appx.fixture",
-            "Contoso.Fixture",
-        )])
-        .unwrap();
+        let catalogue =
+            DebloatCatalogue::new(vec![definition("appx.fixture", "Contoso.Fixture")]).unwrap();
         let evidence = DebloatEvidence::new(vec![observation("Contoso.Fixture")]).unwrap();
         assert_eq!(
             assess_debloat(&catalogue, &evidence, DebloatProfile::SafeCleanup, &[]),
@@ -705,11 +726,8 @@ mod tests {
 
     #[test]
     fn duplicate_selection_fails_closed() {
-        let catalogue = DebloatCatalogue::new(vec![definition(
-            "appx.fixture",
-            "Contoso.Fixture",
-        )])
-        .unwrap();
+        let catalogue =
+            DebloatCatalogue::new(vec![definition("appx.fixture", "Contoso.Fixture")]).unwrap();
         let evidence = DebloatEvidence::new(vec![observation("Contoso.Fixture")]).unwrap();
         let selected = vec!["appx.fixture".to_string(), "appx.fixture".to_string()];
         assert!(matches!(
@@ -725,11 +743,8 @@ mod tests {
 
     #[test]
     fn unknown_selection_fails_closed() {
-        let catalogue = DebloatCatalogue::new(vec![definition(
-            "appx.fixture",
-            "Contoso.Fixture",
-        )])
-        .unwrap();
+        let catalogue =
+            DebloatCatalogue::new(vec![definition("appx.fixture", "Contoso.Fixture")]).unwrap();
         let evidence = DebloatEvidence::new(vec![observation("Contoso.Fixture")]).unwrap();
         let selected = vec!["appx.unknown".to_string()];
         assert!(matches!(
@@ -756,11 +771,8 @@ mod tests {
 
     #[test]
     fn missing_observation_fails_closed() {
-        let catalogue = DebloatCatalogue::new(vec![definition(
-            "appx.fixture",
-            "Contoso.Fixture",
-        )])
-        .unwrap();
+        let catalogue =
+            DebloatCatalogue::new(vec![definition("appx.fixture", "Contoso.Fixture")]).unwrap();
         let evidence = DebloatEvidence::new(vec![]).unwrap();
         let selected = vec!["appx.fixture".to_string()];
         assert!(matches!(
@@ -776,11 +788,8 @@ mod tests {
 
     #[test]
     fn unavailable_observation_fails_closed() {
-        let catalogue = DebloatCatalogue::new(vec![definition(
-            "appx.fixture",
-            "Contoso.Fixture",
-        )])
-        .unwrap();
+        let catalogue =
+            DebloatCatalogue::new(vec![definition("appx.fixture", "Contoso.Fixture")]).unwrap();
         let mut observed = observation("Contoso.Fixture");
         observed.provisioned = ObservedPresence::Unavailable;
         let evidence = DebloatEvidence::new(vec![observed]).unwrap();
@@ -798,11 +807,8 @@ mod tests {
 
     #[test]
     fn absent_package_is_reported_as_already_absent() {
-        let catalogue = DebloatCatalogue::new(vec![definition(
-            "appx.fixture",
-            "Contoso.Fixture",
-        )])
-        .unwrap();
+        let catalogue =
+            DebloatCatalogue::new(vec![definition("appx.fixture", "Contoso.Fixture")]).unwrap();
         let mut observed = observation("Contoso.Fixture");
         observed.installed = ObservedPresence::Absent;
         observed.provisioned = ObservedPresence::Absent;
@@ -815,17 +821,17 @@ mod tests {
             &selected,
         )
         .unwrap();
-        assert_eq!(assessment.items[0].disposition, DebloatDisposition::AlreadyAbsent);
+        assert_eq!(
+            assessment.items[0].disposition,
+            DebloatDisposition::AlreadyAbsent
+        );
         assert!(!assessment.machine_changes);
     }
 
     #[test]
     fn safe_optional_with_restore_is_candidate_only() {
-        let catalogue = DebloatCatalogue::new(vec![definition(
-            "appx.fixture",
-            "Contoso.Fixture",
-        )])
-        .unwrap();
+        let catalogue =
+            DebloatCatalogue::new(vec![definition("appx.fixture", "Contoso.Fixture")]).unwrap();
         let evidence = DebloatEvidence::new(vec![observation("Contoso.Fixture")]).unwrap();
         let selected = vec!["appx.fixture".to_string()];
         let assessment = assess_debloat(
@@ -857,7 +863,10 @@ mod tests {
             &selected,
         )
         .unwrap();
-        assert_eq!(assessment.items[0].disposition, DebloatDisposition::NeedsReview);
+        assert_eq!(
+            assessment.items[0].disposition,
+            DebloatDisposition::NeedsReview
+        );
     }
 
     #[test]
@@ -875,7 +884,10 @@ mod tests {
             &selected,
         )
         .unwrap();
-        assert_eq!(assessment.items[0].disposition, DebloatDisposition::NeedsReview);
+        assert_eq!(
+            assessment.items[0].disposition,
+            DebloatDisposition::NeedsReview
+        );
     }
 
     #[test]
@@ -909,13 +921,8 @@ mod tests {
         let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
         let evidence = DebloatEvidence::new(vec![observation("Contoso.Fixture")]).unwrap();
         let selected = vec!["appx.fixture".to_string()];
-        let assessment = assess_debloat(
-            &catalogue,
-            &evidence,
-            DebloatProfile::Technician,
-            &selected,
-        )
-        .unwrap();
+        let assessment =
+            assess_debloat(&catalogue, &evidence, DebloatProfile::Technician, &selected).unwrap();
         assert_eq!(
             assessment.items[0].disposition,
             DebloatDisposition::BlockedByProfile
