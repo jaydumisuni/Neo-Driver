@@ -24,4 +24,6 @@ pub use state::{
 };
 
 #[cfg(test)]
+mod rollback_batch_tests;
+#[cfg(test)]
 mod tests;
