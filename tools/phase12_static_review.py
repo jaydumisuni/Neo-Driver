@@ -52,6 +52,7 @@ required_regressions = {
     "mcp_and_rpc_method_names_are_frozen",
     "unauthorized_prepare_is_rejected_before_live_read",
     "prepare_requires_exact_prepare_scope",
+    "oversized_action_lists_fail_closed_before_extra_authority_work",
     "prepare_returns_baseline_and_transaction_fingerprint",
     "apply_requires_explicit_confirmation_and_keeps_session_retryable",
     "apply_is_bound_to_exact_fingerprint_and_action_set",
@@ -131,6 +132,8 @@ checks = [
                 "unique_text_set",
                 "duplicate {label}",
                 'require_text("service instance id", &service_instance_id, 160)?;',
+                "request.selected_ids.len() > curated_tweak_ids().len()",
+                "request.approved_action_ids.len() > curated_tweak_ids().len()",
             ]
         ),
     ),
@@ -205,7 +208,7 @@ checks = [
         and "service_instance_id: String" in RPC
         and "next_session_sequence: u64" in RPC
         and ".checked_add(1)" in RPC
-        and '.retain(|_, pending| pending.caller != context.caller);' in RPC
+        and ".retain(|_, pending| pending.caller != context.caller);" in RPC
         and "ServiceStateExhausted" in RPC,
     ),
     (
