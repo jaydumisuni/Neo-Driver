@@ -108,9 +108,10 @@ pub(crate) struct TweakExecutionMutex {
 impl TweakExecutionMutex {
     pub(crate) fn acquire() -> Result<Self, TweakExecutionError> {
         let name = wide(TWEAK_MUTEX_NAME);
-        let handle = unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }.map_err(|error| {
-            TweakExecutionError::Registry(format!("mutex creation failed: {error}"))
-        })?;
+        let handle =
+            unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }.map_err(|error| {
+                TweakExecutionError::Registry(format!("mutex creation failed: {error}"))
+            })?;
         let wait = unsafe { WaitForSingleObject(handle, TWEAK_MUTEX_TIMEOUT_MS) };
         if wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED {
             return Ok(Self {
