@@ -1,4 +1,3 @@
-
 # Phase 15 — 20-Lane Engineering Review
 
 **Boundary:** exact AppX identity + rollback readiness + Phase 4 transaction preparation only  
@@ -21,7 +20,7 @@
 15. Every direct dependency requires an exact matching provisioned staged identity.
 16. Debloat transaction uses exact `AppxPackage` state targets and explicit confirmation.
 17. Baseline checkpoint contains main and dependency identity state.
-18. Fingerprint binds the exact prepared plan and rollback obligations.
+18. Prepared authority state is constructor-owned/external-read-only and the checkpoint fingerprint binds the transaction/rollback obligations.
 19. Windows live native inventory proof is behaviorally read-only and fixture-preserving.
 20. No remove/register/deprovision/provision/public-write/plugin/MCP-RPC capability exists.
 
