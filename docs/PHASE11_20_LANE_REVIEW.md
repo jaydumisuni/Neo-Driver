@@ -6,7 +6,7 @@
 2. The Windows dependency is target-only; non-Windows builds do not gain Registry linkage.
 3. The curated mutation catalogue is exactly three approved tweak IDs.
 4. The curated Windows binding table is exactly Explorer `HideFileExt`, `Hidden`, and `TaskbarAl` under the fixed current-user Explorer Advanced key.
-5. Only certified DWORD `Set` operations with desired values `0` or `1` can become Phase 11 authority.
+5. Each curated ID is bound to one exact approved forward DWORD: `show_file_extensions=0`, `show_hidden_files=1`, `centered_icons=1`; opposite/noncanonical values cannot become Phase 11 authority.
 6. Unsupported tweak IDs, targets, operations, evidence, and Registry types fail closed.
 7. Registry paths/value names are crate-private and cannot be supplied through persisted/public tweak data.
 8. The raw host and Windows adapter are crate-private.
@@ -28,7 +28,7 @@
 The first three bindings were recovered from the repository donor `jaydumisuni/winutil`:
 
 - `Customize-Preferences/ShowExt.mdx` — `HideFileExt`, value `0` to show extensions.
-- `Customize-Preferences/HiddenFiles.mdx` — `Hidden`, value `1` to show hidden files.
+- `Customize-Preferences/HiddenFiles.mdx` — `Hidden`, value `1` to show hidden files. Windows' canonical opposite state is DWORD `2`, so Phase 11 does not authorize `0` as an inverse value for this one-way tweak ID.
 - `Customize-Preferences/TaskbarAlignment.mdx` — `TaskbarAl`, value `1` centered / `0` left.
 
 WinUtil `OriginalValue` fields are **not** Neo rollback evidence. Neo restores only the actual value/presence captured immediately before authority.
@@ -41,6 +41,7 @@ WinUtil `OriginalValue` fields are **not** Neo rollback evidence. Neo restores o
 - The fake-host rollback regression was corrected before compiler proof so a synthetic corrupted write produces a genuinely different observed DWORD and therefore exercises changed-state verification failure and exact rollback.
 - The baseline-drift authorization regression now computes authorization before the mutable session borrow, avoiding a test-only borrow conflict.
 - Canonical `cargo fmt --all` completed successfully after the parse correction, and its temporary write-enabled workflow self-deleted in the same commit.
+- Independent pre-merge semantic audit corrected the hidden-files inverse value from `0` to Windows' canonical DWORD `2` and tightened the executor so persisted definitions can request only each curated tweak ID's exact approved forward DWORD.
 
 ## First compiler findings closed
 
