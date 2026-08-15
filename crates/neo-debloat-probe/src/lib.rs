@@ -257,11 +257,14 @@ mod tests {
                 program.to_string(),
                 args.iter().map(|value| (*value).to_string()).collect(),
             ));
-            if args.last() == Some(&PROVISIONED_SCRIPT) {
-                Ok(self.provisioned.clone())
+            let mut evidence = if args.last() == Some(&PROVISIONED_SCRIPT) {
+                self.provisioned.clone()
             } else {
-                Ok(self.installed.clone())
-            }
+                self.installed.clone()
+            };
+            evidence.program = program.to_string();
+            evidence.args = args.iter().map(|value| (*value).to_string()).collect();
+            Ok(evidence)
         }
     }
 
@@ -299,6 +302,24 @@ mod tests {
         assert_eq!(observation.version.as_deref(), Some("1.2.3.4"));
         assert!(!report.machine_changes);
 
+        let installed_args = vec![
+            "-NoLogo".to_string(),
+            "-NoProfile".to_string(),
+            "-NonInteractive".to_string(),
+            "-Command".to_string(),
+            INSTALLED_SCRIPT.to_string(),
+        ];
+        let provisioned_args = vec![
+            "-NoLogo".to_string(),
+            "-NoProfile".to_string(),
+            "-NonInteractive".to_string(),
+            "-Command".to_string(),
+            PROVISIONED_SCRIPT.to_string(),
+        ];
+        assert_eq!(report.command_evidence[0].program, "powershell.exe");
+        assert_eq!(report.command_evidence[0].args, installed_args);
+        assert_eq!(report.command_evidence[1].program, "powershell.exe");
+        assert_eq!(report.command_evidence[1].args, provisioned_args);
         for evidence in &report.command_evidence {
             assert!(!evidence
                 .args
