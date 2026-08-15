@@ -22,13 +22,6 @@ impl RegistrySnapshot {
     pub(crate) fn encoded(self) -> Result<String, TweakExecutionError> {
         Ok(serde_json::to_string(&self)?)
     }
-
-    pub(crate) fn as_tweak_value(self) -> Option<TweakValue> {
-        match self {
-            Self::Absent => None,
-            Self::Dword(value) => Some(TweakValue::U32(value)),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -87,11 +80,10 @@ pub(crate) fn validate_definition(
     definition.validate()?;
     let spec = spec_for_id(&definition.id)
         .ok_or_else(|| TweakExecutionError::UnsupportedTweak(definition.id.clone()))?;
-    if definition.target.canonical_key()? != TweakTarget {
+    let expected_target = TweakTarget {
         key: spec.target_key.to_string(),
-    }
-    .canonical_key()?
-    {
+    };
+    if definition.target.canonical_key()? != expected_target.canonical_key()? {
         return Err(TweakExecutionError::TargetMismatch(definition.id.clone()));
     }
     if definition.verdict != EvidenceVerdict::Certified {
