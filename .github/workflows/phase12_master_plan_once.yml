@@ -20,53 +20,19 @@ jobs:
           fetch-depth: 0
 
       - name: Reconcile master plan and self-clean
-        shell: python
         run: |
+          python - <<'PY'
           from pathlib import Path
 
           path = Path("docs/NEO_DRIVER_MASTER_PLAN.md")
           text = path.read_text(encoding="utf-8")
-          old = '''# 25. GUI and CLI are one engine
-
-Do not implement independent GUI and CLI business logic.
-
-Architecture:
-
-```text
-Neo GUI ─┐
-         ├── Neo Core
-Neo CLI ─┘
-```
-
-No arguments to `NeoDriver.exe` should open the GUI.
-
-Installed/path-accessible CLI should conceptually support commands such as:
-
-- `neo scan`
-- `neo status`
-- `neo drivers`
-- `neo drivers missing`
-- `neo runtimes`
-- `neo gaming`
-- `neo technician`
-- `neo repair`
-- `neo tweaks`
-- `neo debloat`
-- `neo devices`
-- `neo doctor`
-
-Expert concepts:
-
-- inspect device;
-- list/rank driver candidates;
-- install/rollback/export driver;
-- inspect package evidence;
-- apply/undo tweak;
-- plan/apply profile.
-
-CLI destructive operations must remain explicit. Batch `--yes`-style approval may exist for automation, but high-risk actions require stronger explicit risk acknowledgement.
-'''
-          new = '''# 25. MCP/RPC, GUI, and CLI are one engine
+          start_marker = "# 25. GUI and CLI are one engine\n"
+          end_marker = "\n---\n\n# 26. Rust / Python architecture"
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit("canonical section 25 boundary was not found")
+          replacement = '''# 25. MCP/RPC, GUI, and CLI are one engine
 
 Do not implement independent GUI, CLI, Hunter, Oracle, or remote-control business logic.
 
@@ -112,10 +78,9 @@ Expert concepts:
 
 If destructive CLI operations are added later, they must remain explicit and route through the same typed service/capability/transaction authority rather than constructing privileged executor capabilities directly. Batch approval may exist for bounded automation, but high-risk actions require stronger explicit risk acknowledgement.
 '''
-          if text.count(old) != 1:
-              raise SystemExit("canonical section 25 block did not match exactly once")
-          path.write_text(text.replace(old, new), encoding="utf-8")
+          path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
           Path(".github/workflows/phase12_master_plan_once.yml").unlink()
+          PY
 
       - name: Commit reconciled authority
         run: |
