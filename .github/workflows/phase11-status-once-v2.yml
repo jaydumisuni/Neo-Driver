@@ -1,0 +1,39 @@
+name: Phase 11 Status Once V2
+
+on:
+  push:
+    branches: ["docs/phase-11-status"]
+
+permissions:
+  contents: write
+
+jobs:
+  update-status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/phase-11-status
+          fetch-depth: 0
+      - name: Apply canonical Phase 11 status patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/phase11_status_patch.py
+          git diff --check
+      - name: Self-clean and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/phase11-status-once.yml
+          rm -f .github/workflows/phase11-status-once-v2.yml
+          rm -f tools/phase11_status_patch.py
+          expected="$(printf '%s\n' '.github/workflows/phase11-status-once-v2.yml' '.github/workflows/phase11-status-once.yml' 'docs/IMPLEMENTATION_STATUS.md' 'tools/phase11_status_patch.py')"
+          actual="$(git diff --name-only | sort)"
+          test "$actual" = "$expected"
+          git diff --check
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git add -A
+          git commit -m "Record Phase 11 canonical merge proof [phase11-status-applied]"
+          git push origin HEAD:docs/phase-11-status
