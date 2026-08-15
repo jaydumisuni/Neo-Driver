@@ -6,6 +6,8 @@ pub enum TweakExecutionError {
     State(#[from] neo_state_plan::StatePlanError),
     #[error(transparent)]
     Transaction(#[from] neo_transaction::TransactionError),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
     #[error("unsupported Phase 11 tweak: {0}")]
     UnsupportedTweak(String),
     #[error("tweak target does not match the curated Phase 11 binding: {0}")]
