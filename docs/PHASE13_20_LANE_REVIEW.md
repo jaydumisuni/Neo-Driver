@@ -6,6 +6,8 @@
 
 This review is the deterministic Phase 13 acceptance formation. A lane is PASS only when the production source and named regression/proof surface establish the condition. The final CI result is recorded only after the frozen implementation head runs.
 
+Independent pre-proof source review closed one candidate-policy finding: manual selection can no longer turn higher-risk, non-certified, unknown, rejected, unsupported, conflicting, or do-not-touch catalogue state into a normal removal candidate, and protected/manual-only classification takes precedence over profile-preservation messaging.
+
 1. **Workspace isolation** — `neo-debloat` is a first-class workspace member.
 2. **Platform neutrality** — Phase 13 has no Windows dependency or Windows API authority.
 3. **Transaction isolation** — Phase 13 does not depend on `neo-transaction`.
