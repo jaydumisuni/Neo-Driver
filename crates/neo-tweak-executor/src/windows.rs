@@ -2,11 +2,18 @@ use crate::engine::TweakHost;
 use crate::model::{RegistrySnapshot, RegistryTweakSpec};
 use crate::TweakExecutionError;
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_SUCCESS};
+use windows::Win32::Foundation::{
+    CloseHandle, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, HANDLE, WAIT_ABANDONED, WAIT_OBJECT_0,
+    WAIT_TIMEOUT,
+};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY,
     HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_DWORD, REG_VALUE_TYPE,
 };
+use windows::Win32::System::Threading::{CreateMutexW, ReleaseMutex, WaitForSingleObject};
+
+const TWEAK_MUTEX_NAME: &str = "Local\\THETECHGUY.NeoDriver.TweakExecutor.v1";
+const TWEAK_MUTEX_TIMEOUT_MS: u32 = 300_000;
 
 pub(crate) struct WindowsRegistryHost;
 
@@ -89,6 +96,48 @@ impl TweakHost for WindowsRegistryHost {
                 }
                 Ok(())
             }
+        }
+    }
+}
+
+pub(crate) struct TweakExecutionMutex {
+    handle: HANDLE,
+    acquired: bool,
+}
+
+impl TweakExecutionMutex {
+    pub(crate) fn acquire() -> Result<Self, TweakExecutionError> {
+        let mut name = wide(TWEAK_MUTEX_NAME);
+        let handle = unsafe { CreateMutexW(None, false, PCWSTR(name.as_mut_ptr())) }
+            .map_err(|error| TweakExecutionError::Registry(format!("mutex creation failed: {error}")))?;
+        let wait = unsafe { WaitForSingleObject(handle, TWEAK_MUTEX_TIMEOUT_MS) };
+        if wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED {
+            return Ok(Self {
+                handle,
+                acquired: true,
+            });
+        }
+        unsafe {
+            let _ = CloseHandle(handle);
+        }
+        if wait == WAIT_TIMEOUT {
+            return Err(TweakExecutionError::Registry(format!(
+                "tweak executor mutex wait timed out after {TWEAK_MUTEX_TIMEOUT_MS} ms"
+            )));
+        }
+        Err(TweakExecutionError::Registry(format!(
+            "tweak executor mutex wait failed with status {wait:?}"
+        )))
+    }
+}
+
+impl Drop for TweakExecutionMutex {
+    fn drop(&mut self) {
+        unsafe {
+            if self.acquired {
+                let _ = ReleaseMutex(self.handle);
+            }
+            let _ = CloseHandle(self.handle);
         }
     }
 }
