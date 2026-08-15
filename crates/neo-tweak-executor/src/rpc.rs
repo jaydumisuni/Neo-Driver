@@ -2,7 +2,7 @@ use crate::model::TweakExecutionSession;
 #[cfg(any(windows, test))]
 use crate::model::TweakExecutorCapability;
 use crate::{curated_tweak_ids, prepare_windows_tweaks, RegistrySnapshot, TweakExecutionError};
-#[cfg(any(windows, test))]
+#[cfg(test)]
 use crate::{
     engine::{prepare_with_host, TweakHost},
     session::{apply_with_host, authorize_with_host},
