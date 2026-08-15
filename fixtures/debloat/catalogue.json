@@ -1,0 +1,95 @@
+{
+  "items": [
+    {
+      "id": "appx.contoso.optional",
+      "package_id": "Contoso.Optional",
+      "title": "Contoso Optional",
+      "category": "Synthetic Optional Apps",
+      "description": "Synthetic low-impact optional AppX package used only to prove Neo debloat assessment contracts.",
+      "class": "safe_optional",
+      "scope": "current_user_and_provisioned",
+      "risk": "low",
+      "recommendation": "optional_component",
+      "verdict": "certified",
+      "selected_by_default": true,
+      "restore": {
+        "kind": "store",
+        "store_id": "9CONTOSO1"
+      },
+      "side_effects": [],
+      "preserve_in_profiles": []
+    },
+    {
+      "id": "appx.contoso.gaming",
+      "package_id": "Contoso.Gaming",
+      "title": "Contoso Gaming Integration",
+      "category": "Synthetic Gaming Apps",
+      "description": "Synthetic package that represents an optional app with gaming-profile dependencies.",
+      "class": "feature_dependent",
+      "scope": "current_user_and_provisioned",
+      "risk": "normal",
+      "recommendation": "optional_component",
+      "verdict": "certified",
+      "selected_by_default": false,
+      "restore": {
+        "kind": "store",
+        "store_id": "9CONTOSO2"
+      },
+      "side_effects": [
+        "removal would disable the synthetic gaming integration represented by this fixture"
+      ],
+      "preserve_in_profiles": [
+        "gaming"
+      ]
+    },
+    {
+      "id": "appx.contoso.dependency",
+      "package_id": "Contoso.Dependency",
+      "title": "Contoso Dependency",
+      "category": "Synthetic Dependency Apps",
+      "description": "Synthetic dependency-sensitive AppX package used to prove that uncertain dependencies stay review-only.",
+      "class": "dependency_sensitive",
+      "scope": "current_user",
+      "risk": "normal",
+      "recommendation": "unknown",
+      "verdict": "provisional",
+      "selected_by_default": false,
+      "restore": {
+        "kind": "vendor",
+        "source": "synthetic-vendor-source"
+      },
+      "side_effects": [
+        "other synthetic packages may depend on this package"
+      ],
+      "preserve_in_profiles": [
+        "technician",
+        "developer"
+      ]
+    },
+    {
+      "id": "appx.contoso.system",
+      "package_id": "Contoso.System",
+      "title": "Contoso Protected System Component",
+      "category": "Synthetic Protected Components",
+      "description": "Synthetic protected package used to prove that manual-only items never become normal debloat candidates.",
+      "class": "protected_manual_only",
+      "scope": "current_user",
+      "risk": "high",
+      "recommendation": "do_not_touch",
+      "verdict": "certified",
+      "selected_by_default": false,
+      "restore": {
+        "kind": "none"
+      },
+      "side_effects": [
+        "removal could break synthetic system functionality"
+      ],
+      "preserve_in_profiles": [
+        "safe_cleanup",
+        "gaming",
+        "technician",
+        "developer"
+      ]
+    }
+  ]
+}
