@@ -27,7 +27,7 @@ jobs:
               stdout=subprocess.PIPE,
               stderr=subprocess.STDOUT,
           )
-          output = result.stdout[-12000:]
+          output = result.stdout[-3000:]
           escaped = output.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
           if result.returncode:
               print(f"::error title=Exact Clippy diagnostic::{escaped}")
