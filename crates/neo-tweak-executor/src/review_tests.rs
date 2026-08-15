@@ -124,7 +124,12 @@ fn empty_mission_id_is_invalid_request() {
     let catalogue = TweakCatalogue::new(vec![definition(SHOW_FILE_EXTENSIONS, 0)]).unwrap();
     let host = ReviewHost::default();
     assert!(matches!(
-        prepare_with_host(&catalogue, &[SHOW_FILE_EXTENSIONS.to_string()], "   ", &host),
+        prepare_with_host(
+            &catalogue,
+            &[SHOW_FILE_EXTENSIONS.to_string()],
+            "   ",
+            &host
+        ),
         Err(TweakExecutionError::InvalidRequest(_))
     ));
 }
