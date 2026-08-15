@@ -54,6 +54,13 @@ required_regressions = {
     "capability_has_no_public_constructor_but_internal_tests_can_issue_it",
 }
 
+decision_markers = {
+    "it does not expose a public tweak-apply CLI or GUI surface",
+    "actual value captured immediately before authorization",
+    "No GitHub runner Registry value is modified by Phase 11 tests",
+    "require an opaque `TweakExecutorCapability` with no public constructor",
+}
+
 checks = [
     ("workspace-boundary", "crates/neo-tweak-executor" in set(WORKSPACE["workspace"]["members"])),
     ("windows-dependency-is-target-only", "windows" in windows_dependencies and "windows" not in normal_dependencies),
@@ -74,7 +81,7 @@ checks = [
     ("direct-windows-registry-no-shell", all(marker in WINDOWS for marker in ["RegOpenKeyExW", "RegQueryValueExW", "RegSetValueExW", "RegDeleteValueW"]) and all(marker not in production for marker in ["Command::new", "powershell", "reg.exe", "cmd.exe"])),
     ("no-public-cli-mutation", "neo-tweak-executor" not in cli_dependencies and "TweakExecutorCapability" not in (ROOT / "crates/neo-cli/src/main.rs").read_text(encoding="utf-8")),
     ("adversarial-regressions", required_regressions.issubset(regressions)),
-    ("decision-boundary", all(marker in DECISION for marker in ["no public tweak-apply CLI", "actual value captured immediately before authorization", "No GitHub runner Registry value is modified"])),
+    ("decision-boundary", decision_markers.issubset(DECISION)),
 ]
 
 if len(checks) != 20 or len({name for name, _ in checks}) != 20:
