@@ -132,8 +132,14 @@ impl TryFrom<CapturedStatesWire> for CapturedStates {
 
 impl CapturedStates {
     pub fn new(values: Vec<CapturedState>) -> Result<Self, StatePlanError> {
+        let value = Self { values };
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn validate(&self) -> Result<(), StatePlanError> {
         let mut readers = BTreeSet::new();
-        for item in &values {
+        for item in &self.values {
             ReaderId::new(item.reader.as_str())?;
             if item.source.trim().is_empty() {
                 return Err(StatePlanError::EmptyField("captured state source"));
@@ -144,14 +150,16 @@ impl CapturedStates {
                 ));
             }
         }
-        Ok(Self { values })
+        Ok(())
     }
 
-    fn indexed(&self) -> BTreeMap<&ReaderId, &CapturedState> {
-        self.values
+    fn indexed(&self) -> Result<BTreeMap<&ReaderId, &CapturedState>, StatePlanError> {
+        self.validate()?;
+        Ok(self
+            .values
             .iter()
             .map(|item| (&item.reader, item))
-            .collect()
+            .collect())
     }
 }
 
@@ -167,7 +175,7 @@ pub fn resolve_selected_evidence(
         return Err(StatePlanError::EmptySelection);
     }
 
-    let captured_by_reader = captured.indexed();
+    let captured_by_reader = captured.indexed()?;
     let mut selected = BTreeSet::new();
     let mut observations = Vec::with_capacity(selected_ids.len());
     for id in selected_ids {
