@@ -64,44 +64,24 @@ jobs:
               raise SystemExit("validation insertion marker not unique")
           text = text.replace(old, new, 1)
 
-          replacements = [
+          assignments = [
               (
-                  '''        item.class = DebloatClass::FeatureDependent;
-                          let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
-                  ''',
-                  '''        item.class = DebloatClass::FeatureDependent;
-                          item.side_effects = vec!["synthetic feature consequence".to_string()];
-                          let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
-                  ''',
+                  "        item.class = DebloatClass::FeatureDependent;\n",
+                  "        item.class = DebloatClass::FeatureDependent;\n        item.side_effects = vec![\"synthetic feature consequence\".to_string()];\n",
               ),
               (
-                  '''        item.class = DebloatClass::DependencySensitive;
-                          let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
-                  ''',
-                  '''        item.class = DebloatClass::DependencySensitive;
-                          item.side_effects = vec!["synthetic dependency consequence".to_string()];
-                          let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
-                  ''',
+                  "        item.class = DebloatClass::DependencySensitive;\n",
+                  "        item.class = DebloatClass::DependencySensitive;\n        item.side_effects = vec![\"synthetic dependency consequence\".to_string()];\n",
               ),
               (
-                  '''        item.class = DebloatClass::ProtectedManualOnly;
-                          item.risk = RiskLevel::High;
-                          item.recommendation = RecommendationState::DoNotTouch;
-                          item.restore = RestoreMethod::None;
-                          let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
-                  ''',
-                  '''        item.class = DebloatClass::ProtectedManualOnly;
-                          item.risk = RiskLevel::High;
-                          item.recommendation = RecommendationState::DoNotTouch;
-                          item.restore = RestoreMethod::None;
-                          item.side_effects = vec!["synthetic protected consequence".to_string()];
-                          let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
-                  ''',
+                  "        item.class = DebloatClass::ProtectedManualOnly;\n",
+                  "        item.class = DebloatClass::ProtectedManualOnly;\n        item.side_effects = vec![\"synthetic protected consequence\".to_string()];\n",
               ),
           ]
-          for old, new in replacements:
-              if text.count(old) != 1:
-                  raise SystemExit(f"unit fixture marker not unique: {text.count(old)}")
+          for old, new in assignments:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"unit fixture assignment marker not unique: {old.strip()} count={count}")
               text = text.replace(old, new, 1)
 
           path.write_text(text, encoding="utf-8")
