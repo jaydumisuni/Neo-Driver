@@ -1,0 +1,27 @@
+name: Phase 13 Record Docs Proof
+
+on:
+  push:
+    branches:
+      - docs/phase-13-merge-proof
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/phase-13-merge-proof
+          fetch-depth: 0
+      - run: python tools/tmp_phase13_record_doc_proof.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/phase13-record-doc-proof.yml tools/tmp_phase13_record_doc_proof.py
+          git add docs/IMPLEMENTATION_STATUS.md
+          git diff --cached --check
+          git commit -m "Phase 13: record canonical documentation proof"
+          git push origin HEAD:docs/phase-13-merge-proof
