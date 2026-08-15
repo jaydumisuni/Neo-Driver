@@ -80,8 +80,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             json,
         } => {
             let catalogue = TweakCatalogue::read_json(catalogue)?;
-            let bindings: StateBindings =
-                serde_json::from_str(&std::fs::read_to_string(bindings)?)?;
+            let bindings = StateBindings::read_json(bindings)?;
             let captured = state_readback_windows::capture_live(&bindings)?;
             let evidence = resolve_selected_evidence(&catalogue, &bindings, &captured, &select)?;
             let report = assess_tweaks(&catalogue, &evidence, &select, mission_id)?;
