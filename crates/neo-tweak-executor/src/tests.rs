@@ -42,7 +42,7 @@ impl TweakHost for FakeHost {
         spec: crate::model::RegistryTweakSpec,
         value: u32,
     ) -> Result<(), TweakExecutionError> {
-        let stored = if self.corrupt_write { 1 - value } else { value };
+        let stored = if self.corrupt_write { 99 } else { value };
         self.values
             .insert(spec.id.to_string(), RegistrySnapshot::Dword(stored));
         if self.fail_after_change {
@@ -222,8 +222,9 @@ fn baseline_drift_blocks_authority() {
         SHOW_FILE_EXTENSIONS.to_string(),
         RegistrySnapshot::Dword(0),
     );
+    let authorization = auth(&session);
     assert!(matches!(
-        authorize_with_host(&mut session, auth(&session), &host),
+        authorize_with_host(&mut session, authorization, &host),
         Err(TweakExecutionError::BaselineDrift(_))
     ));
     assert_eq!(session.stage(), TransactionStage::BaselineCaptured);
