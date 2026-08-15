@@ -10,6 +10,7 @@ LIB = (ROOT / "crates/neo-tweak-executor/src/lib.rs").read_text(encoding="utf-8"
 MODEL = (ROOT / "crates/neo-tweak-executor/src/model.rs").read_text(encoding="utf-8")
 RPC = (ROOT / "crates/neo-tweak-executor/src/rpc.rs").read_text(encoding="utf-8")
 RPC_TESTS = (ROOT / "crates/neo-tweak-executor/src/rpc_tests.rs").read_text(encoding="utf-8")
+ENGINE = (ROOT / "crates/neo-tweak-executor/src/engine.rs").read_text(encoding="utf-8")
 SESSION = (ROOT / "crates/neo-tweak-executor/src/session.rs").read_text(encoding="utf-8")
 DECISION = (
     ROOT / "docs/decisions/0012-PHASE12-MCP-RPC-TWEAK-AUTHORITY.md"
@@ -30,9 +31,20 @@ def struct_body(text: str, name: str) -> str:
     return match.group(1) if match else ""
 
 
+def derive_before(text: str, declaration: str) -> str:
+    index = text.index(declaration)
+    start = text.rfind("#[derive", 0, index)
+    return text[start:index] if start >= 0 else ""
+
+
 prepare_request = struct_body(RPC, "TweakRpcPrepareRequest")
 apply_request = struct_body(RPC, "TweakRpcApplyRequest")
 context = struct_body(RPC, "TweakRpcContext")
+caller_kind_derive = derive_before(RPC, "pub enum TweakRpcCallerKind")
+caller_derive = derive_before(RPC, "pub struct TweakRpcCaller")
+context_derive = derive_before(RPC, "pub struct TweakRpcContext")
+prepare_derive = derive_before(RPC, "pub struct TweakRpcPrepareRequest")
+apply_derive = derive_before(RPC, "pub struct TweakRpcApplyRequest")
 regressions = test_functions(RPC_TESTS)
 cli_dependencies = CLI_MANIFEST.get("dependencies", {})
 
@@ -45,6 +57,7 @@ required_regressions = {
     "apply_is_bound_to_exact_fingerprint_and_action_set",
     "prepared_session_is_bound_to_original_caller",
     "confirmed_scoped_apply_completes_and_is_single_use",
+    "reprepare_invalidates_prior_plan_and_stale_apply_cannot_target_fresh_authority",
     "failed_execution_consumes_authority_and_requires_reprepare",
 }
 
@@ -53,6 +66,9 @@ decision_markers = {
     "authenticated workstation/local RPC transport",
     "trusted server-side context",
     "must not be allowed to self-assert a principal",
+    "service instance ID",
+    "monotonic session sequence",
+    "one outstanding prepared tweak plan per caller",
     "single-use authority",
     "no public constructor",
     "GitHub as an interactive execution transport",
@@ -74,9 +90,18 @@ checks = [
         ),
     ),
     (
-        "transport-context-separate-from-request",
+        "trusted-context-not-client-deserializable",
         all(marker in context for marker in ["caller: TweakRpcCaller", "granted_scopes: Vec<String>"])
-        and all(marker not in prepare_request + apply_request for marker in ["caller", "principal", "granted_scopes"]),
+        and all(
+            "Deserialize" not in derive
+            for derive in [caller_kind_derive, caller_derive, context_derive]
+        )
+        and "Deserialize" in prepare_derive
+        and "Deserialize" in apply_derive
+        and all(
+            marker not in prepare_request + apply_request
+            for marker in ["caller", "principal", "granted_scopes", "service_instance_id"]
+        ),
     ),
     (
         "exact-caller-policy",
@@ -91,19 +116,32 @@ checks = [
         < RPC.index("let session = prepare_windows_tweaks("),
     ),
     (
-        "apply-permission",
+        "apply-permission-is-mechanically-low-risk",
         'TWEAK_APPLY_PERMISSION_SCOPE: &str = "neo.tweaks.low-risk.apply"' in RPC
-        and "self.validate_context(context, TWEAK_APPLY_PERMISSION_SCOPE)?;" in RPC,
+        and "self.validate_context(context, TWEAK_APPLY_PERMISSION_SCOPE)?;" in RPC
+        and MODEL.count("risk: RiskLevel::Low") == 3
+        and "risk: spec.risk" in ENGINE,
     ),
     (
         "bounded-duplicate-free-request-validation",
-        all(marker in RPC for marker in ["chars().any(char::is_control)", "unique_text_set", "duplicate {label}"]),
+        all(
+            marker in RPC
+            for marker in [
+                "chars().any(char::is_control)",
+                "unique_text_set",
+                "duplicate {label}",
+                'require_text("service instance id", &service_instance_id, 160)?;',
+            ]
+        ),
     ),
     (
         "curated-phase11-preparation-reuse",
         "prepare_windows_tweaks(" in RPC
         and "prepare_with_host(" in RPC
-        and all(marker not in RPC for marker in ["RegSetValueExW", "RegDeleteValueW", "RegistryTweakSpec {"]),
+        and all(
+            marker not in RPC
+            for marker in ["RegSetValueExW", "RegDeleteValueW", "RegistryTweakSpec {"]
+        ),
     ),
     (
         "actual-baseline-exposed",
@@ -123,7 +161,8 @@ checks = [
     ),
     (
         "caller-continuity",
-        "if pending.caller != context.caller" in RPC and "TweakRpcError::CallerMismatch" in RPC,
+        "if pending.caller != context.caller" in RPC
+        and "TweakRpcError::CallerMismatch" in RPC,
     ),
     (
         "fingerprint-continuity",
@@ -159,9 +198,15 @@ checks = [
         and "rollback_with_host" in SESSION,
     ),
     (
-        "single-use-before-authority",
+        "single-use-and-stale-replay-boundary",
         ".remove(&request.session_id)" in RPC
-        and RPC.index(".remove(&request.session_id)") < RPC.index("TweakExecutorCapability::for_rpc()"),
+        and RPC.index(".remove(&request.session_id)")
+        < RPC.index("TweakExecutorCapability::for_rpc()")
+        and "service_instance_id: String" in RPC
+        and "next_session_sequence: u64" in RPC
+        and ".checked_add(1)" in RPC
+        and '.retain(|_, pending| pending.caller != context.caller);' in RPC
+        and "ServiceStateExhausted" in RPC,
     ),
     (
         "stable-structured-error-taxonomy",
@@ -174,6 +219,7 @@ checks = [
                 "ConfirmationRequired",
                 "SessionNotFound",
                 "SessionConflict",
+                "ServiceStateExhausted",
                 "CallerMismatch",
                 "PlanMismatch",
                 "NoChange",
