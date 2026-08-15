@@ -1,12 +1,12 @@
 use crate::model::TweakExecutionSession;
 #[cfg(any(windows, test))]
 use crate::model::TweakExecutorCapability;
+use crate::{curated_tweak_ids, prepare_windows_tweaks, RegistrySnapshot, TweakExecutionError};
 #[cfg(any(windows, test))]
 use crate::{
     engine::{prepare_with_host, TweakHost},
     session::{apply_with_host, authorize_with_host},
 };
-use crate::{prepare_windows_tweaks, RegistrySnapshot, TweakExecutionError};
 use neo_state_plan::TweakCatalogue;
 use neo_transaction::{TransactionAuthorization, TransactionStage};
 use serde::{Deserialize, Serialize};
@@ -314,6 +314,11 @@ impl TweakRpcService {
                 "selected tweak ids must not be empty".to_string(),
             ));
         }
+        if request.selected_ids.len() > curated_tweak_ids().len() {
+            return Err(TweakRpcError::InvalidRequest(
+                "selected tweak ids exceed the curated Phase 11 action ceiling".to_string(),
+            ));
+        }
         unique_text_set("selected tweak id", &request.selected_ids, 240)?;
         Ok(())
     }
@@ -409,6 +414,9 @@ impl TweakRpcService {
             return Err(TweakRpcError::ConfirmationRequired);
         }
         if request.plan_fingerprint != pending.plan_fingerprint {
+            return Err(TweakRpcError::PlanMismatch);
+        }
+        if request.approved_action_ids.len() > curated_tweak_ids().len() {
             return Err(TweakRpcError::PlanMismatch);
         }
         let approved = unique_text_set("approved action id", &request.approved_action_ids, 240)?;
