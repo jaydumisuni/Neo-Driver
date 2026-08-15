@@ -1,0 +1,12 @@
+[package]
+name = "neo-debloat"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-core = { path = "../neo-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
