@@ -29,7 +29,7 @@ forbidden_mutation = [
 checks = [
     ("phase9-crate-preserved", '"crates/neo-state-plan"' in WORKSPACE and '"crates/neo-state-resolver"' not in WORKSPACE),
     ("cargo-lock-unchanged-domain", 'name = "neo-state-resolver"' not in LOCK),
-    ("opaque-reader-id", "struct ReaderId" in STATE and "InvalidReaderId" in ERRORS and "as_str" in STATE),
+    ("opaque-reader-id", "struct ReaderId" in STATE and "InvalidReaderId" in ERRORS and "as_str" in STATE and "Deserializer" in STATE),
     ("canonical-target-binding", "struct StateBinding" in STATE and "canonical_key" in STATE),
     ("binding-root-validation", 'serde(try_from = "StateBindingsWire")' in STATE and "DuplicateBinding" in ERRORS),
     ("captured-state-root-validation", 'serde(try_from = "CapturedStatesWire")' in STATE and "DuplicateCapturedState" in ERRORS),
@@ -42,7 +42,7 @@ checks = [
     ("fixed-reader-catalogue", "windows.os.current_build" in LIVE and "windows.security.test_signing" in LIVE and "windows.security.memory_integrity" in LIVE),
     ("unknown-reader-unavailable", "reader is not registered" in LIVE and "ObservedState::Unavailable" in LIVE),
     ("no-configurable-command-surface", all(marker not in LIVE for marker in ["reg.exe", "sc.exe", "dism.exe", "powershell.exe", "program:", "args:"])),
-    ("read-only-live-cli", "Command::Live" in CLI and "Machine changes: none" in CLI),
+    ("read-only-live-cli", "Command::Live" in CLI and "Machine changes: none" in CLI and "StateBindings::read_json" in CLI and "std::fs" not in CLI),
     ("phase9-cli-preserved", "Command::Live" not in PHASE9_CLI and "Machine changes: none" in PHASE9_CLI),
     ("no-mutation-authority", all(marker not in production for marker in forbidden_mutation)),
     ("explicit-windows-live-proof", "live_state_assessment_reads_proven_system_evidence_without_mutation" in LIVE_TEST and "Machine changes: none" in LIVE_TEST),
