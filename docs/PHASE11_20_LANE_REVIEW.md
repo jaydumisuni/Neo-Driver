@@ -33,6 +33,15 @@ The first three bindings were recovered from the repository donor `jaydumisuni/w
 
 WinUtil `OriginalValue` fields are **not** Neo rollback evidence. Neo restores only the actual value/presence captured immediately before authority.
 
+## Pre-compiler findings closed
+
+- Cargo generated the Phase 11 workspace lock with only the new local `neo-tweak-executor` package entry; no external dependency version changed.
+- The first Phase 11 static run found a proof-harness wording mismatch in lane 20. Review then exposed a Python bug where `set.issubset()` was incorrectly applied to the decision string character-by-character. The lane now uses explicit phrase membership and the implementation lanes remain unchanged.
+- The first formatter attempt exposed a Rust parse error in the curated-target comparison before type proof. The expected `TweakTarget` is now constructed as a named local value before canonical comparison.
+- The fake-host rollback regression was corrected before compiler proof so a synthetic corrupted write produces a genuinely different observed DWORD and therefore exercises changed-state verification failure and exact rollback.
+- The baseline-drift authorization regression now computes authorization before the mutable session borrow, avoiding a test-only borrow conflict.
+- Canonical `cargo fmt --all` completed successfully after the parse correction, and its temporary write-enabled workflow self-deleted in the same commit.
+
 ## Deliberate proof boundary
 
 CI compiles the real Windows Registry backend, but all Phase 11 write/rollback behavior is exercised through the deterministic fake host. Phase 11 does not modify a GitHub runner Registry value and does not claim live ATHENA tweak mutation proof.
