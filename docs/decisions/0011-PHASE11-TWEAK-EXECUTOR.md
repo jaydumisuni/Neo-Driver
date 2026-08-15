@@ -61,6 +61,14 @@ Rollback restores captured reality:
 - a captured absent value is deleted;
 - rollback is not attempted for an unsupported/unavailable baseline.
 
+## Cross-process serialization
+
+Phase 11 serializes Neo tweak apply operations within the current Windows session using a fixed `Local\\THETECHGUY.NeoDriver.TweakExecutor.v1` named mutex with a bounded wait.
+
+The mutex is acquired before the second baseline-drift check and remains held through transaction apply, all Registry writes, post-write verification, and any rollback. This prevents two Neo processes in the same Windows session from both acting on overlapping stale baselines and later restoring over one another.
+
+The `Local\\` namespace is intentionally same-session authority only; Phase 11 does not claim cross-session serialization. Unrelated external Registry writers are not controlled by the mutex and remain subject to Neo's fresh pre-apply and post-write observation/verification checks.
+
 ## Capability boundary
 
 The raw Registry host and mutation invocation types are crate-private. Public/session mutation methods require an opaque `TweakExecutorCapability` with no public constructor.
@@ -81,6 +89,7 @@ Phase 11 does not implement:
 - Explorer restart/shell restart;
 - public tweak apply;
 - GUI write actions;
+- cross-session/global tweak serialization;
 - live attached-machine tweak mutation proof.
 
 Those remain separately gated.
