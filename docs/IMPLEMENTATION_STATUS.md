@@ -15,6 +15,7 @@
 - **Phase 9:** merged and engineering-proven — read-only, platform-neutral tweak/state assessment foundation with typed desired state, validated evidence/catalogue, explicit selection, deterministic current-vs-desired comparison, and behavioral non-mutation proof. OS-specific probing, transaction binding, and tweak execution remain blocked.
 - **Phase 10:** merged and engineering-proven — read-only Windows live-state resolution layered on Phase 9, with validated target→reader bindings, fixed reviewed System-X-Ray reader identities, captured-state provenance, real Windows live-state behavioral proof, and zero tweak mutation authority. Transaction binding and tweak execution remain blocked.
 - **Phase 11:** merged and engineering-proven — internal capability-gated transaction-bound execution for exactly three curated reversible HKCU DWORD tweaks, with exact semantic value binding, actual pre-state capture, same-session serialization, complete rollback-attempt evidence, direct Windows Registry APIs, and zero public tweak-apply authority. Live Registry mutation proof is not claimed.
+- **Phase 12:** merged and engineering-proven — typed MCP/RPC-first external authority over exactly the three Phase 11 low-risk reversible HKCU DWORD tweaks, with trusted transport context, exact caller/scoped permission policy, prepare→confirm/apply fingerprint continuity, crate-private capability issuance, single-use replay-resistant sessions, and no public CLI mutation bypass. Live Registry mutation proof remains unclaimed.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -41,6 +42,8 @@ Phase 9 implementation-code run `31715322010` and final documentation-state run 
 Phase 10 corrected implementation run `31887310279` and final documentation-state run `31887513599` passed the complete Ubuntu and Windows Phase 1–10 pipeline with both Major CodeRabbit review threads resolved, including the real Windows live-state proof, and Phase 10 merged through PR #17 as `15b62fcbab8d400fd5497b422243b85d7f3d5595`.
 
 Phase 11 corrected implementation run `31894350194` and final documentation-state run `31894626669` passed the complete Ubuntu and Windows Phase 1–11 pipeline with all three CodeRabbit correctness threads resolved, and Phase 11 merged through PR #19 as `66cca16be15fe617590445c6bb8993c5a242caf0`.
+
+Phase 12 exact implementation-head run `31899810049` passed the complete Ubuntu and Windows Phase 1–12 pipeline, including the Phase 12 authority gate, Clippy with warnings denied, full units/adversarial proof, Windows live read-only state proof, Runtime System X-Ray, and all applicable inherited fixtures. Phase 12 merged through PR #22 as `e762369e1f71a67ef51ce216af792fdd00e74ad5`. CodeRabbit was explicitly triggered but had published no review submission or inline review thread at the merge gate, so no external CodeRabbit PASS is claimed.
 
 ## Phase 5 frozen implementation
 
@@ -255,6 +258,36 @@ CI compiles the real Windows Registry backend and exercises the real named mutex
 
 The detailed Phase 11 authority, external-review corrections, and proof boundary are frozen in `docs/decisions/0011-PHASE11-TWEAK-EXECUTOR.md` and `docs/PHASE11_20_LANE_REVIEW.md`.
 
+## Phase 12 frozen implementation
+
+Phase 12 exposes the first external machine-changing orchestration contract over the proven Phase 11 tweak executor while keeping the executor itself bounded to exactly the same three low-risk reversible HKCU DWORD actions.
+
+It adds:
+
+- canonical MCP/RPC-first machine-changing orchestration in `docs/NEO_DRIVER_MASTER_PLAN.md`;
+- MCP tools `neo_tweaks_prepare` and `neo_tweaks_apply`;
+- workstation/local RPC methods `neo.tweaks.prepare` and `neo.tweaks.apply` under schema `neo-rpc-v1`;
+- exact caller-kind + principal policy with separate `neo.tweaks.prepare` and `neo.tweaks.low-risk.apply` permission scopes;
+- trusted server-side caller/scope context that is not deserializable from untrusted request JSON;
+- trusted service-instance identity plus checked monotonic session sequencing;
+- prepare-time policy/scope validation before any live Registry read;
+- bounded request/action cardinality at the exact three-action Phase 11 ceiling;
+- actual baseline capture and exact Phase 4 transaction fingerprint returned for review;
+- explicit confirmed apply bound to the same caller, exact fingerprint, and complete exact action set;
+- reuse of the existing Phase 4 `TransactionAuthorization` rather than a parallel authorization model;
+- crate-private `TweakExecutorCapability::for_rpc()` issuance only after all RPC authority gates pass;
+- one outstanding prepared tweak plan per caller, with newer preparation invalidating older unconfirmed authority;
+- single-use apply authority consumed before capability issuance, so execution failure requires a fresh prepare and current-state recapture;
+- stable typed RPC error classification;
+- no dependency from `neo-cli` to the mutation service and no public tweak-apply CLI command;
+- Phase 12 deterministic 20-lane static review integrated into normal Ubuntu/Windows CI.
+
+Independent authority review closed trusted-context deserialization, replay/session identity, action-vector cardinality, duplicated pending mission state, and Windows-only fake-host import-scope findings before final proof.
+
+Phase 12 does **not** broaden the Registry catalogue, add arbitrary Registry editing, expose CLI/GUI mutation, issue runtime/driver mutation authority, use GitHub as an interactive execution transport, or claim live ATHENA Registry mutation proof.
+
+The detailed authority contract is frozen in `docs/decisions/0012-PHASE12-MCP-RPC-TWEAK-AUTHORITY.md` and `docs/PHASE12_20_LANE_REVIEW.md`.
+
 ## Still deliberately blocked
 
 Phase 5 does **not** expose a user/technician driver mutation CLI yet. Live attached-device mutation proof is required before that public write surface is opened.
@@ -263,7 +296,7 @@ Phase 6 remains the read-only runtime/gaming assessment and System-X-Ray authori
 
 Phase 7 does **not** expose online package acquisition, archive execution, public pack import/cleanup writes, or any new driver/security mutation authority.
 
-Phase 9 remains the platform-neutral desired/current-state assessment authority and Phase 10 remains the fixed reviewed read-only Windows state resolver. Phase 11 now binds exactly three curated HKCU DWORD tweaks into the proven transaction engine and implements an internal capability-gated Registry executor, but it does **not** expose public CLI/GUI/MCP-RPC apply authority, broader Registry/service/AppX/feature mutation, or claim live ATHENA Registry mutation proof.
+Phase 9 remains the platform-neutral desired/current-state assessment authority and Phase 10 remains the fixed reviewed read-only Windows state resolver. Phase 11 binds exactly three curated HKCU DWORD tweaks into the proven transaction engine. Phase 12 now exposes those exact three low-risk tweaks through the typed MCP/RPC authority service, but it does **not** broaden Registry scope, add public CLI mutation, expose an independent GUI mutation backend, issue runtime/driver mutation authority, or claim live ATHENA Registry mutation proof.
 
 The following remain blocked:
 
@@ -297,6 +330,7 @@ Implementation continues to honor:
 - `docs/decisions/0009-PHASE9-STATE-ASSESSMENT-FOUNDATION.md`;
 - `docs/decisions/0010-PHASE10-WINDOWS-STATE-RESOLUTION.md`;
 - `docs/decisions/0011-PHASE11-TWEAK-EXECUTOR.md`.
+- `docs/decisions/0012-PHASE12-MCP-RPC-TWEAK-AUTHORITY.md`.
 
 ## Proof status
 
@@ -311,6 +345,7 @@ Implementation continues to honor:
 - Phase 9: **PROVEN and merged** at the read-only state-assessment foundation boundary.
 - Phase 10: **PROVEN and merged** at the read-only Windows live-state resolution + Phase 9 assessment boundary.
 - Phase 11: **PROVEN and merged** at the internal capability-gated three-tweak HKCU DWORD transaction/executor boundary; no public apply capability or live Registry mutation proof is claimed.
+- Phase 12: **PROVEN and merged** at the typed MCP/RPC-first external authority boundary for exactly the three Phase 11 low-risk HKCU DWORD tweaks; no broader Registry/runtime/driver authority, public CLI mutation, or live Registry mutation proof is claimed.
 - Phase 5 platform-neutral transaction/driverstore core: compiler/Clippy/adversarial proof passed before freeze.
 - Phase 5 Windows SetupAPI/NewDev backend: Windows compiler proof passed; Windows Clippy with warnings denied passed; Windows-specific validation regressions passed.
 - Windows fail-closed observation correction run `31650621429`: **PASS**.
@@ -381,6 +416,13 @@ Implementation continues to honor:
 - Phase 11 Windows synchronization proof: **real named mutex acquisition/release executed in CI without Registry mutation**.
 - Phase 11 merged through PR #19 as `66cca16be15fe617590445c6bb8993c5a242caf0`.
 - Phase 11 live Registry mutation proof: **not claimed**; real Registry write/rollback behavior remains behind the opaque internal capability and fake-host proof boundary.
-- Phase 11 public tweak mutation proof: **not claimed**; CLI/GUI/MCP-RPC capability issuance remains blocked pending its own reviewed authority contract.
+- Phase 11 public CLI/GUI tweak mutation proof: **not claimed**; Phase 12 supplies the reviewed MCP/RPC authority contract instead of opening a CLI mutation bypass.
+- Phase 12 exact implementation-head run `31899810049`: **PASS on Ubuntu and Windows** across Phase 1–12 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, full workspace units/adversarial regressions, Windows live read-only state proof, Runtime System X-Ray, and every applicable inherited fixture.
+- Phase 12 independent authority review: **5 bounded findings closed** — trusted-context deserialization, replay/session identity, action-vector cardinality, duplicated pending mission state, and Windows-only fake-host import scope.
+- Phase 12 PR #22 external CodeRabbit disposition at merge: **review explicitly triggered; no review submission or inline review thread had been published, so no external CodeRabbit PASS is claimed**.
+- Phase 12 final implementation PR surface: **9 intended files; no temporary proof/helper workflow, patch script, or diagnostic artifact**.
+- Phase 12 merged through PR #22 as `e762369e1f71a67ef51ce216af792fdd00e74ad5`.
+- Phase 12 live Registry mutation proof: **not claimed**; automated proof remains fake-host/adversarial for mutation and Windows live proof remains read-only.
+- Phase 12 broader mutation proof: **not claimed**; arbitrary Registry, runtime/driver MCP authority, services/AppX/features/BCD/security mutation, public CLI mutation, and independent GUI mutation remain separately gated.
 
-Phases 1–11 are closed at their recorded repository boundaries. Phase 5 public driver mutation still requires live attached-device proof. Phase 8 public runtime mutation still requires a separately reviewed capability-issuance/live-installer proof path. Phase 11 now provides internal transaction-bound Registry execution for exactly three curated HKCU DWORD tweaks, while public tweak authority, broader tweak/debloat domains, and live Registry mutation proof remain separately blocked. Phase 7 network acquisition, archive execution, Windows-feature mutation, Winget execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, and recovery contracts are frozen and proven.
+Phases 1–12 are closed at their recorded repository boundaries. Phase 12 is the canonical MCP/RPC-first external authority boundary for exactly the three Phase 11 low-risk reversible HKCU DWORD tweaks. Live Registry mutation proof, broader tweak/debloat domains, runtime/driver MCP authority, public CLI mutation, independent GUI mutation, Phase 7 network acquisition, archive execution, Windows-feature mutation, Winget execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, recovery, and proof contracts are frozen and proven.
