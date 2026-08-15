@@ -42,11 +42,45 @@ fn bindings() -> StateBindings {
     .unwrap()
 }
 
+fn captured_value(source: &str) -> CapturedState {
+    CapturedState {
+        reader: ReaderId::new("fixture.reader").unwrap(),
+        state: ObservedState::Present {
+            value: TweakValue::U32(0),
+        },
+        source: source.to_string(),
+    }
+}
+
 #[test]
 fn reader_id_direct_deserialization_revalidates() {
     assert!(serde_json::from_str::<ReaderId>("\"fixture.reader\"").is_ok());
     assert!(serde_json::from_str::<ReaderId>("\"Fixture.Reader\"").is_err());
     assert!(serde_json::from_str::<ReaderId>("\"fixture reader\"").is_err());
+}
+
+#[test]
+fn directly_constructed_duplicate_captures_fail_before_resolution() {
+    let captured = CapturedStates {
+        values: vec![captured_value("first"), captured_value("second")],
+    };
+    let selected = vec!["fixture.enabled".to_string()];
+    assert!(matches!(
+        resolve_selected_evidence(&catalogue(), &bindings(), &captured, &selected),
+        Err(StatePlanError::DuplicateCapturedState(_))
+    ));
+}
+
+#[test]
+fn directly_constructed_blank_capture_source_fails_before_resolution() {
+    let captured = CapturedStates {
+        values: vec![captured_value("   ")],
+    };
+    let selected = vec!["fixture.enabled".to_string()];
+    assert!(matches!(
+        resolve_selected_evidence(&catalogue(), &bindings(), &captured, &selected),
+        Err(StatePlanError::EmptyField("captured state source"))
+    ));
 }
 
 #[test]
@@ -93,14 +127,7 @@ fn missing_capture_is_unavailable() {
 #[test]
 fn captured_state_keeps_provenance() {
     let selected = vec!["fixture.enabled".to_string()];
-    let captured = CapturedStates::new(vec![CapturedState {
-        reader: ReaderId::new("fixture.reader").unwrap(),
-        state: ObservedState::Present {
-            value: TweakValue::U32(0),
-        },
-        source: "fixture-source".to_string(),
-    }])
-    .unwrap();
+    let captured = CapturedStates::new(vec![captured_value("fixture-source")]).unwrap();
     let evidence =
         resolve_selected_evidence(&catalogue(), &bindings(), &captured, &selected).unwrap();
     assert_eq!(evidence.observations[0].target.key, "fixture.target");
