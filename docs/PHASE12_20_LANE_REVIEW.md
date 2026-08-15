@@ -2,6 +2,8 @@
 
 Phase 12 is the first external orchestration authority over Neo's proven Phase 11 three-tweak executor. It does not widen Registry scope. Every lane is blocking.
 
+Canonical architecture alignment: `docs/NEO_DRIVER_MASTER_PLAN.md` section 25 is reconciled to the MCP/RPC-first control plane. GUI, CLI, Hunter, Oracle, and remote-control surfaces must converge on the same Neo core/service authority rather than creating independent mutation logic.
+
 1. **Protocol identity** — MCP tool names and RPC method names are explicit, versioned, and frozen.
 2. **Transport-context separation** — caller identity and granted scopes are trusted context, never client request fields.
 3. **Exact caller policy** — authority is tied to an exact caller kind + principal allow-list entry.
