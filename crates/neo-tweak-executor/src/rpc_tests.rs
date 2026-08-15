@@ -91,7 +91,12 @@ fn service() -> TweakRpcService {
         definition(crate::TASKBAR_CENTERED_ICONS, 1),
     ])
     .unwrap();
-    TweakRpcService::new(catalogue, TweakRpcPolicy::new(vec![caller()]).unwrap()).unwrap()
+    TweakRpcService::new(
+        catalogue,
+        TweakRpcPolicy::new(vec![caller()]).unwrap(),
+        "phase12-test-instance",
+    )
+    .unwrap()
 }
 
 fn caller() -> TweakRpcCaller {
@@ -316,6 +321,54 @@ fn confirmed_scoped_apply_completes_and_is_single_use() {
             .code(),
         TweakRpcErrorCode::SessionNotFound
     );
+}
+
+#[test]
+fn reprepare_invalidates_prior_plan_and_stale_apply_cannot_target_fresh_authority() {
+    let mut service = service();
+    let mut host = FakeHost::with(crate::SHOW_FILE_EXTENSIONS, RegistrySnapshot::Dword(1));
+    let first = service
+        .prepare_with_test_host(
+            &context(&[TWEAK_PREPARE_PERMISSION_SCOPE]),
+            prepare_request("prepare-replay"),
+            &host,
+        )
+        .unwrap();
+    let stale_apply = apply_request(&first, true);
+
+    let second = service
+        .prepare_with_test_host(
+            &context(&[TWEAK_PREPARE_PERMISSION_SCOPE]),
+            prepare_request("prepare-replay"),
+            &host,
+        )
+        .unwrap();
+
+    assert_eq!(first.plan_fingerprint, second.plan_fingerprint);
+    assert_ne!(first.session_id, second.session_id);
+    assert_eq!(service.pending_session_count(), 1);
+    assert_eq!(
+        service
+            .apply_with_test_host(
+                &context(&[TWEAK_APPLY_PERMISSION_SCOPE]),
+                stale_apply,
+                &mut host,
+            )
+            .unwrap_err()
+            .code(),
+        TweakRpcErrorCode::SessionNotFound
+    );
+    assert_eq!(service.pending_session_count(), 1);
+
+    let receipt = service
+        .apply_with_test_host(
+            &context(&[TWEAK_APPLY_PERMISSION_SCOPE]),
+            apply_request(&second, true),
+            &mut host,
+        )
+        .unwrap();
+    assert_eq!(receipt.stage, TransactionStage::Complete);
+    assert_eq!(service.pending_session_count(), 0);
 }
 
 #[test]

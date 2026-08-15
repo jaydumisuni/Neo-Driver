@@ -21,7 +21,7 @@ pub const RPC_TWEAK_APPLY_METHOD: &str = "neo.tweaks.apply";
 pub const TWEAK_PREPARE_PERMISSION_SCOPE: &str = "neo.tweaks.prepare";
 pub const TWEAK_APPLY_PERMISSION_SCOPE: &str = "neo.tweaks.low-risk.apply";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TweakRpcCallerKind {
     Hunter,
@@ -30,7 +30,7 @@ pub enum TweakRpcCallerKind {
     Internal,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct TweakRpcCaller {
     pub kind: TweakRpcCallerKind,
     pub principal: String,
@@ -42,7 +42,7 @@ impl TweakRpcCaller {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TweakRpcContext {
     pub caller: TweakRpcCaller,
     pub granted_scopes: Vec<String>,
@@ -149,6 +149,7 @@ pub enum TweakRpcErrorCode {
     ConfirmationRequired,
     SessionNotFound,
     SessionConflict,
+    ServiceStateExhausted,
     CallerMismatch,
     PlanMismatch,
     NoChange,
@@ -176,6 +177,8 @@ pub enum TweakRpcError {
     SessionNotFound(String),
     #[error("prepared RPC tweak session already exists: {0}")]
     SessionConflict(String),
+    #[error("RPC service session sequence is exhausted")]
+    ServiceStateExhausted,
     #[error("RPC caller differs from the caller that prepared the session")]
     CallerMismatch,
     #[error("RPC apply request does not match the prepared transaction fingerprint or action set")]
@@ -193,6 +196,7 @@ impl TweakRpcError {
             Self::ConfirmationRequired => TweakRpcErrorCode::ConfirmationRequired,
             Self::SessionNotFound(_) => TweakRpcErrorCode::SessionNotFound,
             Self::SessionConflict(_) => TweakRpcErrorCode::SessionConflict,
+            Self::ServiceStateExhausted => TweakRpcErrorCode::ServiceStateExhausted,
             Self::CallerMismatch => TweakRpcErrorCode::CallerMismatch,
             Self::PlanMismatch => TweakRpcErrorCode::PlanMismatch,
             Self::Execution(TweakExecutionError::NothingToChange) => TweakRpcErrorCode::NoChange,
@@ -228,15 +232,25 @@ struct PendingTweakRpcSession {
 pub struct TweakRpcService {
     catalogue: TweakCatalogue,
     policy: TweakRpcPolicy,
+    service_instance_id: String,
+    next_session_sequence: u64,
     pending: BTreeMap<String, PendingTweakRpcSession>,
 }
 
 impl TweakRpcService {
-    pub fn new(catalogue: TweakCatalogue, policy: TweakRpcPolicy) -> Result<Self, TweakRpcError> {
+    pub fn new(
+        catalogue: TweakCatalogue,
+        policy: TweakRpcPolicy,
+        service_instance_id: impl Into<String>,
+    ) -> Result<Self, TweakRpcError> {
         catalogue.validate().map_err(TweakExecutionError::from)?;
+        let service_instance_id = service_instance_id.into();
+        require_text("service instance id", &service_instance_id, 160)?;
         Ok(Self {
             catalogue,
             policy,
+            service_instance_id,
+            next_session_sequence: 0,
             pending: BTreeMap::new(),
         })
     }
@@ -332,10 +346,17 @@ impl TweakRpcService {
             .transaction()
             .fingerprint()
             .map_err(TweakExecutionError::from)?;
-        let session_id = format!("phase12:{}:{plan_fingerprint}", request.request_id);
-        if self.pending.contains_key(&session_id) {
-            return Err(TweakRpcError::SessionConflict(session_id));
-        }
+        self.pending
+            .retain(|_, pending| pending.caller != context.caller);
+        let session_sequence = self
+            .next_session_sequence
+            .checked_add(1)
+            .ok_or(TweakRpcError::ServiceStateExhausted)?;
+        self.next_session_sequence = session_sequence;
+        let session_id = format!(
+            "phase12:{}:{}:{plan_fingerprint}",
+            self.service_instance_id, session_sequence
+        );
         let actions = session
             .plan()
             .steps()
