@@ -9,7 +9,7 @@ Canonical architecture alignment: `docs/NEO_DRIVER_MASTER_PLAN.md` section 25 is
 3. **Exact caller policy** — authority is tied to an exact caller kind + principal allow-list entry.
 4. **Prepare permission** — live preparation requires `neo.tweaks.prepare` before any host read.
 5. **Mechanically low-risk apply permission** — mutation requires `neo.tweaks.low-risk.apply`, and every reachable Phase 11 specification is privately fixed at `RiskLevel::Low` with transaction risk derived from that fixed specification.
-6. **Bounded request/service validation** — request IDs, mission IDs, scopes and trusted service-instance identity are non-empty, bounded and control-character-free; repeated list values fail closed.
+6. **Bounded request/service validation** — IDs/scopes/service-instance identity are bounded and control-character-free; repeated list values fail closed; untrusted prepare/apply action arrays cannot exceed the three curated Phase 11 actions.
 7. **Curated-only preparation** — Phase 12 delegates tweak semantics to the exact Phase 11 catalogue/binding checks.
 8. **Actual baseline evidence** — prepare returns the actual captured baseline for each changed action.
 9. **Transaction fingerprint exposure** — prepare returns the exact Phase 4 plan fingerprint used for later authority.
@@ -23,7 +23,7 @@ Canonical architecture alignment: `docs/NEO_DRIVER_MASTER_PLAN.md` section 25 is
 17. **Single-use + stale-replay boundary** — validated apply consumes authority before executor issuance; server instance identity + checked monotonic sequence make session IDs non-repeatable inside an instance; a newer prepare invalidates that caller's older outstanding plan.
 18. **Stable error taxonomy** — caller, permission, confirmation, plan/session, service-state, platform, no-change and execution failures map to typed RPC error codes.
 19. **No CLI mutation bypass** — Phase 12 adds no CLI dependency or public tweak-apply command.
-20. **Frozen boundary + adversarial proof** — Decision 0012 and regressions prove unauthorized, unscoped, unconfirmed, mismatched, stale/replayed and failed-execution cases without live Registry writes.
+20. **Frozen boundary + adversarial proof** — Decision 0012 and regressions prove unauthorized, unscoped, oversized, unconfirmed, mismatched, stale/replayed and failed-execution cases without live Registry writes.
 
 ## Required proof
 
