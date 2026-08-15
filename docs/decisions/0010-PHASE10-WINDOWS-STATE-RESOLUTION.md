@@ -16,7 +16,7 @@ Phase 10 adds no tweak mutation authority, transaction binding, registry/service
 
 `StateBinding` maps one canonical Phase 9 `TweakTarget` to one `ReaderId`. `StateBindings` validates the complete root and rejects duplicate target bindings after canonical target normalization.
 
-`CapturedState` records one reader identity, one typed `ObservedState`, and one non-empty provenance source. `CapturedStates` validates the complete root and rejects duplicate reader observations.
+`CapturedState` records one reader identity, one typed `ObservedState`, and one non-empty provenance source. `CapturedStates` validates the complete root and rejects duplicate reader observations. Resolution re-validates `CapturedStates` before indexing, including values built directly through the public struct fields.
 
 `resolve_selected_evidence()` requires an explicit, duplicate-free tweak selection. Unknown tweak IDs and missing bindings fail closed. Missing reader capture is normalized to `ObservedState::Unavailable`, which Phase 9 already treats as a hard assessment gate rather than guessed state.
 
@@ -24,7 +24,19 @@ Phase 10 adds no tweak mutation authority, transaction binding, registry/service
 
 The Phase 10 Windows adapter does not introduce a second low-level Windows command surface. It reuses `neo-probe::scan_current_machine()`, the already-proven read-only System X-Ray boundary, and maps only fixed reviewed reader IDs into normalized machine-profile evidence.
 
-The initial fixed catalogue includes Windows product/display/build/architecture identity plus the already-proven read-only security/reboot facts exposed by System X-Ray: Test Signing, no-integrity-checks, Secure Boot, Memory Integrity, and pending reboot.
+The complete initial fixed reader catalogue is:
+
+- `windows.os.product_name`
+- `windows.os.display_version`
+- `windows.os.current_build`
+- `windows.os.architecture`
+- `windows.security.test_signing`
+- `windows.security.no_integrity_checks`
+- `windows.security.secure_boot`
+- `windows.security.memory_integrity`
+- `windows.security.pending_reboot`
+
+The Phase 10 structural review extracts the actual Rust match arms and requires that set to equal this nine-reader catalogue exactly.
 
 Unknown reader IDs do not execute or construct a command. They produce unavailable evidence.
 
@@ -36,11 +48,13 @@ Persisted JSON can therefore select only a validated opaque reader ID; it cannot
 
 The command reports `Machine changes: none`. No product `neo` write command is added.
 
-The original Phase 9 `state_assess_cli.rs` remains preserved so predecessor contract tests continue proving the Phase 9 boundary independently from the new Phase 10 proof path.
+The original Phase 9 `state_assess_cli.rs` remains preserved byte-for-byte at its frozen Git blob identity so predecessor contract tests continue proving the Phase 9 boundary independently from the new Phase 10 proof path.
 
 ## Behavioral proof
 
 Windows CI launches the real `neo-state-assess live` binary against the fixed `windows.os.current_build` reader, snapshots an isolated fixture tree before and after execution, and requires identical contents plus successful read-only assessment output.
+
+The normal CI chain also executes the complete workspace unit suite. Phase 10's structural gate verifies the named resolver regressions and the active CI step definitions/commands, so the 20 lanes cannot be satisfied merely by arbitrary comments or documentation tokens.
 
 The live proof therefore exercises real Windows evidence capture without claiming or performing a machine change.
 
