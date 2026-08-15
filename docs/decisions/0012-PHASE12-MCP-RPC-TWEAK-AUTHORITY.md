@@ -35,16 +35,18 @@ This follows the existing TTG control-plane convention: MCP is the caller-facing
 
 `TweakRpcContext` is trusted server-side context. The MCP/RPC transport or embedding host must construct it only after authenticating the connection and resolving the caller principal and granted permission scopes.
 
-Caller identity and permission scopes are deliberately **not** fields of `TweakRpcPrepareRequest` or `TweakRpcApplyRequest`. Untrusted clients must not be allowed to self-assert a principal or grant themselves scopes by placing those values in request JSON.
+Caller identity and permission scopes are deliberately **not** fields of `TweakRpcPrepareRequest` or `TweakRpcApplyRequest`. Untrusted clients must not be allowed to self-assert a principal or grant themselves scopes by placing those values in request JSON. The caller-kind, caller, and trusted context types therefore do not implement Serde `Deserialize`; only the untrusted request contracts are deserializable.
 
 Phase 12 policy authorizes an exact set of `TweakRpcCaller` identities. Caller kind alone is not authority; the exact principal must also be present in `TweakRpcPolicy`.
+
+`TweakRpcService` is also constructed with a trusted **service instance ID** supplied by the embedding workstation/RPC host. It is not a client request field. The host must use a fresh instance identity whenever it creates a new authority-service instance.
 
 The current scopes are:
 
 - `neo.tweaks.prepare` — permits read-only preparation and live baseline capture;
 - `neo.tweaks.low-risk.apply` — permits confirmed execution of the exact prepared low-risk Phase 11 plan.
 
-A transport may grant both scopes to an approved owner/admin caller, but Neo validates the required scope independently for each operation.
+A transport may grant both scopes to an approved owner/admin caller, but Neo validates the required scope independently for each operation. The apply scope is mechanically limited to low-risk actions because the three Phase 11 Registry specifications are fixed at `RiskLevel::Low` and transaction action risk is derived from those private fixed specifications, not from caller-supplied request data.
 
 ## Two-step authority protocol
 
@@ -69,6 +71,8 @@ Preparation then reuses Phase 11 to:
 - compute its exact fingerprint.
 
 The response exposes the prepared action IDs, desired DWORDs, captured baselines, transaction fingerprint, session ID, and the fact that confirmation is still required. Preparation never issues mutation authority to the caller.
+
+Neo permits **one outstanding prepared tweak plan per caller**. A newer successful prepare for the same caller invalidates that caller's older unconfirmed prepared session before the new session is stored. This bounds pending authority and makes the newest reviewed plan the only plan that caller can subsequently confirm.
 
 ### Apply
 
@@ -95,15 +99,25 @@ The service issues the capability only after its policy, scope, caller-continuit
 
 The capability does not broaden what Phase 11 can do. The raw Registry host, curated Registry bindings, and write/rollback implementation remain private and unchanged.
 
-## Single-use authority
+## Single-use and replay authority
 
 A successfully validated apply request consumes the prepared service session before authorization or machine mutation begins.
+
+Every prepared session ID is server-derived from:
+
+- the trusted service instance ID;
+- a checked **monotonic session sequence** owned by that service instance;
+- the exact Phase 4 transaction fingerprint.
+
+The client request ID is correlation metadata only and is not the uniqueness source for mutation authority. Sequence exhaustion fails closed with `service_state_exhausted` rather than wrapping.
 
 Therefore:
 
 - an apply request cannot be replayed after success;
 - a backend/verification/rollback failure cannot leave a reusable mutation token;
-- retry after execution failure requires a fresh prepare, which captures current state again and creates a fresh transaction fingerprint.
+- an identical re-prepare cannot recreate the previous session ID inside the same service instance;
+- a newer prepare from the same caller invalidates that caller's older unconfirmed prepared plan;
+- retry after execution failure requires a fresh prepare, which recaptures actual current state and receives a fresh service session identity even when the deterministic transaction fingerprint is unchanged.
 
 Validation failures that happen before capability issuance, such as missing confirmation or fingerprint mismatch, do not consume the prepared session so the same caller can correct the request without silently recapturing state. Phase 11 baseline-drift checks still run again at authorization and apply.
 
@@ -133,6 +147,7 @@ MCP/RPC callers receive stable structured error classes rather than parsing arbi
 - `confirmation_required`;
 - `session_not_found`;
 - `session_conflict`;
+- `service_state_exhausted`;
 - `caller_mismatch`;
 - `plan_mismatch`;
 - `no_change`;
@@ -149,7 +164,7 @@ A future Neo GUI should invoke the same typed service/core authority path rather
 
 ## Proof boundary
 
-Phase 12 unit/adversarial proof uses a deterministic fake host for mutation behavior and proves policy, scope, caller continuity, confirmation, exact fingerprint/action binding, single-use authority, and error classification.
+Phase 12 unit/adversarial proof uses a deterministic fake host for mutation behavior and proves policy, scope, caller continuity, trusted-context separation, confirmation, exact fingerprint/action binding, service-instance sequencing, stale-request rejection, single-use authority, and error classification.
 
 Windows CI compiles the real Phase 12 path through the existing Phase 11 Windows executor. Phase 12 does **not** claim that CI or ATHENA has performed a live Registry mutation. Live attached-machine mutation remains a separate proof obligation before broader deployment claims.
 
@@ -164,7 +179,7 @@ Phase 12 does not add:
 - services, AppX/debloat, Windows Features, scheduled tasks, Explorer restart, BCD, Test Signing, or security mutation;
 - public CLI mutation;
 - an independent GUI mutation backend;
-- caller-supplied identity or permission scopes;
+- caller-supplied identity, permission scopes, or service instance identity;
 - reusable bearer mutation tokens;
 - GitHub as an interactive execution transport;
 - live Registry mutation proof;
