@@ -43,7 +43,7 @@ Phase 10 corrected implementation run `31887310279` and final documentation-stat
 
 Phase 11 corrected implementation run `31894350194` and final documentation-state run `31894626669` passed the complete Ubuntu and Windows Phase 1–11 pipeline with all three CodeRabbit correctness threads resolved, and Phase 11 merged through PR #19 as `66cca16be15fe617590445c6bb8993c5a242caf0`.
 
-Phase 12 exact implementation-head run `31899810049` passed the complete Ubuntu and Windows Phase 1–12 pipeline, including the Phase 12 authority gate, Clippy with warnings denied, full units/adversarial proof, Windows live read-only state proof, Runtime System X-Ray, and all applicable inherited fixtures. Phase 12 merged through PR #22 as `e762369e1f71a67ef51ce216af792fdd00e74ad5`. CodeRabbit was explicitly triggered but had published no review submission or inline review thread at the merge gate, so no external CodeRabbit PASS is claimed.
+Phase 12 exact implementation-head run `31899810049` passed the complete Ubuntu and Windows Phase 1–12 pipeline, including the Phase 12 authority gate, Clippy with warnings denied, full units/adversarial proof, Windows live read-only state proof, Runtime System X-Ray, and all applicable inherited fixtures. Phase 12 merged through PR #22 as `e762369e1f71a67ef51ce216af792fdd00e74ad5`. Canonical documentation-state run `31900134525` then passed the same complete Ubuntu and Windows Phase 1–12 pipeline on the one-file status branch. CodeRabbit was explicitly triggered but had published no review submission or inline review thread at the implementation merge gate, so no external CodeRabbit PASS is claimed.
 
 ## Phase 5 frozen implementation
 
@@ -418,6 +418,7 @@ Implementation continues to honor:
 - Phase 11 live Registry mutation proof: **not claimed**; real Registry write/rollback behavior remains behind the opaque internal capability and fake-host proof boundary.
 - Phase 11 public CLI/GUI tweak mutation proof: **not claimed**; Phase 12 supplies the reviewed MCP/RPC authority contract instead of opening a CLI mutation bypass.
 - Phase 12 exact implementation-head run `31899810049`: **PASS on Ubuntu and Windows** across Phase 1–12 static gates, lock integrity, rustfmt, locked workspace build, Clippy with warnings denied, full workspace units/adversarial regressions, Windows live read-only state proof, Runtime System X-Ray, and every applicable inherited fixture.
+- Phase 12 canonical documentation-state run `31900134525`: **PASS on Ubuntu and Windows** across the complete Phase 1–12 pipeline on the one-file `docs/IMPLEMENTATION_STATUS.md` recovery branch.
 - Phase 12 independent authority review: **5 bounded findings closed** — trusted-context deserialization, replay/session identity, action-vector cardinality, duplicated pending mission state, and Windows-only fake-host import scope.
 - Phase 12 PR #22 external CodeRabbit disposition at merge: **review explicitly triggered; no review submission or inline review thread had been published, so no external CodeRabbit PASS is claimed**.
 - Phase 12 final implementation PR surface: **9 intended files; no temporary proof/helper workflow, patch script, or diagnostic artifact**.
