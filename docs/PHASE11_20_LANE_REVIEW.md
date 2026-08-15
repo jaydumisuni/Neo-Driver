@@ -13,47 +13,64 @@
 9. Public mutation methods require an opaque `TweakExecutorCapability` with no public constructor.
 10. Phase 11 reuses the Phase 4 `TransactionPlan`/`TransactionCheckpoint` engine instead of introducing a second transaction state machine.
 11. Actual HKCU pre-state is captured before authorization; donor/default values are never rollback truth.
-12. Baseline state is re-read before authorization and before apply so drift blocks before a write.
+12. Baseline state is re-read before authorization and before apply; a bounded same-session named mutex spans the pre-apply recheck through write/verify/rollback.
 13. API outcome and observed machine change remain separate evidence.
 14. Successful writes require a fresh Registry observation through the transaction verification path.
-15. Verification failure or changed write failure routes exact captured-state rollback.
+15. Every changed tweak gets a rollback attempt; complete rollback outcomes are recorded through the shared transaction batch contract before terminal failure is decided.
 16. A captured absent value rolls back by deleting that exact value; a captured DWORD rolls back to that exact DWORD.
-17. Unsupported Registry type/size blocks before authority because Phase 11 cannot restore it exactly.
+17. Unsupported Registry type/size, including `ERROR_MORE_DATA`, blocks before authority because Phase 11 cannot restore it exactly.
 18. The real Windows backend uses typed Registry APIs directly; no shell, PowerShell, `reg.exe`, or arbitrary process command exists.
-19. The public `neo` CLI has no Phase 11 mutation dependency/command.
-20. Fake-host adversarial regressions cover unsupported authority, satisfied no-op, exact present/absent baselines, pre-authority/pre-apply drift, post-write verification, rollback, partial changed failure, multi-tweak completion, and the closed capability boundary.
+19. The public `neo` CLI has no Phase 11 mutation dependency/command; future capability issuance remains behind a separately reviewed typed MCP/RPC control plane.
+20. Fake-host/shared-transaction adversarial regressions cover unsupported authority, contradictory curated semantics, satisfied no-op, exact present/absent baselines, pre-authority/pre-apply drift, post-write verification, complete multi-tweak rollback attempts, rollback batch completeness, partial failure, multi-tweak completion, and the closed capability boundary.
 
 ## Frozen donor evidence
 
 The first three bindings were recovered from the repository donor `jaydumisuni/winutil`:
 
-- `Customize-Preferences/ShowExt.mdx` — `HideFileExt`, value `0` to show extensions.
-- `Customize-Preferences/HiddenFiles.mdx` — `Hidden`, value `1` to show hidden files. Windows' canonical opposite state is DWORD `2`, so Phase 11 does not authorize `0` as an inverse value for this one-way tweak ID.
-- `Customize-Preferences/TaskbarAlignment.mdx` — `TaskbarAl`, value `1` centered / `0` left.
+- `Customize-Preferences/ShowExt.mdx` — `HideFileExt`, DWORD `0` to show extensions.
+- `Customize-Preferences/HiddenFiles.mdx` — `Hidden`, DWORD `1` to show hidden files; DWORD `0` is the opposite hidden state.
+- `Customize-Preferences/TaskbarAlignment.mdx` — `TaskbarAl`, DWORD `1` centered / DWORD `0` left.
 
 WinUtil `OriginalValue` fields are **not** Neo rollback evidence. Neo restores only the actual value/presence captured immediately before authority.
 
-## Pre-compiler findings closed
+## Engineering findings closed before freeze
 
-- Cargo generated the Phase 11 workspace lock with only the new local `neo-tweak-executor` package entry; no external dependency version changed.
-- The first Phase 11 static run found a proof-harness wording mismatch in lane 20. Review then exposed a Python bug where `set.issubset()` was incorrectly applied to the decision string character-by-character. The lane now uses explicit phrase membership and the implementation lanes remain unchanged.
-- The first formatter attempt exposed a Rust parse error in the curated-target comparison before type proof. The expected `TweakTarget` is now constructed as a named local value before canonical comparison.
-- The fake-host rollback regression was corrected before compiler proof so a synthetic corrupted write produces a genuinely different observed DWORD and therefore exercises changed-state verification failure and exact rollback.
-- The baseline-drift authorization regression now computes authorization before the mutable session borrow, avoiding a test-only borrow conflict.
-- Canonical `cargo fmt --all` completed successfully after the parse correction, and its temporary write-enabled workflow self-deleted in the same commit.
-- Independent pre-merge semantic audit corrected the hidden-files inverse value from `0` to Windows' canonical DWORD `2` and tightened the executor so persisted definitions can request only each curated tweak ID's exact approved forward DWORD.
+- Cargo generated the Phase 11 workspace lock without external dependency-version drift.
+- Early static-review wording and Python `issubset()` proof-harness defects were corrected before product proof.
+- Rust parsing/formatting issues in curated-target comparison were corrected before type proof.
+- Fake-host rollback and baseline-drift regressions were corrected so they exercise real changed-state and borrow-safe authority paths.
+- The first cross-platform type proof found private sibling-field construction and non-Windows dead-code issues; a crate-private constructor plus Windows/test-only internals closed those without widening authority or suppressing lints.
+- Clippy found a test-only field-reassignment pattern; the fixture now initializes the field structurally with no lint suppression.
+- Independent pre-review audit found same-session cross-process stale-baseline/rollback risk. A bounded `Local\THETECHGUY.NeoDriver.TweakExecutor.v1` named mutex now covers the second baseline check through writes, verification, and rollback. Windows units acquire/release the real mutex without modifying Registry values.
 
-## First compiler findings closed
+## External-review findings closed
 
-The first cross-platform type proof reached the real Phase 11 crate on both Ubuntu and Windows and exposed one type-boundary defect plus one architecture-quality issue:
+CodeRabbit full review identified three current correctness findings. All are fixed, regression-bound, replied to with current-head evidence, and explicitly resolved on PR #19:
 
-- `engine.rs` attempted to construct `TweakExecutionStep` through private sibling-module fields. The fix preserves private fields and adds a crate-private constructor instead of widening visibility.
-- Mutation internals were compiled on non-Windows production builds even though only Windows execution and crate tests can use them, producing dead-code warnings that would later fail Clippy. `engine`/`session` and internal curated Registry model helpers are now compiled only for Windows or tests, while the public inspection surface remains cross-platform.
-- The unused `validate_baseline_snapshot` helper was removed rather than suppressed.
-- The corrected workspace was formatted canonically and the temporary formatting helper self-deleted before authoritative re-proof.
+1. **Curated semantic binding:** a binary value with the wrong semantic direction could previously be requested. `RegistryTweakSpec` now binds each ID to its one approved forward DWORD, persisted-plan validation preserves that binding, and `contradictory_curated_semantics_fail_closed` proves rejection.
+2. **Complete rollback attempts:** rollback previously could stop after the first restore failure. Phase 11 now attempts every changed independent tweak and submits the complete result set through additive `TransactionCheckpoint::record_rollback_results_batch`; transaction-level tests require complete coverage and preserve every outcome before terminal failure, while the Phase 11 regression proves a later tweak is restored after an earlier restore failure.
+3. **Oversized Registry values:** fixed four-byte DWORD reads now classify `ERROR_MORE_DATA` as `UnsupportedRegistryState`, preserving the fail-closed exact-state contract.
+
+CodeRabbit confirmed each correction in-thread. PR #19 has zero unresolved review threads after reconciliation.
+
+## Implementation-code proof
+
+Current implementation head `53427008f41e383b46f8c7fea73a1e048d484844` passed run `31894350194` on Ubuntu and Windows:
+
+- Phase 1–11 deterministic static reviews;
+- Cargo lock integrity;
+- rustfmt;
+- locked full-workspace type/build;
+- Clippy with warnings denied;
+- complete workspace unit/adversarial suite, including rollback-batch and Phase 11 review regressions;
+- Windows Phase 10 live read-only state proof;
+- Windows Runtime System X-Ray;
+- all applicable catalogue, matcher, runtime, gaming, vault, runtime-executor, and transaction CLI fixtures.
+
+This is implementation-code proof. The documentation-state head created by this freeze must repeat the complete Ubuntu/Windows pipeline before merge.
 
 ## Deliberate proof boundary
 
-CI compiles the real Windows Registry backend, but all Phase 11 write/rollback behavior is exercised through the deterministic fake host. Phase 11 does not modify a GitHub runner Registry value and does not claim live ATHENA tweak mutation proof.
+CI compiles the real Windows Registry backend and acquires/releases the real named mutex, but all Phase 11 Registry write/rollback behavior is exercised through deterministic fake hosts. Phase 11 does **not** modify a GitHub runner Registry value and does **not** claim live ATHENA tweak mutation proof.
 
-There is no public tweak apply CLI/GUI surface in this phase. Explorer restart, services, AppX/debloat, Windows Features, BCD/security controls, and broader tweak mutation remain separate future authority domains.
+There is no public tweak apply CLI/GUI or MCP/RPC capability issuance in this phase. Explorer restart, services, AppX/debloat, Windows Features, BCD/security controls, cross-session/global serialization, and broader tweak mutation remain separate future authority domains.
