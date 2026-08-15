@@ -253,6 +253,11 @@ impl TweakExecutorCapability {
     pub(crate) fn for_tests() -> Self {
         Self { _private: () }
     }
+
+    #[cfg(any(windows, test))]
+    pub(crate) fn for_rpc() -> Self {
+        Self { _private: () }
+    }
 }
 
 #[cfg(any(windows, test))]
