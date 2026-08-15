@@ -107,11 +107,10 @@ pub(crate) struct TweakExecutionMutex {
 
 impl TweakExecutionMutex {
     pub(crate) fn acquire() -> Result<Self, TweakExecutionError> {
-        let mut name = wide(TWEAK_MUTEX_NAME);
-        let handle =
-            unsafe { CreateMutexW(None, false, PCWSTR(name.as_mut_ptr())) }.map_err(|error| {
-                TweakExecutionError::Registry(format!("mutex creation failed: {error}"))
-            })?;
+        let name = wide(TWEAK_MUTEX_NAME);
+        let handle = unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }.map_err(|error| {
+            TweakExecutionError::Registry(format!("mutex creation failed: {error}"))
+        })?;
         let wait = unsafe { WaitForSingleObject(handle, TWEAK_MUTEX_TIMEOUT_MS) };
         if wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED {
             return Ok(Self {
@@ -184,4 +183,14 @@ impl Drop for OpenKey {
 
 fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TweakExecutionMutex;
+
+    #[test]
+    fn mutex_acquires_without_registry_mutation() {
+        let _lock = TweakExecutionMutex::acquire().expect("Phase 11 mutex should be acquirable");
+    }
 }
