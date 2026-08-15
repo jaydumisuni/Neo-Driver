@@ -38,6 +38,7 @@ pub(crate) struct RegistryTweakSpec {
     pub target_key: &'static str,
     pub subkey: &'static str,
     pub value_name: &'static str,
+    pub desired_dword: u32,
     pub title: &'static str,
     pub risk: RiskLevel,
 }
@@ -57,6 +58,7 @@ pub(crate) fn spec_for_id(id: &str) -> Option<RegistryTweakSpec> {
             target_key: SHOW_FILE_EXTENSIONS,
             subkey: EXPLORER_ADVANCED,
             value_name: "HideFileExt",
+            desired_dword: 0,
             title: "Show file extensions",
             risk: RiskLevel::Low,
         }),
@@ -65,6 +67,7 @@ pub(crate) fn spec_for_id(id: &str) -> Option<RegistryTweakSpec> {
             target_key: SHOW_HIDDEN_FILES,
             subkey: EXPLORER_ADVANCED,
             value_name: "Hidden",
+            desired_dword: 1,
             title: "Show hidden files",
             risk: RiskLevel::Low,
         }),
@@ -73,6 +76,7 @@ pub(crate) fn spec_for_id(id: &str) -> Option<RegistryTweakSpec> {
             target_key: TASKBAR_CENTERED_ICONS,
             subkey: EXPLORER_ADVANCED,
             value_name: "TaskbarAl",
+            desired_dword: 1,
             title: "Taskbar centered icons",
             risk: RiskLevel::Low,
         }),
@@ -109,7 +113,7 @@ pub(crate) fn validate_definition(
     let desired = match &definition.operation {
         TweakOperation::Set {
             value: TweakValue::U32(value),
-        } if *value <= 1 => *value,
+        } if *value == spec.desired_dword => *value,
         _ => {
             return Err(TweakExecutionError::UnsupportedOperation(
                 definition.id.clone(),
@@ -168,10 +172,12 @@ impl TweakExecutionPlan {
         }
         let mut ids = BTreeSet::new();
         for step in &steps {
-            if !ids.insert(step.tweak_id.as_str()) || spec_for_id(&step.tweak_id).is_none() {
+            if !ids.insert(step.tweak_id.as_str()) {
                 return Err(TweakExecutionError::UnsupportedTweak(step.tweak_id.clone()));
             }
-            if step.desired_dword > 1 {
+            let spec = spec_for_id(&step.tweak_id)
+                .ok_or_else(|| TweakExecutionError::UnsupportedTweak(step.tweak_id.clone()))?;
+            if step.desired_dword != spec.desired_dword {
                 return Err(TweakExecutionError::UnsupportedOperation(
                     step.tweak_id.clone(),
                 ));
