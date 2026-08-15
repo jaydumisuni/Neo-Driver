@@ -49,10 +49,12 @@ Every `DebloatDefinition` contains:
 - Neo risk, recommendation and evidence verdict;
 - explicit default-selection state;
 - declared restore route;
-- side-effect text;
+- side-effect/dependency notes;
 - profiles in which the item must be preserved.
 
 Catalogue construction and Serde deserialization run the same validation. Duplicate Neo IDs and case-insensitive duplicate package identities fail closed.
+
+Every `FeatureDependent`, `DependencySensitive`, or `ProtectedManualOnly` definition must contain at least one non-empty side-effect/dependency note. `SafeOptional` may explicitly contain no known consequence note. This prevents a non-safe classification from existing without the consequence evidence that justifies review or protection.
 
 ## Default-selection law
 
@@ -151,6 +153,7 @@ Phase 13 proof covers:
 
 - typed catalogue and evidence validation;
 - duplicate/case-insensitive identity rejection;
+- mandatory consequence metadata for every non-safe class;
 - default-selection safety;
 - profile preservation;
 - explicit selection;
