@@ -115,6 +115,7 @@ fn protected_class_beats_profile_preservation_reason() {
     item.risk = RiskLevel::High;
     item.recommendation = RecommendationState::DoNotTouch;
     item.restore = RestoreMethod::None;
+    item.side_effects = vec!["synthetic protected consequence".to_string()];
     item.preserve_in_profiles = vec![DebloatProfile::Gaming];
     assert_eq!(
         disposition(item, DebloatProfile::Gaming),
