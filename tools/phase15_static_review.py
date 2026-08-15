@@ -20,26 +20,132 @@ phase15_live_step = """      - name: Phase 15 live Windows exact AppX identity p
 phase15_fixture_step = """      - name: Phase 15 transaction-readiness fixture proof
         run: cargo run --locked -p neo-debloat-plan --bin neo-debloat-prepare -- fixtures/debloat/phase15_catalogue.json fixtures/debloat/phase15_evidence.json fixtures/debloat/phase15_inventory.json safe-cleanup appx.contoso.phase15 phase15-fixture --json"""
 
+mutator_markers = (
+    ".RemovePackageAsync(",
+    ".RegisterPackageByFullNameAsync(",
+    ".RegisterPackagesByFullNameAsync(",
+    ".DeprovisionPackageForAllUsersAsync(",
+    ".ProvisionPackageForAllUsersAsync(",
+    ".AddPackageAsync(",
+    ".StagePackageAsync(",
+)
+
 checks = [
-    ("workspace member", '"crates/neo-debloat-plan"' in workspace),
-    ("bounded dependencies", all(name in manifest for name in ("neo-core", "neo-debloat", "neo-debloat-probe", "neo-transaction"))),
-    ("native PackageManager read surface", all(value in production for value in ("PackageManager::new", "FindPackagesByUserSecurityId", "FindProvisionedPackages"))),
-    ("exact package identity", all(value in production for value in ("pub name: String", "pub full_name: String", "pub family_name: String"))),
-    ("direct dependency identity", all(value in production for value in ("Package.Dependencies", "dependency_full_names", "ExactPackageDependency"))),
-    ("inventory validation", "inventory.validate()?" in production and "validate_unique_full_names" in production),
-    ("duplicate exact identity rejected", "AmbiguousExactIdentity" in production and "duplicate {label} package full name" in production),
-    ("package-name ambiguity rejected", "fn exact_one" in production and "AmbiguousExactIdentity(label.to_string())" in production),
-    ("phase14 native drift rejected", "InventoryDrift" in production and "current/provisioned exact identity mismatch" in production),
-    ("unsafe main package kinds blocked", "package.is_framework || package.is_resource" in production and "UnsafePackageKind" in production),
-    ("single item only", "selected_ids.len() != 1" in production and "BatchNotSupported" in production),
-    ("current user only", "assessed.scope != DebloatScope::CurrentUser" in production and "UnsupportedScope" in production),
-    ("metadata not rollback authority", "RestoreMethod::ProvisionedImage" in production and "Store metadata is not deterministic local rollback authority" in production),
-    ("main provisioned twin", "provisioned_by_name" in production and "canonical(&current.full_name) != canonical(&provisioned.full_name)" in production),
-    ("dependency provisioned twins", "ensure_dependency_restore_ready" in production and "provisioned_exact" in production),
-    ("debloat transaction binding", "kind: ActionKind::Debloat" in production and "requires_confirmation: true" in production and "StateTargetKind::AppxPackage" in production),
-    ("captured baseline checkpoint", "checkpoint.capture_baseline(baseline_states)?" in production and "CapturedValue::Present" in production),
     (
-        "constructor-owned prepared authority and fingerprint continuity",
+        "Phase 13 removal-candidate law remains authoritative",
+        all(value in production for value in (
+            "assess_debloat",
+            "DebloatDisposition::RemovalCandidate",
+            "NotRemovalCandidate",
+        )),
+    ),
+    (
+        "Phase 14 presence evidence is composed",
+        "neo_debloat_probe::scan_current_debloat_evidence" in production
+        and "&phase14.evidence" in production,
+    ),
+    (
+        "native PackageManager inventory is read-only",
+        '"crates/neo-debloat-plan"' in workspace
+        and all(name in manifest for name in ("neo-debloat", "neo-debloat-probe", "neo-transaction"))
+        and all(value in production for value in (
+            "PackageManager::new",
+            "FindPackagesByUserSecurityId",
+            "FindProvisionedPackages",
+        ))
+        and all(value not in production for value in mutator_markers),
+    ),
+    (
+        "exact package Name FullName FamilyName captured",
+        all(value in production for value in (
+            "pub name: String",
+            "pub full_name: String",
+            "pub family_name: String",
+            ".Name()",
+            ".FullName()",
+            ".FamilyName()",
+        )),
+    ),
+    (
+        "direct dependency identities captured",
+        all(value in production for value in (
+            ".Dependencies()",
+            "ExactPackageDependency",
+            "dependency_full_names",
+        )),
+    ),
+    (
+        "exact inventory validates non-empty identities",
+        "inventory.validate()?" in production
+        and "require_text(\"package name\"" in production
+        and "require_text(\"package full name\"" in production
+        and "require_text(\"package family name\"" in production,
+    ),
+    (
+        "duplicate exact full names fail closed",
+        "validate_unique_full_names" in production
+        and "duplicate {label} package full name" in production
+        and "AmbiguousExactIdentity" in production,
+    ),
+    (
+        "package-name ambiguity fails closed",
+        "fn exact_one" in production
+        and "AmbiguousExactIdentity(label.to_string())" in production,
+    ),
+    (
+        "Phase 14 versus native drift fails closed",
+        "assessed.installed != ObservedPresence::Present" in production
+        and "current/provisioned exact identity mismatch" in production
+        and "InventoryDrift" in production,
+    ),
+    (
+        "framework and resource main candidates are blocked",
+        "package.is_framework || package.is_resource" in production
+        and "UnsafePackageKind" in production,
+    ),
+    (
+        "exactly one selected item is allowed",
+        "selected_ids.len() != 1" in production
+        and "BatchNotSupported" in production,
+    ),
+    (
+        "only current-user scope is allowed",
+        "assessed.scope != DebloatScope::CurrentUser" in production
+        and "UnsupportedScope" in production,
+    ),
+    (
+        "Store and vendor metadata are not rollback authority",
+        "RestoreMethod::ProvisionedImage" in production
+        and "Store metadata is not deterministic local rollback authority" in production
+        and "RestoreNotReady" in production,
+    ),
+    (
+        "main package requires exact provisioned twin",
+        "provisioned_by_name" in production
+        and "canonical(&current.full_name) != canonical(&provisioned.full_name)" in production
+        and "canonical(&current.family_name) != canonical(&provisioned.family_name)" in production,
+    ),
+    (
+        "every direct dependency requires exact provisioned twin",
+        "ensure_dependency_restore_ready" in production
+        and "provisioned_exact" in production
+        and "dependency {} is not present as the exact provisioned staged identity" in production,
+    ),
+    (
+        "Debloat transaction uses exact targets and confirmation",
+        "kind: ActionKind::Debloat" in production
+        and "requires_confirmation: true" in production
+        and "StateTargetKind::AppxPackage" in production
+        and "VerificationExpectation::Absent" in production,
+    ),
+    (
+        "baseline checkpoint contains main and dependency identity state",
+        "checkpoint.capture_baseline(baseline_states)?" in production
+        and "CapturedValue::Present" in production
+        and "TransactionStage::BaselineCaptured" in production,
+    ),
+    (
+        "prepared state is constructor-owned and plan fingerprint remains continuous",
         all(value in production for value in (
             "pub(crate) steps: Vec<DebloatPreparedStep>",
             "pub(crate) transaction: TransactionPlan",
@@ -52,14 +158,23 @@ checks = [
             "TransactionCheckpoint::new(transaction.clone())?",
         )),
     ),
-    ("live read only behavior", "native_exact_appx_identity_scan_is_read_only_to_fixture_state" in behavior and "assert!(!inventory.machine_changes);" in behavior and "before, after," in behavior),
     (
-        "negative mutation and integration boundary",
-        all(value not in production for value in (".RemovePackageAsync(", ".RegisterPackageByFullNameAsync(", ".DeprovisionPackageForAllUsersAsync(", ".ProvisionPackageForAllUsersAsync(", "MCP_TWEAK", "rpc::")) and "plugin" not in manifest.lower()
+        "Windows live inventory proof is behaviorally read-only",
+        "native_exact_appx_identity_scan_is_read_only_to_fixture_state" in behavior
+        and "assert!(!inventory.machine_changes);" in behavior
+        and "before, after," in behavior
+        and phase15_live_step in ci,
+    ),
+    (
+        "no mutation public-write plugin or MCP/RPC capability exists",
+        all(value not in production for value in mutator_markers)
+        and "MCP_TWEAK" not in production
+        and "rpc::" not in production
+        and "plugin" not in manifest.lower()
         and "**Mutation authority:** none" in review
         and "plugin dependency" in decision
+        and "MCP/RPC debloat capability issuance or execution" in decision
         and phase15_static_step in ci
-        and phase15_live_step in ci
         and phase15_fixture_step in ci,
     ),
 ]
