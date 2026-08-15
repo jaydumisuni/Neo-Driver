@@ -3,9 +3,11 @@
 //! The public surface exposes curated planning and inspection. Mutation methods require an opaque
 //! capability with no public constructor. Raw registry bindings and the Windows host remain private.
 
+#[cfg(any(windows, test))]
 mod engine;
 mod error;
 mod model;
+#[cfg(any(windows, test))]
 mod session;
 
 #[cfg(windows)]
