@@ -1,0 +1,109 @@
+name: Phase 13 Status Helper
+
+on:
+  push:
+    branches: [docs/phase-13-merge-proof]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: docs/phase-13-merge-proof
+          fetch-depth: 0
+
+      - name: Configure repository writer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Patch canonical status
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("docs/IMPLEMENTATION_STATUS.md")
+          text = path.read_text(encoding="utf-8")
+
+          phase12_bullet = "- **Phase 12:** merged and engineering-proven — typed MCP/RPC-first external authority over exactly the three Phase 11 low-risk reversible HKCU DWORD tweaks, with trusted transport context, exact caller/scoped permission policy, prepare→confirm/apply fingerprint continuity, crate-private capability issuance, single-use replay-resistant sessions, and no public CLI mutation bypass. Live Registry mutation proof remains unclaimed.\n"
+          phase13_bullet = "- **Phase 13:** merged and engineering-proven — read-only, platform-neutral AppX/debloat assessment foundation with validated catalogue/evidence/profile/selection contracts, installed-vs-provisioned evidence separation, strict candidate/default policy, mandatory consequence metadata for non-safe classes, declared restore metadata, synthetic donor-isolated fixtures, and explicit byte-for-byte non-mutation proof. Real AppX probing, package/provisioning removal, restoration, and public GUI/CLI/MCP/RPC debloat mutation authority remain blocked.\n"
+          if text.count(phase12_bullet) != 1:
+              raise SystemExit("Phase 12 current-state marker not unique")
+          if phase13_bullet not in text:
+              text = text.replace(phase12_bullet, phase12_bullet + phase13_bullet, 1)
+
+          phase12_baseline = "Phase 12 exact implementation-head run `31899810049` passed the complete Ubuntu and Windows Phase 1–12 pipeline, including the Phase 12 authority gate, Clippy with warnings denied, full units/adversarial proof, Windows live read-only state proof, Runtime System X-Ray, and all applicable inherited fixtures. Phase 12 merged through PR #22 as `e762369e1f71a67ef51ce216af792fdd00e74ad5`. Canonical documentation-state run `31900134525` then passed the same complete Ubuntu and Windows Phase 1–12 pipeline on the one-file status branch. CodeRabbit was explicitly triggered but had published no review submission or inline review thread at the implementation merge gate, so no external CodeRabbit PASS is claimed.\n"
+          phase13_baseline = "\nPhase 13 exact implementation-head run `31902121137` and PR run `31902280716` passed the complete Ubuntu and Windows Phase 1–13 pipeline, including the Phase 13 20-lane gate, lock/format/build/Clippy/units, explicit byte-for-byte non-mutation proof, Windows live read-only state proof, Runtime System X-Ray, the debloat assessment fixture, and all applicable inherited fixtures. GitGuardian passed with no secrets detected. Phase 13 merged through PR #24 as `4f85a3593bc0d74a7db46b52ddd09aaed58b5b6b`. CodeRabbit full review was explicitly requested; CodeRabbit reported its included-review quota was reached and published no review submission or inline review thread before the merge gate, so no external CodeRabbit PASS is claimed. Canonical documentation-state proof is pending on the one-file status branch.\n"
+          if text.count(phase12_baseline) != 1:
+              raise SystemExit("Phase 12 baseline marker not unique")
+          if phase13_baseline.strip() not in text:
+              text = text.replace(phase12_baseline, phase12_baseline + phase13_baseline, 1)
+
+          section = r'''
+
+## Phase 13 frozen implementation
+
+Phase 13 begins Neo's Debloat product domain as a deliberately read-only AppX assessment layer. `RemovalCandidate` is a review classification only; Phase 13 creates no package-changing authority.
+
+It adds:
+
+- `neo-debloat` as a first-class workspace crate with no Windows, transaction, tweak-executor, runtime-executor, or driverstore dependency;
+- typed Neo debloat IDs distinct from AppX package identities;
+- typed classes `SafeOptional`, `FeatureDependent`, `DependencySensitive`, and `ProtectedManualOnly`;
+- independent current-user installed and provisioned-image evidence states using `Present`, `Absent`, and `Unavailable`;
+- Safe Cleanup, Gaming, Technician, Developer, and Custom preservation profiles, with Custom receiving no hidden defaults;
+- declared Store, provisioned-image, vendor-source, or absent restore metadata without misrepresenting metadata as proven rollback;
+- validated catalogue and evidence deserialization with case-insensitive package-identity uniqueness;
+- default-selection law requiring SAFE OPTIONAL + LOW + CERTIFIED + removal-appropriate recommendation + declared restore route;
+- explicit non-empty selection with duplicate/unknown ID rejection and complete selected-package installed/provisioned evidence requirements;
+- candidate law requiring SAFE OPTIONAL + LOW + CERTIFIED + `Recommended`/`OptionalComponent` + restore route + no profile block;
+- hard `BlockedProtected` and `BlockedPolicy` states for protected/manual-only and rejected/unsupported/conflicting/do-not-touch policy;
+- mandatory non-empty consequence/dependency notes for every feature-dependent, dependency-sensitive, or protected/manual-only definition;
+- synthetic `Contoso.*` catalogue/evidence fixtures so donor metadata cannot become unsupported Microsoft/OEM safety knowledge;
+- internal `neo-debloat-assess` engineering proof binary whose text surface states `Machine changes: none`;
+- behavioral proof that snapshots the fixture directory before assessment and proves it byte-for-byte unchanged afterward;
+- Phase 13 20-lane static review integrated into normal Ubuntu/Windows CI beside every inherited Phase 1–12 gate.
+
+WinUtil `config/appx.json` is accepted only as a donor for catalogue breadth/metadata shape. Its package list is not Neo evidence that a package is safe, low-risk, dependency-free, restorable, or suitable for any profile.
+
+## Phase 13 review findings closed before freeze
+
+Engineering review found and corrected two authority/policy defects before Phase 13 was frozen:
+
+1. Manual selection originally could bypass the strict default-selection policy and allow an otherwise SAFE OPTIONAL item to become `RemovalCandidate` despite higher risk, non-certified evidence, or unsafe/unknown recommendation state. Candidate classification now independently requires LOW + CERTIFIED + explicitly removal-appropriate recommendation + restore route; rejected/do-not-touch/conflicting/unsupported states are blocked, and protected/manual-only classification takes precedence over profile-preservation messaging.
+2. Feature-dependent, dependency-sensitive, and protected/manual-only definitions originally could exist with an empty side-effect/dependency list. Every non-safe class now requires at least one non-empty consequence/dependency note, with dedicated regressions and permanent Phase 13 static-gate coverage.
+
+## Phase 13 deliberate non-claims
+
+Phase 13 does **not** claim:
+
+- real Windows AppX inventory probing;
+- current-user, all-users, or provisioned-package removal;
+- AppX restore/re-registration or Store availability;
+- transaction-bound AppX rollback;
+- PowerShell/AppX cmdlet execution correctness;
+- real Microsoft/OEM package safety certification;
+- public GUI/CLI debloat mutation;
+- MCP/RPC debloat capability issuance or mutation methods.
+
+Those remain separately gated. The detailed contract and proof boundary are frozen in `docs/decisions/0013-PHASE13-DEBLOAT-ASSESSMENT.md` and `docs/PHASE13_20_LANE_REVIEW.md`.
+'''
+          if "## Phase 13 frozen implementation" not in text:
+              text = text.rstrip() + section + "\n"
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Self-clean and commit status patch
+        run: |
+          git rm .github/workflows/phase13-status-helper.yml
+          git add docs/IMPLEMENTATION_STATUS.md
+          git diff --cached --check
+          git commit -m "Phase 13: record canonical implementation status"
+          git push origin HEAD:docs/phase-13-merge-proof
