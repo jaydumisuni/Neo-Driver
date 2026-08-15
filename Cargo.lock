@@ -345,6 +345,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "neo-debloat-probe"
+version = "0.1.0"
+dependencies = [
+ "neo-debloat",
+ "neo-probe",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "neo-device"
 version = "0.1.0"
 dependencies = [

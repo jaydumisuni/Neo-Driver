@@ -47,5 +47,8 @@ fn live_windows_inventory_is_read_only_to_fixture_state() {
     assert!(stdout.contains("Contoso.Optional"));
 
     let after = directory_snapshot(fixture_dir);
-    assert_eq!(before, after, "live read-only inventory changed fixture state");
+    assert_eq!(
+        before, after,
+        "live read-only inventory changed fixture state"
+    );
 }

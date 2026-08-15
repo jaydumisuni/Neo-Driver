@@ -15,13 +15,8 @@ use thiserror::Error;
 
 const INSTALLED_SCRIPT: &str = "$ErrorActionPreference='Stop'; $items=@(Get-AppxPackage -PackageTypeFilter Bundle,Framework,Main,Resource,Optional | Select-Object Name,@{Name='Version';Expression={$_.Version.ToString()}}); ConvertTo-Json -InputObject $items -Compress -Depth 3";
 const PROVISIONED_SCRIPT: &str = "$ErrorActionPreference='Stop'; $items=@(Get-AppxProvisionedPackage -Online | Select-Object DisplayName,PackageName); ConvertTo-Json -InputObject $items -Compress -Depth 3";
-const POWERSHELL_ARGS_PREFIX: [&str; 5] = [
-    "-NoLogo",
-    "-NoProfile",
-    "-NonInteractive",
-    "-Command",
-    "",
-];
+const POWERSHELL_ARGS_PREFIX: [&str; 5] =
+    ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", ""];
 
 #[derive(Debug, Error)]
 pub enum DebloatProbeError {
@@ -74,7 +69,10 @@ impl<R: CommandRunner> WindowsDebloatProbe<R> {
         }
     }
 
-    pub fn scan(&self, catalogue: &DebloatCatalogue) -> Result<DebloatProbeReport, DebloatProbeError> {
+    pub fn scan(
+        &self,
+        catalogue: &DebloatCatalogue,
+    ) -> Result<DebloatProbeReport, DebloatProbeError> {
         let installed_command = self.capture_script(INSTALLED_SCRIPT);
         let provisioned_command = self.capture_script(PROVISIONED_SCRIPT);
         let mut warnings = Vec::new();
@@ -167,7 +165,12 @@ fn index_installed(
 ) -> BTreeMap<String, BTreeSet<String>> {
     let mut index = BTreeMap::<String, BTreeSet<String>>::new();
     for record in records {
-        let Some(name) = record.name.as_deref().map(str::trim).filter(|value| !value.is_empty()) else {
+        let Some(name) = record
+            .name
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
             warnings.push("current-user AppX record missing Name; record ignored".to_string());
             continue;
         };
@@ -280,7 +283,10 @@ mod tests {
         assert!(!report.machine_changes);
 
         for evidence in &report.command_evidence {
-            assert!(!evidence.args.iter().any(|arg| arg.contains("Contoso.Optional")));
+            assert!(!evidence
+                .args
+                .iter()
+                .any(|arg| arg.contains("Contoso.Optional")));
         }
     }
 
