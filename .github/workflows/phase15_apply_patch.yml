@@ -20,7 +20,7 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup component add rustfmt --toolchain stable
           rustup default stable
-      - name: Correct helper proof predicates
+      - name: Correct helper proof predicates and preserve CI workflow
         shell: python
         run: |
           from pathlib import Path
@@ -34,11 +34,17 @@ jobs:
               'all(value not in production for value in ("RemovePackageAsync(", "RegisterPackageByFullNameAsync(", "DeprovisionPackageForAllUsersAsync(", "ProvisionPackageForAllUsersAsync(", "MCP_TWEAK", "rpc::", "plugin"))',
               'all(value not in production for value in (".RemovePackageAsync(", ".RegisterPackageByFullNameAsync(", ".DeprovisionPackageForAllUsersAsync(", ".ProvisionPackageForAllUsersAsync(", "MCP_TWEAK", "rpc::")) and "plugin" not in manifest.lower()',
           )
+          text = text.replace(
+              '(ROOT / ".github" / "workflows" / "phase15_apply_patch.yml").unlink()',
+              'subprocess.run(["git", "checkout", "HEAD", "--", ".github/workflows/ci.yml"], cwd=ROOT, check=True)',
+          )
           path.write_text(text, encoding="utf-8")
       - name: Apply Phase 15 implementation
         run: python tools/phase15_apply_patch.py
-      - name: Verify patch
-        run: git diff --check
+      - name: Verify generated non-workflow patch
+        run: |
+          git diff --check
+          git diff --exit-code HEAD -- .github/workflows/ci.yml
       - name: Commit Phase 15 candidate
         run: |
           git config user.name "THE TECH GUY"
