@@ -1,0 +1,35 @@
+name: Phase 12 one-shot Windows Clippy import correction
+
+on:
+  push:
+    branches:
+      - implementation/phase-12-mcp-rpc-tweak-authority
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: github.event.head_commit.message != 'Narrow Phase 12 fake-host imports to tests'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Phase 12 branch
+        uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-12-mcp-rpc-tweak-authority
+          fetch-depth: 0
+
+      - name: Apply exact Windows Clippy correction
+        run: |
+          python tools/phase12_windows_import_fix.py
+          cargo fmt --all
+          rm tools/phase12_windows_import_fix.py
+          rm .github/workflows/phase12_windows_import_fix_once.yml
+
+      - name: Commit correction
+        run: |
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git add -A
+          git commit -m "Narrow Phase 12 fake-host imports to tests"
+          git push origin HEAD:implementation/phase-12-mcp-rpc-tweak-authority
