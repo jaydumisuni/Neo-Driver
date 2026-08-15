@@ -80,9 +80,9 @@ jobs:
           ]
           for old, new in assignments:
               count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"unit fixture assignment marker not unique: {old.strip()} count={count}")
-              text = text.replace(old, new, 1)
+              if count < 1:
+                  raise SystemExit(f"unit fixture assignment marker missing: {old.strip()}")
+              text = text.replace(old, new)
 
           path.write_text(text, encoding="utf-8")
           PY
