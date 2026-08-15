@@ -1,0 +1,35 @@
+name: Phase 12 one-shot action-cardinality correction
+
+on:
+  push:
+    branches:
+      - implementation/phase-12-mcp-rpc-tweak-authority
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: github.event.head_commit.message != 'Bound Phase 12 action cardinality'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Phase 12 branch
+        uses: actions/checkout@v4
+        with:
+          ref: implementation/phase-12-mcp-rpc-tweak-authority
+          fetch-depth: 0
+
+      - name: Apply cardinality correction
+        run: |
+          python tools/phase12_cardinality_correction.py
+          cargo fmt --all
+          rm tools/phase12_cardinality_correction.py
+          rm .github/workflows/phase12_cardinality_once.yml
+
+      - name: Commit correction
+        run: |
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git add -A
+          git commit -m "Bound Phase 12 action cardinality"
+          git push origin HEAD:implementation/phase-12-mcp-rpc-tweak-authority
