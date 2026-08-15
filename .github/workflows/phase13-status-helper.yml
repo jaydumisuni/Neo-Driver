@@ -18,6 +18,7 @@ jobs:
           fetch-depth: 0
       - run: python tools/tmp_phase13_status_patch.py
       - run: |
+          python -c "from pathlib import Path; p=Path('docs/IMPLEMENTATION_STATUS.md'); p.write_text(p.read_text(encoding='utf-8').rstrip() + '\n', encoding='utf-8')"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm .github/workflows/phase13-status-helper.yml tools/tmp_phase13_status_patch.py
