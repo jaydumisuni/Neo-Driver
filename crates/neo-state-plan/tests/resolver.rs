@@ -43,6 +43,13 @@ fn bindings() -> StateBindings {
 }
 
 #[test]
+fn reader_id_direct_deserialization_revalidates() {
+    assert!(serde_json::from_str::<ReaderId>("\"fixture.reader\"").is_ok());
+    assert!(serde_json::from_str::<ReaderId>("\"Fixture.Reader\"").is_err());
+    assert!(serde_json::from_str::<ReaderId>("\"fixture reader\"").is_err());
+}
+
+#[test]
 fn duplicate_bindings_fail_case_insensitively() {
     assert!(matches!(
         StateBindings::new(vec![
