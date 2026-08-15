@@ -60,7 +60,7 @@ fn live_state_assessment_reads_proven_system_evidence_without_mutation() {
         benefit: "Exercises live read-only evidence.".to_string(),
         tradeoff: "Fixture only.".to_string(),
         risk: RiskLevel::Low,
-        recommendation: RecommendationState::Manual,
+        recommendation: RecommendationState::Recommended,
         verdict: EvidenceVerdict::Certified,
         selected_by_default: false,
         requires_admin: false,
