@@ -42,6 +42,15 @@ WinUtil `OriginalValue` fields are **not** Neo rollback evidence. Neo restores o
 - The baseline-drift authorization regression now computes authorization before the mutable session borrow, avoiding a test-only borrow conflict.
 - Canonical `cargo fmt --all` completed successfully after the parse correction, and its temporary write-enabled workflow self-deleted in the same commit.
 
+## First compiler findings closed
+
+The first cross-platform type proof reached the real Phase 11 crate on both Ubuntu and Windows and exposed one type-boundary defect plus one architecture-quality issue:
+
+- `engine.rs` attempted to construct `TweakExecutionStep` through private sibling-module fields. The fix preserves private fields and adds a crate-private constructor instead of widening visibility.
+- Mutation internals were compiled on non-Windows production builds even though only Windows execution and crate tests can use them, producing dead-code warnings that would later fail Clippy. `engine`/`session` and internal curated Registry model helpers are now compiled only for Windows or tests, while the public inspection surface remains cross-platform.
+- The unused `validate_baseline_snapshot` helper was removed rather than suppressed.
+- The corrected workspace was formatted canonically and the temporary formatting helper self-deleted before authoritative re-proof.
+
 ## Deliberate proof boundary
 
 CI compiles the real Windows Registry backend, but all Phase 11 write/rollback behavior is exercised through the deterministic fake host. Phase 11 does not modify a GitHub runner Registry value and does not claim live ATHENA tweak mutation proof.
