@@ -17,6 +17,7 @@
 - **Phase 11:** merged and engineering-proven — internal capability-gated transaction-bound execution for exactly three curated reversible HKCU DWORD tweaks, with exact semantic value binding, actual pre-state capture, same-session serialization, complete rollback-attempt evidence, direct Windows Registry APIs, and zero public tweak-apply authority. Live Registry mutation proof is not claimed.
 - **Phase 12:** merged and engineering-proven — typed MCP/RPC-first external authority over exactly the three Phase 11 low-risk reversible HKCU DWORD tweaks, with trusted transport context, exact caller/scoped permission policy, prepare→confirm/apply fingerprint continuity, crate-private capability issuance, single-use replay-resistant sessions, and no public CLI mutation bypass. Live Registry mutation proof remains unclaimed.
 - **Phase 13:** merged and engineering-proven — read-only, platform-neutral AppX/debloat assessment foundation with validated catalogue/evidence/profile/selection contracts, installed-vs-provisioned evidence separation, strict candidate/default policy, mandatory consequence metadata for non-safe classes, declared restore metadata, synthetic donor-isolated fixtures, and explicit byte-for-byte non-mutation proof. Real AppX probing, package/provisioning removal, restoration, and public GUI/CLI/MCP/RPC debloat mutation authority remain blocked.
+- **Phase 14:** merged and engineering-proven — read-only Windows current-user and online provisioned AppX inventory resolution over the frozen Phase 13 debloat model, with exactly two source-owned fixed PowerShell inventory scripts, raw command-evidence retention, fail-closed `Unavailable` semantics for command/parse/identity uncertainty, case-insensitive Rust identity matching, and successful real Windows behavioral proof. Package/provisioning removal, restore/re-registration, transaction binding, public mutation CLI/GUI, plugin dependency, and MCP/RPC debloat authority remain blocked.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -47,6 +48,8 @@ Phase 11 corrected implementation run `31894350194` and final documentation-stat
 Phase 12 exact implementation-head run `31899810049` passed the complete Ubuntu and Windows Phase 1–12 pipeline, including the Phase 12 authority gate, Clippy with warnings denied, full units/adversarial proof, Windows live read-only state proof, Runtime System X-Ray, and all applicable inherited fixtures. Phase 12 merged through PR #22 as `e762369e1f71a67ef51ce216af792fdd00e74ad5`. Canonical documentation-state run `31900134525` then passed the same complete Ubuntu and Windows Phase 1–12 pipeline on the one-file status branch. CodeRabbit was explicitly triggered but had published no review submission or inline review thread at the implementation merge gate, so no external CodeRabbit PASS is claimed.
 
 Phase 13 exact implementation-head run `31902121137` and PR run `31902280716` passed the complete Ubuntu and Windows Phase 1–13 pipeline, including the Phase 13 20-lane gate, lock/format/build/Clippy/units, explicit byte-for-byte non-mutation proof, Windows live read-only state proof, Runtime System X-Ray, the debloat assessment fixture, and all applicable inherited fixtures. GitGuardian passed with no secrets detected. Phase 13 merged through PR #24 as `4f85a3593bc0d74a7db46b52ddd09aaed58b5b6b`. CodeRabbit full review was explicitly requested; CodeRabbit reported its included-review quota was reached and published no review submission or inline review thread before the merge gate, so no external CodeRabbit PASS is claimed. Canonical documentation-state run `31902598020` then passed the same complete Ubuntu and Windows Phase 1–13 pipeline on the one-file status branch.
+
+Phase 14 exact final-head push run `31904774997` and PR run `31904777612` passed the complete Ubuntu and Windows Phase 1–14 pipeline on `ad807443f3ceec3b38222ea10e2bfcf468faa0a9`, including both successful real Windows AppX inventory commands, Phase 14 live byte-for-byte read-only proof, Phase 10 live Windows state proof, Runtime System X-Ray, Clippy with warnings denied, units, and all applicable inherited fixtures. GitGuardian scanned all 13 PR commits with no secrets detected. Phase 14 merged through PR #26 as `21b6f910435d3b22c2f142488616ae9cfeee1060`. CodeRabbit full review was explicitly triggered against the final head; at the implementation merge gate it remained in progress and had published no review submission or inline review thread, so no external CodeRabbit PASS is claimed.
 
 ## Phase 5 frozen implementation
 
@@ -477,3 +480,21 @@ Phase 13 does **not** claim:
 - MCP/RPC debloat capability issuance or mutation methods.
 
 Those remain separately gated. The detailed contract and proof boundary are frozen in `docs/decisions/0013-PHASE13-DEBLOAT-ASSESSMENT.md` and `docs/PHASE13_20_LANE_REVIEW.md`.
+
+## Phase 14 frozen implementation
+
+Phase 14 extends the proven Phase 13 debloat assessment model with real Windows evidence capture while remaining read-only. It adds `neo-debloat-probe`, which uses the existing `neo-probe::CommandRunner` evidence boundary and exactly two source-owned fixed PowerShell inventory scripts: current-user `Get-AppxPackage` and online `Get-AppxProvisionedPackage -Online`. Catalogue package identities never enter command text; Neo enumerates first and performs case-insensitive matching in Rust. Raw `CommandEvidence` is retained.
+
+Command start failure, non-zero result, malformed JSON, or an identity-incomplete inventory record makes that entire evidence side `Unavailable`; none can manufacture a false `Absent` result. Current-user version evidence is retained only when exactly one distinct non-empty version is recovered. The normalized result is rebuilt through the frozen Phase 13 `DebloatEvidence::new` constructor.
+
+The Windows live proof requires both fixed inventory commands to actually succeed and proves the fixture tree remains byte-for-byte unchanged. The proof binary reports `Machine changes: none`.
+
+Phase 14 adds no package removal, provisioned-package mutation, restore/re-registration, transaction binding, public debloat mutation CLI/GUI, plugin dependency, MCP/RPC debloat authority, or capability issuance. Those remain later independently gated work.
+
+## Phase 14 review findings closed before freeze
+
+1. Identity-incomplete AppX inventory records were initially ignored, which could manufacture false absence. Any missing/empty package identity now makes that entire inventory side `Unavailable`.
+2. The live-proof static lane initially depended on rustfmt keeping an assertion on one line. The gate now binds to stable behavioral test identities and assertion markers instead of formatting.
+3. `SystemCommandRunner` was imported on non-Windows builds even though live construction is Windows-only. The import is now target-gated rather than warning-suppressed.
+4. The initial no-interpolation static lane was weaker than the source contract. It now proves the two exact source-owned static script call sites, exactly two `capture_script` invocations, and the regression that catalogue identity is absent from command arguments.
+5. Review text initially described the JSON output as bounded without a hard stdout-size bound in code. The canonical claim was corrected to typed, fail-closed JSON parsing; no hard output-size bound is claimed.
