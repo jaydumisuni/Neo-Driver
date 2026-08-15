@@ -29,6 +29,8 @@ pub enum DebloatError {
     DuplicatePackageId(String),
     #[error("duplicate preserved profile on {0}")]
     DuplicatePreservedProfile(String),
+    #[error("non-safe debloat class requires side-effect/dependency notes: {0}")]
+    MissingSideEffectNotes(String),
     #[error("only SAFE OPTIONAL items may be selected by default: {0}")]
     UnsafeDefaultClass(String),
     #[error("only LOW risk items may be selected by default: {0}")]
@@ -153,6 +155,9 @@ impl DebloatDefinition {
 
         for side_effect in &self.side_effects {
             require_text("debloat side effect", side_effect)?;
+        }
+        if self.class != DebloatClass::SafeOptional && self.side_effects.is_empty() {
+            return Err(DebloatError::MissingSideEffectNotes(self.id.clone()));
         }
 
         let mut profiles = BTreeSet::new();
@@ -644,6 +649,7 @@ mod tests {
     fn non_safe_item_cannot_be_default_selected() {
         let mut item = definition("appx.fixture", "Contoso.Fixture");
         item.class = DebloatClass::FeatureDependent;
+        item.side_effects = vec!["synthetic feature consequence".to_string()];
         assert!(matches!(
             item.validate(),
             Err(DebloatError::UnsafeDefaultClass(_))
@@ -853,6 +859,7 @@ mod tests {
         let mut item = definition("appx.fixture", "Contoso.Fixture");
         item.selected_by_default = false;
         item.class = DebloatClass::FeatureDependent;
+        item.side_effects = vec!["synthetic feature consequence".to_string()];
         let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
         let evidence = DebloatEvidence::new(vec![observation("Contoso.Fixture")]).unwrap();
         let selected = vec!["appx.fixture".to_string()];
@@ -874,6 +881,7 @@ mod tests {
         let mut item = definition("appx.fixture", "Contoso.Fixture");
         item.selected_by_default = false;
         item.class = DebloatClass::DependencySensitive;
+        item.side_effects = vec!["synthetic dependency consequence".to_string()];
         let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
         let evidence = DebloatEvidence::new(vec![observation("Contoso.Fixture")]).unwrap();
         let selected = vec!["appx.fixture".to_string()];
@@ -895,6 +903,7 @@ mod tests {
         let mut item = definition("appx.fixture", "Contoso.Fixture");
         item.selected_by_default = false;
         item.class = DebloatClass::ProtectedManualOnly;
+        item.side_effects = vec!["synthetic protected consequence".to_string()];
         item.risk = RiskLevel::High;
         item.recommendation = RecommendationState::DoNotTouch;
         item.restore = RestoreMethod::None;
