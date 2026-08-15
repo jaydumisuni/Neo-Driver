@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         println!(
             "Prepared transaction: {}",
-            prepared.transaction.transaction_id()
+            prepared.transaction().transaction_id()
         );
         println!("Plan fingerprint: {}", prepared.plan_fingerprint());
         println!("Machine changes: none");
