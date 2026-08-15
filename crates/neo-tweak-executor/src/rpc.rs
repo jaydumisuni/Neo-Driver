@@ -224,7 +224,6 @@ impl TweakRpcError {
 
 struct PendingTweakRpcSession {
     caller: TweakRpcCaller,
-    mission_id: String,
     plan_fingerprint: String,
     session: TweakExecutionSession,
 }
@@ -386,7 +385,6 @@ impl TweakRpcService {
             session_id,
             PendingTweakRpcSession {
                 caller: context.caller.clone(),
-                mission_id: request.mission_id,
                 plan_fingerprint,
                 session,
             },
@@ -484,7 +482,12 @@ fn execution_receipt(
         schema_version: NEO_RPC_SCHEMA_VERSION,
         request_id: request.request_id,
         session_id: request.session_id,
-        mission_id: pending.mission_id,
+        mission_id: pending
+            .session
+            .plan()
+            .transaction()
+            .mission_id()
+            .to_string(),
         plan_fingerprint: pending.plan_fingerprint,
         changed_action_ids: pending.session.changed_ids.iter().cloned().collect(),
         stage: pending.session.stage(),
