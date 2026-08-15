@@ -82,6 +82,7 @@ failed = []
 for index, (name, ok) in enumerate(checks, 1):
     print(f"{index:02d}. {'PASS' if ok else 'FAIL'} - {name}")
     if not ok:
+        print(f"::error title=Phase 14 lane {index:02d} failed::{name}")
         failed.append(name)
 
 if failed:
