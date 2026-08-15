@@ -8,9 +8,8 @@ use neo_state_plan::{
     assess_tweaks, ObservedState, TweakCatalogue, TweakEvidence, TweakObservation, TweakValue,
 };
 use neo_transaction::{
-    BaselineSnapshot, CapturedState, CapturedValue, RollbackPlan, StateTarget, StateTargetKind,
-    TransactionAction, TransactionCheckpoint, TransactionPlan, VerificationExpectation,
-    VerificationPredicate,
+    CapturedState, CapturedValue, RollbackPlan, StateTarget, StateTargetKind, TransactionAction,
+    TransactionCheckpoint, TransactionPlan, VerificationExpectation, VerificationPredicate,
 };
 use std::collections::BTreeMap;
 
@@ -140,11 +139,11 @@ pub(crate) fn prepare_with_host<H: TweakHost>(
                 }],
             },
         });
-        steps.push(TweakExecutionStep {
-            tweak_id: item.id.clone(),
+        steps.push(TweakExecutionStep::new(
+            item.id.clone(),
             desired_dword,
             baseline,
-        });
+        ));
     }
 
     if actions.is_empty() {
@@ -189,15 +188,6 @@ pub(crate) fn baseline_snapshot(
         .find(|step| step.tweak_id() == tweak_id)
         .ok_or_else(|| TweakExecutionError::UnsupportedTweak(tweak_id.to_string()))?;
     Ok(step.baseline())
-}
-
-pub(crate) fn validate_baseline_snapshot(
-    session: &TweakExecutionSession,
-) -> Result<&BaselineSnapshot, TweakExecutionError> {
-    session
-        .checkpoint
-        .baseline()
-        .ok_or_else(|| TweakExecutionError::Registry("transaction baseline is missing".to_string()))
 }
 
 pub(crate) fn spec_for_step(
