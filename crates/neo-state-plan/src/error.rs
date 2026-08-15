@@ -36,4 +36,18 @@ pub enum StatePlanError {
     MissingObservation(String),
     #[error("selected tweak '{tweak_id}' current-state observation is unavailable: {reason}")]
     UnavailableObservation { tweak_id: String, reason: String },
+    #[error("invalid reader id '{0}'")]
+    InvalidReaderId(String),
+    #[error("duplicate state binding '{0}'")]
+    DuplicateBinding(String),
+    #[error("duplicate reader source '{0}'")]
+    DuplicateReaderSource(String),
+    #[error("missing reader source '{0}'")]
+    MissingReaderSource(String),
+    #[error("invalid reader source: {0}")]
+    InvalidReaderSource(&'static str),
+    #[error("duplicate captured state '{0}'")]
+    DuplicateCapturedState(String),
+    #[error("selected tweak target has no state binding: {0}")]
+    MissingBinding(String),
 }

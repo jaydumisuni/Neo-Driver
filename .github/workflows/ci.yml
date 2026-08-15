@@ -52,6 +52,12 @@ jobs:
       - name: Phase 8 twenty-lane static review
         run: python -W error tools/phase8_static_review.py
 
+      - name: Phase 9 twenty-lane static review
+        run: python -W error tools/phase9_static_review.py
+
+      - name: Phase 10 twenty-lane static review
+        run: python -W error tools/phase10_static_review.py
+
       - name: Cargo lockfile proof
         run: |
           cargo generate-lockfile
@@ -68,6 +74,10 @@ jobs:
 
       - name: Rust unit proof
         run: cargo test --workspace --all-targets --locked
+
+      - name: Phase 10 live Windows state proof
+        if: runner.os == 'Windows'
+        run: cargo test --locked -p neo-cli --test state_live_read_only
 
       - name: Runtime System X-Ray proof
         if: runner.os == 'Windows'
