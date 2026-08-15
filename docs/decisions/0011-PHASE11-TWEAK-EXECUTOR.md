@@ -17,7 +17,7 @@ The first mutation catalogue is intentionally limited to three low-blast-radius,
 2. `windows.explorer.show_hidden_files`
    - same key
    - value `Hidden`
-   - approved forward DWORD `1` shows hidden files; DWORD `0` hides them.
+   - approved forward DWORD `1` shows hidden files; canonical opposite DWORD `2` hides them.
 3. `windows.taskbar.centered_icons`
    - same key
    - value `TaskbarAl`
@@ -71,13 +71,19 @@ The mutex is acquired before the second baseline-drift check and remains held th
 
 The `Local\\` namespace is intentionally same-session authority only; Phase 11 does not claim cross-session serialization. Unrelated external Registry writers are not controlled by the mutex and remain subject to Neo's fresh pre-apply and post-write observation/verification checks.
 
-## Capability boundary
+## Capability and MCP/RPC boundary
 
 The raw Registry host and mutation invocation types are crate-private. Public/session mutation methods require an opaque `TweakExecutorCapability` with no public constructor.
 
-Phase 11 therefore proves the executor without issuing mutation authority through the public CLI or GUI.
+Neo's higher-level orchestration is MCP/RPC-first. Future Hunter, Oracle, GUI, and other approved TTG callers must invoke typed MCP/RPC service contracts rather than bypassing the core through ad-hoc shell or public CLI mutation. Capability issuance belongs behind that service boundary after permission, plan, transaction, confirmation, and evidence checks.
+
+Phase 11 proves the internal executor only. It does **not** issue `TweakExecutorCapability` through MCP/RPC, CLI, or GUI yet. The CLI remains diagnostic/manual tooling rather than the primary mutation control plane.
 
 CI compiles the real Windows Registry backend but exercises mutation behavior only through a deterministic fake host. No GitHub runner Registry value is modified by Phase 11 tests.
+
+## Error taxonomy
+
+Caller/request validation is kept separate from host/Registry failures. Invalid preparation input such as an empty mission ID returns `InvalidRequest`; `Registry` is reserved for actual Windows Registry/host operation failures. This distinction is required so the future MCP/RPC service can map caller errors and execution failures into truthful structured responses.
 
 ## Deliberate limits
 
@@ -92,6 +98,7 @@ Phase 11 does not implement:
 - Explorer restart/shell restart;
 - public tweak apply;
 - GUI write actions;
+- MCP/RPC mutation capability issuance;
 - cross-session/global tweak serialization;
 - live attached-machine tweak mutation proof.
 
