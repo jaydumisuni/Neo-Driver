@@ -16,6 +16,7 @@
 - **Phase 10:** merged and engineering-proven — read-only Windows live-state resolution layered on Phase 9, with validated target→reader bindings, fixed reviewed System-X-Ray reader identities, captured-state provenance, real Windows live-state behavioral proof, and zero tweak mutation authority. Transaction binding and tweak execution remain blocked.
 - **Phase 11:** merged and engineering-proven — internal capability-gated transaction-bound execution for exactly three curated reversible HKCU DWORD tweaks, with exact semantic value binding, actual pre-state capture, same-session serialization, complete rollback-attempt evidence, direct Windows Registry APIs, and zero public tweak-apply authority. Live Registry mutation proof is not claimed.
 - **Phase 12:** merged and engineering-proven — typed MCP/RPC-first external authority over exactly the three Phase 11 low-risk reversible HKCU DWORD tweaks, with trusted transport context, exact caller/scoped permission policy, prepare→confirm/apply fingerprint continuity, crate-private capability issuance, single-use replay-resistant sessions, and no public CLI mutation bypass. Live Registry mutation proof remains unclaimed.
+- **Phase 13:** merged and engineering-proven — read-only, platform-neutral AppX/debloat assessment foundation with validated catalogue/evidence/profile/selection contracts, installed-vs-provisioned evidence separation, strict candidate/default policy, mandatory consequence metadata for non-safe classes, declared restore metadata, synthetic donor-isolated fixtures, and explicit byte-for-byte non-mutation proof. Real AppX probing, package/provisioning removal, restoration, and public GUI/CLI/MCP/RPC debloat mutation authority remain blocked.
 
 The master plan remains frozen. This file is the live implementation-status record.
 
@@ -44,6 +45,8 @@ Phase 10 corrected implementation run `31887310279` and final documentation-stat
 Phase 11 corrected implementation run `31894350194` and final documentation-state run `31894626669` passed the complete Ubuntu and Windows Phase 1–11 pipeline with all three CodeRabbit correctness threads resolved, and Phase 11 merged through PR #19 as `66cca16be15fe617590445c6bb8993c5a242caf0`.
 
 Phase 12 exact implementation-head run `31899810049` passed the complete Ubuntu and Windows Phase 1–12 pipeline, including the Phase 12 authority gate, Clippy with warnings denied, full units/adversarial proof, Windows live read-only state proof, Runtime System X-Ray, and all applicable inherited fixtures. Phase 12 merged through PR #22 as `e762369e1f71a67ef51ce216af792fdd00e74ad5`. Canonical documentation-state run `31900134525` then passed the same complete Ubuntu and Windows Phase 1–12 pipeline on the one-file status branch. CodeRabbit was explicitly triggered but had published no review submission or inline review thread at the implementation merge gate, so no external CodeRabbit PASS is claimed.
+
+Phase 13 exact implementation-head run `31902121137` and PR run `31902280716` passed the complete Ubuntu and Windows Phase 1–13 pipeline, including the Phase 13 20-lane gate, lock/format/build/Clippy/units, explicit byte-for-byte non-mutation proof, Windows live read-only state proof, Runtime System X-Ray, the debloat assessment fixture, and all applicable inherited fixtures. GitGuardian passed with no secrets detected. Phase 13 merged through PR #24 as `4f85a3593bc0d74a7db46b52ddd09aaed58b5b6b`. CodeRabbit full review was explicitly requested; CodeRabbit reported its included-review quota was reached and published no review submission or inline review thread before the merge gate, so no external CodeRabbit PASS is claimed. Canonical documentation-state run `31902598020` then passed the same complete Ubuntu and Windows Phase 1–13 pipeline on the one-file status branch.
 
 ## Phase 5 frozen implementation
 
@@ -427,3 +430,50 @@ Implementation continues to honor:
 - Phase 12 broader mutation proof: **not claimed**; arbitrary Registry, runtime/driver MCP authority, services/AppX/features/BCD/security mutation, public CLI mutation, and independent GUI mutation remain separately gated.
 
 Phases 1–12 are closed at their recorded repository boundaries. Phase 12 is the canonical MCP/RPC-first external authority boundary for exactly the three Phase 11 low-risk reversible HKCU DWORD tweaks. Live Registry mutation proof, broader tweak/debloat domains, runtime/driver MCP authority, public CLI mutation, independent GUI mutation, Phase 7 network acquisition, archive execution, Windows-feature mutation, Winget execution, and public vault write surfaces remain independently blocked until their own authority, verification, cleanup, recovery, and proof contracts are frozen and proven.
+
+## Phase 13 frozen implementation
+
+Phase 13 begins Neo's Debloat product domain as a deliberately read-only AppX assessment layer. `RemovalCandidate` is a review classification only; Phase 13 creates no package-changing authority.
+
+It adds:
+
+- `neo-debloat` as a first-class workspace crate with no Windows, transaction, tweak-executor, runtime-executor, or driverstore dependency;
+- typed Neo debloat IDs distinct from AppX package identities;
+- typed classes `SafeOptional`, `FeatureDependent`, `DependencySensitive`, and `ProtectedManualOnly`;
+- independent current-user installed and provisioned-image evidence states using `Present`, `Absent`, and `Unavailable`;
+- Safe Cleanup, Gaming, Technician, Developer, and Custom preservation profiles, with Custom receiving no hidden defaults;
+- declared Store, provisioned-image, vendor-source, or absent restore metadata without misrepresenting metadata as proven rollback;
+- validated catalogue and evidence deserialization with case-insensitive package-identity uniqueness;
+- default-selection law requiring SAFE OPTIONAL + LOW + CERTIFIED + removal-appropriate recommendation + declared restore route;
+- explicit non-empty selection with duplicate/unknown ID rejection and complete selected-package installed/provisioned evidence requirements;
+- candidate law requiring SAFE OPTIONAL + LOW + CERTIFIED + `Recommended`/`OptionalComponent` + restore route + no profile block;
+- hard `BlockedProtected` and `BlockedPolicy` states for protected/manual-only and rejected/unsupported/conflicting/do-not-touch policy;
+- mandatory non-empty consequence/dependency notes for every feature-dependent, dependency-sensitive, or protected/manual-only definition;
+- synthetic `Contoso.*` catalogue/evidence fixtures so donor metadata cannot become unsupported Microsoft/OEM safety knowledge;
+- internal `neo-debloat-assess` engineering proof binary whose text surface states `Machine changes: none`;
+- behavioral proof that snapshots the fixture directory before assessment and proves it byte-for-byte unchanged afterward;
+- Phase 13 20-lane static review integrated into normal Ubuntu/Windows CI beside every inherited Phase 1–12 gate.
+
+WinUtil `config/appx.json` is accepted only as a donor for catalogue breadth/metadata shape. Its package list is not Neo evidence that a package is safe, low-risk, dependency-free, restorable, or suitable for any profile.
+
+## Phase 13 review findings closed before freeze
+
+Engineering review found and corrected two authority/policy defects before Phase 13 was frozen:
+
+1. Manual selection originally could bypass the strict default-selection policy and allow an otherwise SAFE OPTIONAL item to become `RemovalCandidate` despite higher risk, non-certified evidence, or unsafe/unknown recommendation state. Candidate classification now independently requires LOW + CERTIFIED + explicitly removal-appropriate recommendation + restore route; rejected/do-not-touch/conflicting/unsupported states are blocked, and protected/manual-only classification takes precedence over profile-preservation messaging.
+2. Feature-dependent, dependency-sensitive, and protected/manual-only definitions originally could exist with an empty side-effect/dependency list. Every non-safe class now requires at least one non-empty consequence/dependency note, with dedicated regressions and permanent Phase 13 static-gate coverage.
+
+## Phase 13 deliberate non-claims
+
+Phase 13 does **not** claim:
+
+- real Windows AppX inventory probing;
+- current-user, all-users, or provisioned-package removal;
+- AppX restore/re-registration or Store availability;
+- transaction-bound AppX rollback;
+- PowerShell/AppX cmdlet execution correctness;
+- real Microsoft/OEM package safety certification;
+- public GUI/CLI debloat mutation;
+- MCP/RPC debloat capability issuance or mutation methods.
+
+Those remain separately gated. The detailed contract and proof boundary are frozen in `docs/decisions/0013-PHASE13-DEBLOAT-ASSESSMENT.md` and `docs/PHASE13_20_LANE_REVIEW.md`.
