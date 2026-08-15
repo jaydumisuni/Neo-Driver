@@ -32,6 +32,14 @@ fn native_exact_appx_identity_scan_is_read_only_to_fixture_state() {
     let inventory =
         scan_windows_exact_appx_inventory().expect("native exact inventory must execute");
     assert!(!inventory.machine_changes);
+    assert!(
+        !inventory.current_user.is_empty(),
+        "native current-user AppX inventory must contain real package evidence"
+    );
+    assert!(
+        !inventory.provisioned.is_empty(),
+        "native provisioned AppX inventory must contain real package evidence"
+    );
     assert!(inventory
         .current_user
         .iter()
