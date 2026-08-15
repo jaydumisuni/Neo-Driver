@@ -100,7 +100,7 @@ checks = [
         and "assert_eq!(before, after" in behavior
         and "Phase 13 twenty-lane static review" in ci
         and "Phase 13 behavioral read-only proof" in ci
-        and "Mutation authority: none" in review
+        and "**Mutation authority:** none" in review
         and "synthetic `Contoso.*`" in decision,
     ),
 ]
