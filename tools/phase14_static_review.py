@@ -40,7 +40,7 @@ checks = [
     ("mutation engines isolated", all(name not in manifest for name in ("neo-transaction", "neo-driverstore", "neo-runtime-executor", "neo-tweak-executor"))),
     ("no appx mutation commands", absent("Remove-AppxPackage", "Remove-AppxProvisionedPackage", "Add-AppxPackage", "Add-AppxProvisionedPackage", "winget.exe")),
     ("proof binary read only", "Machine changes: none" in production and "machine_changes: false" in production),
-    ("live windows behavioral proof", "directory_snapshot" in behavior and "command_evidence.iter().all" in behavior and "assert_eq!(before, after" in behavior and "CARGO_BIN_EXE_neo-debloat-live-scan" in behavior),
+    ("live windows behavioral proof", "live_windows_inventory_is_read_only_to_fixture_state" in behavior and "command_evidence.iter().all" in behavior and "assert_eq!(" in behavior and "live read-only inventory changed fixture state" in behavior and "CARGO_BIN_EXE_neo-debloat-live-scan" in behavior),
     ("ci and decision freeze", "Phase 14 twenty-lane static review" in ci and "Phase 14 live Windows debloat inventory proof" in ci and "**Mutation authority:** none" in review and "plugin dependency" in decision),
 ]
 
