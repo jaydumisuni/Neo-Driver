@@ -58,6 +58,8 @@ A transport may grant both scopes to an approved owner/admin caller, but Neo val
 - mission ID;
 - selected curated tweak IDs.
 
+The selected-action array must contain at least one item and cannot exceed the three Phase 11 curated tweak IDs. This cardinality gate runs before live Registry reads, so an authenticated caller cannot turn an oversized request into unbounded host work.
+
 Neo validates caller policy and the prepare scope **before** live Registry state is read.
 
 Preparation then reuses Phase 11 to:
@@ -85,7 +87,7 @@ Neo permits **one outstanding prepared tweak plan per caller**. A newer successf
 - the same authenticated caller principal that prepared the session;
 - the `neo.tweaks.low-risk.apply` permission scope.
 
-Any caller change, missing confirmation, fingerprint mismatch, partial/extra action set, absent session, or missing permission fails closed before capability issuance.
+The approved-action array is also capped at the same three-action Phase 11 ceiling before Neo constructs its approval set. Any caller change, missing confirmation, fingerprint mismatch, oversized/partial/extra action set, absent session, or missing permission fails closed before capability issuance.
 
 The service then derives a normal Phase 4 `TransactionAuthorization`. It does not create a second authorization model inside the executor.
 
@@ -164,7 +166,7 @@ A future Neo GUI should invoke the same typed service/core authority path rather
 
 ## Proof boundary
 
-Phase 12 unit/adversarial proof uses a deterministic fake host for mutation behavior and proves policy, scope, caller continuity, trusted-context separation, confirmation, exact fingerprint/action binding, service-instance sequencing, stale-request rejection, single-use authority, and error classification.
+Phase 12 unit/adversarial proof uses a deterministic fake host for mutation behavior and proves policy, scope, caller continuity, trusted-context separation, request cardinality, confirmation, exact fingerprint/action binding, service-instance sequencing, stale-request rejection, single-use authority, and error classification.
 
 Windows CI compiles the real Phase 12 path through the existing Phase 11 Windows executor. Phase 12 does **not** claim that CI or ATHENA has performed a live Registry mutation. Live attached-machine mutation remains a separate proof obligation before broader deployment claims.
 
