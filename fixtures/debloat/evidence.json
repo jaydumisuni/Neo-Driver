@@ -1,0 +1,32 @@
+{
+  "observations": [
+    {
+      "package_id": "Contoso.Optional",
+      "installed": "present",
+      "provisioned": "present",
+      "version": "1.0.0",
+      "source": "synthetic-phase13-fixture"
+    },
+    {
+      "package_id": "Contoso.Gaming",
+      "installed": "present",
+      "provisioned": "present",
+      "version": "2.0.0",
+      "source": "synthetic-phase13-fixture"
+    },
+    {
+      "package_id": "Contoso.Dependency",
+      "installed": "present",
+      "provisioned": "absent",
+      "version": "3.0.0",
+      "source": "synthetic-phase13-fixture"
+    },
+    {
+      "package_id": "Contoso.System",
+      "installed": "present",
+      "provisioned": "present",
+      "version": "10.0.0",
+      "source": "synthetic-phase13-fixture"
+    }
+  ]
+}
