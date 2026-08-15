@@ -66,7 +66,9 @@ A prepared item becomes one Phase 4 `ActionKind::Debloat` transaction action wit
 - exact serialized baseline identities captured into the Phase 4 checkpoint;
 - required postcondition that the main current-user package becomes absent;
 - reversible rollback metadata requiring every captured target to match its baseline after restoration;
-- transaction fingerprint binding all of the above.
+- transaction fingerprint binding the exact transaction targets, postconditions, and rollback obligations.
+
+The captured baseline values are checkpoint state, not inputs to the transaction-plan fingerprint. Phase 15 therefore claims both exact baseline capture and plan-fingerprint continuity, not a fingerprint over the baseline payload itself.
 
 `DebloatPreparedTransaction` is constructor-owned. Its assessment, prepared steps, transaction plan, checkpoint, and machine-change marker are crate-visible only; external callers receive immutable getters. This prevents callers from replacing restore-route, transaction, or checkpoint state while reusing the same prepared object and plan fingerprint.
 
@@ -86,7 +88,7 @@ Phase 15 proves:
 - exact provisioned twin required for main and every direct dependency;
 - Phase 4 `ActionKind::Debloat` transaction creation;
 - constructor-owned externally read-only prepared authority state;
-- baseline capture and transaction fingerprint continuity;
+- exact baseline capture and transaction-plan fingerprint continuity;
 - deterministic fixture proof on Ubuntu and Windows;
 - byte-for-byte fixture-tree equality around the Windows live inventory proof;
 - continued absence of AppX mutation capability.
