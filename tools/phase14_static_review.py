@@ -12,7 +12,6 @@ review = (ROOT / "docs" / "PHASE14_20_LANE_REVIEW.md").read_text(encoding="utf-8
 decision = (ROOT / "docs" / "decisions" / "0014-PHASE14-DEBLOAT-WINDOWS-LIVE-INVENTORY.md").read_text(encoding="utf-8")
 behavior = (CRATE / "tests" / "live_read_only.rs").read_text(encoding="utf-8")
 ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-behavior_compact = "".join(behavior.split())
 
 
 def has(*values: str) -> bool:
@@ -63,10 +62,11 @@ checks = [
     (
         "live windows behavioral proof",
         "live_windows_inventory_is_read_only_to_fixture_state" in behavior
-        and "assert_eq!(report.command_evidence.len(),2);" in behavior_compact
-        and "report.command_evidence.iter().all(|item|item.succeeded())" in behavior_compact
-        and "assert!(!report.machine_changes);" in behavior_compact
-        and 'assert_eq!(before,after,"live read-only inventory changed fixture state");' in behavior_compact
+        and "assert_eq!(report.command_evidence.len(), 2);" in behavior
+        and "report.command_evidence.iter().all(|item| item.succeeded())" in behavior
+        and "assert!(!report.machine_changes);" in behavior
+        and "before, after," in behavior
+        and "live read-only inventory changed fixture state" in behavior
         and "CARGO_BIN_EXE_neo-debloat-live-scan" in behavior,
     ),
     (
