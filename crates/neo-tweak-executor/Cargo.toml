@@ -1,0 +1,17 @@
+[package]
+name = "neo-tweak-executor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-core = { path = "../neo-core" }
+neo-state-plan = { path = "../neo-state-plan" }
+neo-transaction = { path = "../neo-transaction" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true

@@ -449,6 +449,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "neo-tweak-executor"
+version = "0.1.0"
+dependencies = [
+ "neo-core",
+ "neo-state-plan",
+ "neo-transaction",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "windows",
+]
+
+[[package]]
 name = "neo-vault"
 version = "0.1.0"
 dependencies = [

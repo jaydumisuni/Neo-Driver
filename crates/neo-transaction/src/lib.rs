@@ -7,6 +7,7 @@ mod checkpoint;
 mod error;
 mod invariants;
 mod plan;
+mod rollback_batch;
 mod state;
 mod verification;
 
@@ -22,5 +23,7 @@ pub use state::{
     VerificationStatus,
 };
 
+#[cfg(test)]
+mod rollback_batch_tests;
 #[cfg(test)]
 mod tests;
