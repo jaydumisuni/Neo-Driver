@@ -24,10 +24,23 @@ EXPECTED_IDS = {
 }
 EXPECTED_VALUES = {"HideFileExt", "Hidden", "TaskbarAl"}
 EXPECTED_DONOR_PATH = "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Explorer\\\\Advanced"
+EXPECTED_FORWARD_VALUES = {
+    "SHOW_FILE_EXTENSIONS": 0,
+    "SHOW_HIDDEN_FILES": 1,
+    "TASKBAR_CENTERED_ICONS": 1,
+}
 
 
 def test_functions(text: str) -> set[str]:
     return set(re.findall(r"(?m)^\s*#\[test\]\s*\n\s*fn\s+([A-Za-z0-9_]+)\s*\(", text))
+
+
+def curated_forward_values_are_exact(text: str) -> bool:
+    for constant, value in EXPECTED_FORWARD_VALUES.items():
+        pattern = rf"{constant}\s*=>\s*Some\(RegistryTweakSpec\s*\{{.*?desired_dword:\s*{value},"
+        if re.search(pattern, text, re.S) is None:
+            return False
+    return "*value == spec.desired_dword" in text and "step.desired_dword != spec.desired_dword" in text
 
 
 ids = set(re.findall(r'"(windows\.(?:explorer|taskbar)\.[a-z0-9_.-]+)"', MODEL))
@@ -61,6 +74,8 @@ decision_markers = {
     "require an opaque `TweakExecutorCapability` with no public constructor",
     "Local\\\\THETECHGUY.NeoDriver.TweakExecutor.v1",
     "same-session authority only",
+    "DWORD `2` hides them",
+    "exact approved forward DWORD",
 }
 
 checks = [
@@ -68,7 +83,7 @@ checks = [
     ("windows-dependency-is-target-only", "windows" in windows_dependencies and "windows" not in normal_dependencies),
     ("exact-three-curated-ids", ids == EXPECTED_IDS),
     ("exact-three-curated-value-names", value_names == EXPECTED_VALUES and EXPECTED_DONOR_PATH in MODEL),
-    ("dword-binary-operation-gate", "TweakValue::U32(value)" in MODEL and "if *value <= 1" in MODEL and "UnsupportedOperation" in MODEL),
+    ("exact-curated-forward-value-gate", curated_forward_values_are_exact(MODEL) and "UnsupportedOperation" in MODEL),
     ("certified-evidence-gate", "definition.verdict != EvidenceVerdict::Certified" in MODEL and "NonCertifiedTweak" in MODEL),
     ("no-public-registry-spec", "pub(crate) struct RegistryTweakSpec" in MODEL and "pub struct RegistryTweakSpec" not in public_surface),
     ("opaque-capability", "pub struct TweakExecutorCapability" in MODEL and "pub(crate) fn for_tests" in MODEL and "pub fn new" not in MODEL.split("pub struct TweakExecutorCapability", 1)[1]),
