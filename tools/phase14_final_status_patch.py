@@ -1,0 +1,44 @@
+from pathlib import Path
+
+path = Path('docs/IMPLEMENTATION_STATUS.md')
+text = path.read_text(encoding='utf-8')
+
+bullet = '- **Phase 14:** merged, corrected, and engineering-proven — read-only Windows current-user and online provisioned AppX inventory resolution over the frozen Phase 13 debloat model, using exactly two source-owned fixed PowerShell inventory scripts through the existing read-only command-evidence boundary, raw command-evidence retention, fail-closed `Unavailable` semantics for command/parse/identity uncertainty, exact-command regression proof, case-insensitive Rust identity matching, and successful real Windows live behavioral proof. Package/provisioning removal, restore/re-registration, transaction binding, public mutation CLI/GUI, plugin dependency, and MCP/RPC debloat authority remain blocked.'
+if bullet not in text:
+    lines = text.splitlines()
+    marker = next(i for i, line in enumerate(lines) if line.startswith('- **Phase 13:**'))
+    lines.insert(marker + 1, bullet)
+    text = '\n'.join(lines) + '\n'
+
+baseline = ('Phase 14 initial exact final-head push run `31904774997` and PR run `31904777612` passed the complete Ubuntu and Windows Phase 1–14 pipeline on `ad807443f3ceec3b38222ea10e2bfcf468faa0a9`, including successful real Windows current-user and provisioned AppX inventory execution. Initial implementation merged through PR #26 as `21b6f910435d3b22c2f142488616ae9cfeee1060`. CodeRabbit then completed its delayed review and identified two valid proof defects after that merge: the fake runner did not record actual command arguments, and the Phase 14 static gate was not tightly bound to the executable live-proof/CI/negative-plugin-policy contracts. The first documentation PR #27 was therefore closed unmerged as superseded. Correction PR #28 fixed both findings at exact head `81052420439facf953db480840c65ecc959fa6c7`; full correction run `31905339875` passed Ubuntu and Windows, including the real Phase 14 live AppX inventory lane, and the correction merged as `6980339207b7151d9000df21bd230551d2f9c27b`. Both original CodeRabbit review threads were then resolved. Corrected merged-main run `31905542475` passed the complete Ubuntu and Windows Phase 1–14 pipeline. GitGuardian passed on both the initial implementation lineage and the correction lineage with no secrets detected. CodeRabbit re-review of PR #28 could not start because its included-review quota was exhausted, so no separate CodeRabbit PASS is claimed for the correction PR.')
+if baseline not in text:
+    lines = text.splitlines()
+    marker = next(i for i, line in enumerate(lines) if line.startswith('Phase 13 exact implementation-head run'))
+    lines.insert(marker + 1, '')
+    lines.insert(marker + 2, baseline)
+    text = '\n'.join(lines) + '\n'
+
+section = """## Phase 14 frozen implementation
+
+Phase 14 extends the proven Phase 13 debloat assessment model with real Windows evidence capture while remaining read-only. It adds `neo-debloat-probe`, which uses the existing `neo-probe::CommandRunner` evidence boundary and exactly two source-owned fixed PowerShell inventory scripts: current-user `Get-AppxPackage` and online `Get-AppxProvisionedPackage -Online`.
+
+Catalogue package identities never enter command text. Neo enumerates the approved inventory surfaces first, retains raw `CommandEvidence`, then performs case-insensitive matching in Rust. Command start failure, non-zero result, malformed JSON, or an identity-incomplete inventory record makes that entire evidence side `Unavailable`; none can manufacture a false `Absent` result. Current-user package version evidence is retained only when exactly one distinct non-empty version is recovered. The normalized observations are rebuilt through the frozen Phase 13 `DebloatEvidence::new` constructor.
+
+The Windows live proof requires both fixed inventory commands to actually succeed and proves the fixture tree remains byte-for-byte unchanged. The proof binary reports `Machine changes: none`. Phase 14 adds no package removal, provisioned-package mutation, restore/re-registration, transaction binding, public debloat mutation CLI/GUI, plugin dependency, MCP/RPC debloat authority, or capability issuance.
+
+## Phase 14 review findings closed before freeze
+
+1. Identity-incomplete AppX inventory records were initially ignored, which could manufacture false absence. Any missing/empty package identity now makes that entire inventory side `Unavailable`.
+2. The live-proof static lane initially depended on rustfmt line layout. The gate now binds stable behavioral identities/assertion markers instead of formatting.
+3. `SystemCommandRunner` was imported on non-Windows builds even though live construction is Windows-only. The import is target-gated rather than warning-suppressed.
+4. The initial no-interpolation static lane was weaker than the source contract. It was strengthened to bind the two source-owned static script call sites and the no-catalogue-argument regression.
+5. Review text initially described JSON output as bounded without a hard stdout-size bound in code. The canonical claim was corrected to typed, fail-closed JSON parsing; no hard output-size bound is claimed.
+6. CodeRabbit later proved the no-interpolation regression was still vacuous because fake returned `CommandEvidence.args` stayed empty. The fake runner now records the actual `program` and `args`, and the regression asserts the exact two PowerShell argument vectors/scripts before checking that catalogue identity never appears in command arguments.
+7. CodeRabbit also proved the Phase 14 static gate could pass without binding exact executable proof behavior. The gate now requires the command-count/success/no-change/before-after expressions, exact CI Phase 14 commands with the Windows condition, and the explicit negative plugin-dependency policy. Failed lanes also emit self-identifying GitHub annotations.
+"""
+if '## Phase 14 frozen implementation' not in text:
+    text = text.rstrip() + '\n\n' + section.strip() + '\n'
+
+path.write_text(text.rstrip() + '\n', encoding='utf-8')
+Path('.github/workflows/phase14_final_status_patch.yml').unlink()
+Path('tools/phase14_final_status_patch.py').unlink()
