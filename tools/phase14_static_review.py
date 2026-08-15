@@ -26,7 +26,15 @@ checks = [
     ("probe dependencies", "neo-debloat" in manifest and "neo-probe" in manifest),
     ("phase13 isolation preserved", "neo-probe" not in phase13_manifest and "windows" not in phase13_manifest.lower()),
     ("fixed noninteractive powershell", has('"powershell.exe"', '"-NoLogo"', '"-NoProfile"', '"-NonInteractive"', '"-Command"')),
-    ("catalogue identity not command input", "Catalogue identities are never interpolated" in production and "definition.package_id" not in production.split("fn capture_script", 1)[0]),
+    (
+        "catalogue identity not command input",
+        "Catalogue identities are never interpolated" in production
+        and "fn capture_script(&self, script: &'static str)" in production
+        and "self.capture_script(INSTALLED_SCRIPT)" in production
+        and "self.capture_script(PROVISIONED_SCRIPT)" in production
+        and production.count("self.capture_script(") == 2
+        and "arg.contains(\"Contoso.Optional\")" in production,
+    ),
     ("current user inventory", has("Get-AppxPackage", "PackageTypeFilter")),
     ("provisioned inventory", has("Get-AppxProvisionedPackage -Online")),
     ("no execution policy bypass", absent("ExecutionPolicy", "Bypass")),
