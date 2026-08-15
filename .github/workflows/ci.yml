@@ -58,6 +58,9 @@ jobs:
       - name: Phase 10 twenty-lane static review
         run: python -W error tools/phase10_static_review.py
 
+      - name: Phase 11 twenty-lane static review
+        run: python -W error tools/phase11_static_review.py
+
       - name: Cargo lockfile proof
         run: |
           cargo generate-lockfile
