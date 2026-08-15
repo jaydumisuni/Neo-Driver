@@ -1,13 +1,23 @@
 use crate::{
     ObservedState, StatePlanError, TweakCatalogue, TweakEvidence, TweakObservation, TweakTarget,
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
 pub struct ReaderId(String);
+
+impl<'de> Deserialize<'de> for ReaderId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(|error| serde::de::Error::custom(error.to_string()))
+    }
+}
 
 impl ReaderId {
     pub fn new(value: impl Into<String>) -> Result<Self, StatePlanError> {
