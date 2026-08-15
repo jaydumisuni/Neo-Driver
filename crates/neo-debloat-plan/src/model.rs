@@ -141,14 +141,34 @@ pub struct DebloatPreparedStep {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DebloatPreparedTransaction {
-    pub assessment: DebloatAssessment,
-    pub steps: Vec<DebloatPreparedStep>,
-    pub transaction: TransactionPlan,
-    pub checkpoint: TransactionCheckpoint,
-    pub machine_changes: bool,
+    pub(crate) assessment: DebloatAssessment,
+    pub(crate) steps: Vec<DebloatPreparedStep>,
+    pub(crate) transaction: TransactionPlan,
+    pub(crate) checkpoint: TransactionCheckpoint,
+    pub(crate) machine_changes: bool,
 }
 
 impl DebloatPreparedTransaction {
+    pub fn assessment(&self) -> &DebloatAssessment {
+        &self.assessment
+    }
+
+    pub fn steps(&self) -> &[DebloatPreparedStep] {
+        &self.steps
+    }
+
+    pub fn transaction(&self) -> &TransactionPlan {
+        &self.transaction
+    }
+
+    pub fn checkpoint(&self) -> &TransactionCheckpoint {
+        &self.checkpoint
+    }
+
+    pub fn machine_changes(&self) -> bool {
+        self.machine_changes
+    }
+
     pub fn plan_fingerprint(&self) -> &str {
         self.checkpoint.plan_fingerprint()
     }
