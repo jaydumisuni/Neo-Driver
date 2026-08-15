@@ -1,0 +1,55 @@
+name: Phase 14 canonical status patch
+
+on:
+  push:
+    branches: ["docs/phase-14-merge-proof"]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/phase-14-merge-proof
+      - name: Patch canonical Phase 14 recovery state
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('docs/IMPLEMENTATION_STATUS.md')
+          text = path.read_text(encoding='utf-8')
+
+          phase14_bullet = '- **Phase 14:** merged and engineering-proven — read-only Windows current-user and online provisioned AppX inventory resolution over the frozen Phase 13 debloat model, with exactly two source-owned fixed PowerShell inventory scripts, raw command-evidence retention, fail-closed `Unavailable` semantics for command/parse/identity uncertainty, case-insensitive Rust identity matching, and successful real Windows behavioral proof. Package/provisioning removal, restore/re-registration, transaction binding, public mutation CLI/GUI, plugin dependency, and MCP/RPC debloat authority remain blocked.'
+          if phase14_bullet not in text:
+              lines = text.splitlines()
+              insert_at = next(i + 1 for i, line in enumerate(lines) if line.startswith('- **Phase 13:**'))
+              lines.insert(insert_at, phase14_bullet)
+              text = '\n'.join(lines) + '\n'
+
+          baseline = ('Phase 14 exact final-head push run `31904774997` and PR run `31904777612` passed the complete Ubuntu and Windows Phase 1–14 pipeline on `ad807443f3ceec3b38222ea10e2bfcf468faa0a9`, including both successful real Windows AppX inventory commands, Phase 14 live byte-for-byte read-only proof, Phase 10 live Windows state proof, Runtime System X-Ray, Clippy with warnings denied, units, and all applicable inherited fixtures. GitGuardian scanned all 13 PR commits with no secrets detected. Phase 14 merged through PR #26 as `21b6f910435d3b22c2f142488616ae9cfeee1060`. CodeRabbit full review was explicitly triggered against the final head; at the implementation merge gate it remained in progress and had published no review submission or inline review thread, so no external CodeRabbit PASS is claimed.')
+          if baseline not in text:
+              lines = text.splitlines()
+              insert_at = next(i + 1 for i, line in enumerate(lines) if line.startswith('Phase 13 exact implementation-head run'))
+              lines.insert(insert_at, '')
+              lines.insert(insert_at + 1, baseline)
+              text = '\n'.join(lines) + '\n'
+
+          section = '''\n## Phase 14 frozen implementation\n\nPhase 14 extends the proven Phase 13 debloat assessment model with real Windows evidence capture while remaining read-only. It adds `neo-debloat-probe`, which uses the existing `neo-probe::CommandRunner` evidence boundary and exactly two source-owned fixed PowerShell inventory scripts: current-user `Get-AppxPackage` and online `Get-AppxProvisionedPackage -Online`. Catalogue package identities never enter command text; Neo enumerates first and performs case-insensitive matching in Rust. Raw `CommandEvidence` is retained.\n\nCommand start failure, non-zero result, malformed JSON, or an identity-incomplete inventory record makes that entire evidence side `Unavailable`; none can manufacture a false `Absent` result. Current-user version evidence is retained only when exactly one distinct non-empty version is recovered. The normalized result is rebuilt through the frozen Phase 13 `DebloatEvidence::new` constructor.\n\nThe Windows live proof requires both fixed inventory commands to actually succeed and proves the fixture tree remains byte-for-byte unchanged. The proof binary reports `Machine changes: none`.\n\nPhase 14 adds no package removal, provisioned-package mutation, restore/re-registration, transaction binding, public debloat mutation CLI/GUI, plugin dependency, MCP/RPC debloat authority, or capability issuance. Those remain later independently gated work.\n\n## Phase 14 review findings closed before freeze\n\n1. Identity-incomplete AppX inventory records were initially ignored, which could manufacture false absence. Any missing/empty package identity now makes that entire inventory side `Unavailable`.\n2. The live-proof static lane initially depended on rustfmt keeping an assertion on one line. The gate now binds to stable behavioral test identities and assertion markers instead of formatting.\n3. `SystemCommandRunner` was imported on non-Windows builds even though live construction is Windows-only. The import is now target-gated rather than warning-suppressed.\n4. The initial no-interpolation static lane was weaker than the source contract. It now proves the two exact source-owned static script call sites, exactly two `capture_script` invocations, and the regression that catalogue identity is absent from command arguments.\n5. Review text initially described the JSON output as bounded without a hard stdout-size bound in code. The canonical claim was corrected to typed, fail-closed JSON parsing; no hard output-size bound is claimed.\n'''
+          if '## Phase 14 frozen implementation' not in text:
+              text = text.rstrip() + '\n' + section
+
+          path.write_text(text.rstrip() + '\n', encoding='utf-8')
+          Path('.github/workflows/phase14_status_patch.yml').unlink()
+      - name: Verify clean patch
+        run: git diff --check
+      - name: Commit canonical status only
+        run: |
+          git config user.name "THE TECH GUY"
+          git config user.email "65334711+jaydumisuni@users.noreply.github.com"
+          git add docs/IMPLEMENTATION_STATUS.md .github/workflows/phase14_status_patch.yml
+          git commit -m "Phase 14: record canonical merged status"
+          git push origin HEAD:docs/phase-14-merge-proof
