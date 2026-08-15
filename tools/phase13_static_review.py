@@ -13,6 +13,7 @@ manifest = (CRATE / "Cargo.toml").read_text(encoding="utf-8")
 review = (ROOT / "docs" / "PHASE13_20_LANE_REVIEW.md").read_text(encoding="utf-8")
 decision = (ROOT / "docs" / "decisions" / "0013-PHASE13-DEBLOAT-ASSESSMENT.md").read_text(encoding="utf-8")
 behavior = (CRATE / "tests" / "read_only.rs").read_text(encoding="utf-8")
+metadata = (CRATE / "tests" / "metadata.rs").read_text(encoding="utf-8")
 ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
 
@@ -37,8 +38,20 @@ checks = [
         absent("std::process::Command", "powershell", "cmd.exe", "Remove-Appx", "winget", "dism.exe"),
     ),
     (
-        "four typed debloat classes",
-        has("enum DebloatClass", "SafeOptional", "FeatureDependent", "DependencySensitive", "ProtectedManualOnly"),
+        "four typed debloat classes and consequence metadata",
+        has(
+            "enum DebloatClass",
+            "SafeOptional",
+            "FeatureDependent",
+            "DependencySensitive",
+            "ProtectedManualOnly",
+            "MissingSideEffectNotes",
+            "self.class != DebloatClass::SafeOptional",
+            "self.side_effects.is_empty()",
+        )
+        and "feature_dependent_requires_consequence_note" in metadata
+        and "dependency_sensitive_requires_consequence_note" in metadata
+        and "protected_manual_only_requires_consequence_note" in metadata,
     ),
     (
         "installed and provisioned evidence",
