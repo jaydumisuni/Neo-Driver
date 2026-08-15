@@ -67,6 +67,9 @@ jobs:
       - name: Phase 13 twenty-lane static review
         run: python -W error tools/phase13_static_review.py
 
+      - name: Phase 14 twenty-lane static review
+        run: python -W error tools/phase14_static_review.py
+
       - name: Cargo lockfile proof
         run: |
           cargo generate-lockfile
@@ -86,6 +89,10 @@ jobs:
 
       - name: Phase 13 behavioral read-only proof
         run: cargo test --locked -p neo-debloat --test read_only
+
+      - name: Phase 14 live Windows debloat inventory proof
+        if: runner.os == 'Windows'
+        run: cargo test --locked -p neo-debloat-probe --test live_read_only
 
       - name: Phase 10 live Windows state proof
         if: runner.os == 'Windows'
