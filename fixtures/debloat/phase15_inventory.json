@@ -1,0 +1,61 @@
+
+{
+  "current_user": [
+    {
+      "name": "Contoso.Phase15",
+      "full_name": "Contoso.Phase15_1.2.3.4_x64__contoso",
+      "family_name": "Contoso.Phase15_contoso",
+      "is_framework": false,
+      "is_resource": false,
+      "is_bundle": false,
+      "is_optional": false,
+      "dependencies": [
+        {
+          "name": "Contoso.Framework",
+          "full_name": "Contoso.Framework_1.0.0.0_x64__contoso",
+          "family_name": "Contoso.Framework_contoso"
+        }
+      ]
+    },
+    {
+      "name": "Contoso.Framework",
+      "full_name": "Contoso.Framework_1.0.0.0_x64__contoso",
+      "family_name": "Contoso.Framework_contoso",
+      "is_framework": true,
+      "is_resource": false,
+      "is_bundle": false,
+      "is_optional": false,
+      "dependencies": []
+    }
+  ],
+  "provisioned": [
+    {
+      "name": "Contoso.Phase15",
+      "full_name": "Contoso.Phase15_1.2.3.4_x64__contoso",
+      "family_name": "Contoso.Phase15_contoso",
+      "is_framework": false,
+      "is_resource": false,
+      "is_bundle": false,
+      "is_optional": false,
+      "dependencies": [
+        {
+          "name": "Contoso.Framework",
+          "full_name": "Contoso.Framework_1.0.0.0_x64__contoso",
+          "family_name": "Contoso.Framework_contoso"
+        }
+      ]
+    },
+    {
+      "name": "Contoso.Framework",
+      "full_name": "Contoso.Framework_1.0.0.0_x64__contoso",
+      "family_name": "Contoso.Framework_contoso",
+      "is_framework": true,
+      "is_resource": false,
+      "is_bundle": false,
+      "is_optional": false,
+      "dependencies": []
+    }
+  ],
+  "source": "phase15 synthetic native inventory",
+  "machine_changes": false
+}

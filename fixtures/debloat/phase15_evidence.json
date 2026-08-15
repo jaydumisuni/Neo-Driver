@@ -1,0 +1,12 @@
+
+{
+  "observations": [
+    {
+      "package_id": "Contoso.Phase15",
+      "installed": "present",
+      "provisioned": "present",
+      "version": "1.2.3.4",
+      "source": "phase15 synthetic Phase 14 evidence"
+    }
+  ]
+}

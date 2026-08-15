@@ -1,0 +1,23 @@
+
+{
+  "items": [
+    {
+      "id": "appx.contoso.phase15",
+      "package_id": "Contoso.Phase15",
+      "title": "Contoso Phase15 Optional",
+      "category": "Synthetic Optional Apps",
+      "description": "Synthetic current-user package used only to prove Phase 15 exact transaction readiness.",
+      "class": "safe_optional",
+      "scope": "current_user",
+      "risk": "low",
+      "recommendation": "optional_component",
+      "verdict": "certified",
+      "selected_by_default": false,
+      "restore": {
+        "kind": "provisioned_image"
+      },
+      "side_effects": [],
+      "preserve_in_profiles": []
+    }
+  ]
+}

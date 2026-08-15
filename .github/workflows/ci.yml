@@ -70,6 +70,9 @@ jobs:
       - name: Phase 14 twenty-lane static review
         run: python -W error tools/phase14_static_review.py
 
+      - name: Phase 15 twenty-lane static review
+        run: python -W error tools/phase15_static_review.py
+
       - name: Cargo lockfile proof
         run: |
           cargo generate-lockfile
@@ -93,6 +96,10 @@ jobs:
       - name: Phase 14 live Windows debloat inventory proof
         if: runner.os == 'Windows'
         run: cargo test --locked -p neo-debloat-probe --test live_read_only
+
+      - name: Phase 15 live Windows exact AppX identity proof
+        if: runner.os == 'Windows'
+        run: cargo test --locked -p neo-debloat-plan --test live_read_only
 
       - name: Phase 10 live Windows state proof
         if: runner.os == 'Windows'
@@ -127,6 +134,9 @@ jobs:
 
       - name: Debloat assessment fixture proof
         run: cargo run --locked -p neo-debloat --bin neo-debloat-assess -- fixtures/debloat/catalogue.json fixtures/debloat/evidence.json gaming appx.contoso.optional,appx.contoso.gaming,appx.contoso.system --json
+
+      - name: Phase 15 transaction-readiness fixture proof
+        run: cargo run --locked -p neo-debloat-plan --bin neo-debloat-prepare -- fixtures/debloat/phase15_catalogue.json fixtures/debloat/phase15_evidence.json fixtures/debloat/phase15_inventory.json safe-cleanup appx.contoso.phase15 phase15-fixture --json
 
       - name: Transaction plan CLI fixture proof
         run: cargo run --locked -p neo-cli -- transaction validate-plan fixtures/transaction/sample_transaction_plan.json
