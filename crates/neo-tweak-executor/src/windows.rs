@@ -3,8 +3,8 @@ use crate::model::{RegistrySnapshot, RegistryTweakSpec};
 use crate::TweakExecutionError;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{
-    CloseHandle, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, HANDLE, WAIT_ABANDONED, WAIT_OBJECT_0,
-    WAIT_TIMEOUT,
+    CloseHandle, ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_SUCCESS, HANDLE, WAIT_ABANDONED,
+    WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
 use windows::Win32::System::Registry::{
     RegCloseKey, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY,
@@ -36,6 +36,11 @@ impl TweakHost for WindowsRegistryHost {
         };
         if status == ERROR_FILE_NOT_FOUND {
             return Ok(RegistrySnapshot::Absent);
+        }
+        if status == ERROR_MORE_DATA {
+            return Err(TweakExecutionError::UnsupportedRegistryState(
+                spec.id.to_string(),
+            ));
         }
         if status != ERROR_SUCCESS {
             return Err(TweakExecutionError::Registry(format!(
