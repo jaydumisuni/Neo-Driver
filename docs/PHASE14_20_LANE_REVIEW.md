@@ -7,11 +7,11 @@
 2. Probe crate depends on `neo-debloat` and `neo-probe`.
 3. Frozen Phase 13 crate remains platform-neutral and separate.
 4. PowerShell invocation is fixed and non-interactive.
-5. Catalogue package IDs are not interpolated into commands.
+5. Catalogue package IDs are not interpolated into commands; only the two source-owned static scripts may reach the command runner, with a regression proving a catalogue identity is absent from command arguments.
 6. Current-user evidence uses `Get-AppxPackage`.
 7. Provisioned evidence uses `Get-AppxProvisionedPackage -Online`.
 8. No execution-policy bypass is used.
-9. Inventory output is converted to bounded JSON for typed parsing.
+9. Inventory output is converted to JSON for typed parsing. Phase 14 does not claim a hard stdout-size bound.
 10. Raw `CommandEvidence` is retained.
 11. Failed command evidence becomes `Unavailable`, never false absence.
 12. Malformed or identity-incomplete successful output makes that inventory side `Unavailable`.
