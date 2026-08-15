@@ -84,10 +84,16 @@ jobs:
                   ''',
               ),
               (
-                  '''        item.restore = RestoreMethod::None;
+                  '''        item.class = DebloatClass::ProtectedManualOnly;
+                          item.risk = RiskLevel::High;
+                          item.recommendation = RecommendationState::DoNotTouch;
+                          item.restore = RestoreMethod::None;
                           let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
                   ''',
-                  '''        item.restore = RestoreMethod::None;
+                  '''        item.class = DebloatClass::ProtectedManualOnly;
+                          item.risk = RiskLevel::High;
+                          item.recommendation = RecommendationState::DoNotTouch;
+                          item.restore = RestoreMethod::None;
                           item.side_effects = vec!["synthetic protected consequence".to_string()];
                           let catalogue = DebloatCatalogue::new(vec![item]).unwrap();
                   ''',
@@ -95,7 +101,7 @@ jobs:
           ]
           for old, new in replacements:
               if text.count(old) != 1:
-                  raise SystemExit("unit fixture marker not unique")
+                  raise SystemExit(f"unit fixture marker not unique: {text.count(old)}")
               text = text.replace(old, new, 1)
 
           path.write_text(text, encoding="utf-8")
