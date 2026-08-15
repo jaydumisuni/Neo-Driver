@@ -17,7 +17,7 @@ The first mutation catalogue is intentionally limited to three low-blast-radius,
 2. `windows.explorer.show_hidden_files`
    - same key
    - value `Hidden`
-   - approved forward DWORD `1` shows hidden files; DWORD `2` hides them.
+   - approved forward DWORD `1` shows hidden files; DWORD `0` hides them.
 3. `windows.taskbar.centered_icons`
    - same key
    - value `TaskbarAl`
@@ -36,7 +36,7 @@ Phase 11 supports only current-user DWORD values. Baseline states are:
 - absent; or
 - present as exact DWORD value.
 
-If the selected value exists with any other Registry type, pre-authority capture fails closed because Phase 11 cannot restore that state exactly. Baseline capture may preserve any actual DWORD value—even a noncanonical one—because rollback truth is observed machine state, while forward authority remains fixed to the curated value for that tweak ID.
+If the selected value exists with any other Registry type, pre-authority capture fails closed because Phase 11 cannot restore that state exactly. `ERROR_MORE_DATA` from the fixed DWORD read path is also classified as unsupported Registry state rather than as a generic operational error, because an oversized value cannot satisfy the exact four-byte DWORD contract. Baseline capture may preserve any actual DWORD value—even a noncanonical one—because rollback truth is observed machine state, while forward authority remains fixed to the curated value for that tweak ID.
 
 ## Transaction law
 
@@ -60,6 +60,8 @@ Rollback restores captured reality:
 - a captured DWORD is written back exactly;
 - a captured absent value is deleted;
 - rollback is not attempted for an unsupported/unavailable baseline.
+
+When more than one changed tweak requires rollback, Neo attempts every independent restoration even if an earlier restoration fails. The complete changed-action rollback outcome set is recorded atomically through the shared transaction batch API before the checkpoint becomes terminal. A failed restoration therefore cannot prevent later changed tweaks from receiving their own restoration attempt or evidence record.
 
 ## Cross-process serialization
 
