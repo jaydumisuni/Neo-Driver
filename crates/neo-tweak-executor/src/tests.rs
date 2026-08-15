@@ -296,8 +296,10 @@ fn wrong_post_write_state_rolls_back_exact_present_baseline() {
 
 #[test]
 fn failed_write_after_change_rolls_back_absent_baseline() {
-    let mut host = FakeHost::default();
-    host.fail_after_change = true;
+    let mut host = FakeHost {
+        fail_after_change: true,
+        ..Default::default()
+    };
     let mut session = prepare_with_host(
         &catalogue(vec![definition(SHOW_HIDDEN_FILES, 1)]),
         &[SHOW_HIDDEN_FILES.to_string()],
