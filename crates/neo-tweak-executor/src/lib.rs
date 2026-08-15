@@ -67,6 +67,7 @@ impl TweakExecutionSession {
         &mut self,
         _capability: &TweakExecutorCapability,
     ) -> Result<(), TweakExecutionError> {
+        let _execution_lock = windows::TweakExecutionMutex::acquire()?;
         let mut host = windows::WindowsRegistryHost;
         session::apply_with_host(self, &mut host)
     }
