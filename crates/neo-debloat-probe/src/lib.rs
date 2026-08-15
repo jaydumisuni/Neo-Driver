@@ -90,10 +90,10 @@ impl<R: CommandRunner> WindowsDebloatProbe<R> {
 
         let installed_index = installed_records
             .as_ref()
-            .map(|records| index_installed(records, &mut warnings));
+            .and_then(|records| index_installed(records, &mut warnings));
         let provisioned_index = provisioned_records
             .as_ref()
-            .map(|records| index_provisioned(records));
+            .and_then(|records| index_provisioned(records, &mut warnings));
 
         let observations = catalogue
             .items()
@@ -162,7 +162,7 @@ fn parse_records<T: for<'de> Deserialize<'de>>(
 fn index_installed(
     records: &[InstalledPackageRecord],
     warnings: &mut Vec<String>,
-) -> BTreeMap<String, BTreeSet<String>> {
+) -> Option<BTreeMap<String, BTreeSet<String>>> {
     let mut index = BTreeMap::<String, BTreeSet<String>>::new();
     for record in records {
         let Some(name) = record
@@ -171,8 +171,10 @@ fn index_installed(
             .map(str::trim)
             .filter(|value| !value.is_empty())
         else {
-            warnings.push("current-user AppX record missing Name; record ignored".to_string());
-            continue;
+            warnings.push(
+                "current-user AppX record missing Name; inventory remains Unavailable".to_string(),
+            );
+            return None;
         };
         let versions = index.entry(canonical(name)).or_default();
         if let Some(version) = record
@@ -184,17 +186,30 @@ fn index_installed(
             versions.insert(version.to_string());
         }
     }
-    index
+    Some(index)
 }
 
-fn index_provisioned(records: &[ProvisionedPackageRecord]) -> BTreeSet<String> {
-    records
-        .iter()
-        .filter_map(|record| record.display_name.as_deref())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(canonical)
-        .collect()
+fn index_provisioned(
+    records: &[ProvisionedPackageRecord],
+    warnings: &mut Vec<String>,
+) -> Option<BTreeSet<String>> {
+    let mut index = BTreeSet::new();
+    for record in records {
+        let Some(name) = record
+            .display_name
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            warnings.push(
+                "provisioned AppX record missing DisplayName; inventory remains Unavailable"
+                    .to_string(),
+            );
+            return None;
+        };
+        index.insert(canonical(name));
+    }
+    Some(index)
 }
 
 fn unique_version(versions: &BTreeSet<String>) -> Option<String> {
@@ -319,5 +334,20 @@ mod tests {
         let observation = &report.evidence.observations()[0];
         assert_eq!(observation.installed, ObservedPresence::Unavailable);
         assert_eq!(observation.provisioned, ObservedPresence::Absent);
+    }
+
+    #[test]
+    fn identity_incomplete_inventory_remains_unavailable() {
+        let runner = FakeRunner {
+            calls: RefCell::new(Vec::new()),
+            installed: command(r#"[{"Name":null,"Version":"1.2.3.4"}]"#, 0),
+            provisioned: command(r#"[{"DisplayName":null}]"#, 0),
+        };
+        let report = WindowsDebloatProbe::new(runner)
+            .scan(&catalogue())
+            .expect("scan must fail closed on identity-incomplete records");
+        let observation = &report.evidence.observations()[0];
+        assert_eq!(observation.installed, ObservedPresence::Unavailable);
+        assert_eq!(observation.provisioned, ObservedPresence::Unavailable);
     }
 }

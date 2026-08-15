@@ -1,5 +1,7 @@
 #![cfg(target_os = "windows")]
 
+use neo_debloat::DebloatCatalogue;
+use neo_debloat_probe::scan_current_debloat_evidence;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -28,12 +30,25 @@ fn directory_snapshot(path: &Path) -> Vec<(String, Vec<u8>)> {
 
 #[test]
 fn live_windows_inventory_is_read_only_to_fixture_state() {
-    let catalogue = fixture_path("catalogue.json");
-    let fixture_dir = catalogue.parent().expect("catalogue must have parent");
+    let catalogue_path = fixture_path("catalogue.json");
+    let fixture_dir = catalogue_path.parent().expect("catalogue must have parent");
     let before = directory_snapshot(fixture_dir);
 
+    let catalogue: DebloatCatalogue = serde_json::from_str(
+        &fs::read_to_string(&catalogue_path).expect("catalogue fixture must be readable"),
+    )
+    .expect("catalogue fixture must validate");
+    let report = scan_current_debloat_evidence(&catalogue).expect("live inventory must execute");
+    assert_eq!(report.command_evidence.len(), 2);
+    assert!(
+        report.command_evidence.iter().all(|item| item.succeeded()),
+        "both fixed Windows AppX inventory commands must succeed: {:?}",
+        report.command_evidence
+    );
+    assert!(!report.machine_changes);
+
     let output = Command::new(env!("CARGO_BIN_EXE_neo-debloat-live-scan"))
-        .arg(&catalogue)
+        .arg(&catalogue_path)
         .output()
         .expect("live debloat inventory binary must execute");
 

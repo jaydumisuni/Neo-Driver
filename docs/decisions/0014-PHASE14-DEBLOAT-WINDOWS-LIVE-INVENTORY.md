@@ -39,7 +39,7 @@ No `ExecutionPolicy Bypass` is used.
 
 A successful, valid current-user inventory produces `Present` or `Absent` installed evidence. A successful, valid provisioned inventory independently produces `Present` or `Absent` provisioned evidence.
 
-A command start failure, non-zero command result, or malformed JSON output never proves absence. That side becomes `Unavailable` and a warning is retained.
+A command start failure, non-zero command result, malformed JSON output, or identity-incomplete inventory record never proves absence. That entire evidence side becomes `Unavailable` and a warning is retained. Identity-incomplete records are not silently discarded because doing so could manufacture a false `Absent` result for a selected package.
 
 Current-user package version is retained only when exactly one non-empty version is recovered for the matched package identity. Ambiguous/missing version data remains `None`; presence evidence is not discarded merely because version is unavailable.
 
@@ -63,11 +63,11 @@ It is not a public debloat apply command.
 
 Phase 14 proves:
 
-- real Windows current-user AppX inventory execution;
-- real Windows provisioned-AppX inventory execution;
+- successful real Windows current-user AppX inventory execution in Windows CI;
+- successful real Windows provisioned-AppX inventory execution in Windows CI;
 - fixed command ownership and non-interpolation of catalogue identities;
 - raw command evidence retention;
-- fail-closed normalization to `Unavailable` on query or parse uncertainty;
+- fail-closed normalization to `Unavailable` on query, parse, or identity-completeness uncertainty;
 - case-insensitive identity matching;
 - Phase 13 evidence-constructor reuse;
 - a Windows CI live read-only proof with fixture-tree before/after equality;

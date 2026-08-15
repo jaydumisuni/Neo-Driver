@@ -33,14 +33,14 @@ checks = [
     ("typed json inventory", has("ConvertTo-Json", "InstalledPackageRecord", "ProvisionedPackageRecord", "serde_json::from_str")),
     ("command evidence retained", has("pub command_evidence: Vec<CommandEvidence>", "vec![installed_command, provisioned_command]")),
     ("query failure unavailable", has("state remains Unavailable", "ObservedPresence::Unavailable")),
-    ("malformed output unavailable", has("returned malformed JSON", "None")),
+    ("malformed and identity incomplete unavailable", has("returned malformed JSON", "inventory remains Unavailable", "return None")),
     ("case insensitive matching", has("to_ascii_lowercase", "canonical(&definition.package_id)")),
     ("conservative version", has("unique_version", "versions.len() == 1")),
     ("phase13 evidence constructor reused", has("DebloatEvidence::new(observations)")),
     ("mutation engines isolated", all(name not in manifest for name in ("neo-transaction", "neo-driverstore", "neo-runtime-executor", "neo-tweak-executor"))),
     ("no appx mutation commands", absent("Remove-AppxPackage", "Remove-AppxProvisionedPackage", "Add-AppxPackage", "Add-AppxProvisionedPackage", "winget.exe")),
     ("proof binary read only", "Machine changes: none" in production and "machine_changes: false" in production),
-    ("live windows behavioral proof", "directory_snapshot" in behavior and "assert_eq!(before, after" in behavior and "CARGO_BIN_EXE_neo-debloat-live-scan" in behavior),
+    ("live windows behavioral proof", "directory_snapshot" in behavior and "command_evidence.iter().all" in behavior and "assert_eq!(before, after" in behavior and "CARGO_BIN_EXE_neo-debloat-live-scan" in behavior),
     ("ci and decision freeze", "Phase 14 twenty-lane static review" in ci and "Phase 14 live Windows debloat inventory proof" in ci and "**Mutation authority:** none" in review and "plugin dependency" in decision),
 ]
 
