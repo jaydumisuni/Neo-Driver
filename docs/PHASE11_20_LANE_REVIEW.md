@@ -21,14 +21,14 @@
 17. Unsupported Registry type/size, including `ERROR_MORE_DATA`, blocks before authority because Phase 11 cannot restore it exactly.
 18. The real Windows backend uses typed Registry APIs directly; no shell, PowerShell, `reg.exe`, or arbitrary process command exists.
 19. The public `neo` CLI has no Phase 11 mutation dependency/command; future capability issuance remains behind a separately reviewed typed MCP/RPC control plane.
-20. Fake-host/shared-transaction adversarial regressions cover unsupported authority, contradictory curated semantics, satisfied no-op, exact present/absent baselines, pre-authority/pre-apply drift, post-write verification, complete multi-tweak rollback attempts, rollback batch completeness, partial failure, multi-tweak completion, and the closed capability boundary.
+20. Fake-host/shared-transaction adversarial regressions cover unsupported authority, contradictory curated semantics, invalid-request taxonomy, satisfied no-op, exact present/absent baselines, pre-authority/pre-apply drift, post-write verification, complete multi-tweak rollback attempts, rollback batch completeness, partial failure, multi-tweak completion, and the closed capability boundary.
 
 ## Frozen donor evidence
 
 The first three bindings were recovered from the repository donor `jaydumisuni/winutil`:
 
 - `Customize-Preferences/ShowExt.mdx` — `HideFileExt`, DWORD `0` to show extensions.
-- `Customize-Preferences/HiddenFiles.mdx` — `Hidden`, DWORD `1` to show hidden files; DWORD `0` is the opposite hidden state.
+- `Customize-Preferences/HiddenFiles.mdx` — `Hidden`, DWORD `1` to show hidden files; Windows' canonical opposite state is DWORD `2`, so Phase 11 does not authorize `0` as an inverse value for this one-way tweak ID.
 - `Customize-Preferences/TaskbarAlignment.mdx` — `TaskbarAl`, DWORD `1` centered / DWORD `0` left.
 
 WinUtil `OriginalValue` fields are **not** Neo rollback evidence. Neo restores only the actual value/presence captured immediately before authority.
@@ -42,27 +42,36 @@ WinUtil `OriginalValue` fields are **not** Neo rollback evidence. Neo restores o
 - The first cross-platform type proof found private sibling-field construction and non-Windows dead-code issues; a crate-private constructor plus Windows/test-only internals closed those without widening authority or suppressing lints.
 - Clippy found a test-only field-reassignment pattern; the fixture now initializes the field structurally with no lint suppression.
 - Independent pre-review audit found same-session cross-process stale-baseline/rollback risk. A bounded `Local\THETECHGUY.NeoDriver.TweakExecutor.v1` named mutex now covers the second baseline check through writes, verification, and rollback. Windows units acquire/release the real mutex without modifying Registry values.
+- Independent semantic review corrected the hidden-files inverse documentation and bound every curated tweak ID to its exact forward DWORD.
+- Request validation is separated from Registry/host failure: an empty mission ID returns `InvalidRequest`, with `empty_mission_id_is_invalid_request` and static lane 19 binding that taxonomy for future structured RPC error mapping.
 
 ## External-review findings closed
 
-CodeRabbit full review identified three current correctness findings. All are fixed, regression-bound, replied to with current-head evidence, and explicitly resolved on PR #19:
+CodeRabbit full review identified three current correctness findings plus one error-taxonomy nitpick. All are fixed and regression-bound:
 
 1. **Curated semantic binding:** a binary value with the wrong semantic direction could previously be requested. `RegistryTweakSpec` now binds each ID to its one approved forward DWORD, persisted-plan validation preserves that binding, and `contradictory_curated_semantics_fail_closed` proves rejection.
 2. **Complete rollback attempts:** rollback previously could stop after the first restore failure. Phase 11 now attempts every changed independent tweak and submits the complete result set through additive `TransactionCheckpoint::record_rollback_results_batch`; transaction-level tests require complete coverage and preserve every outcome before terminal failure, while the Phase 11 regression proves a later tweak is restored after an earlier restore failure.
 3. **Oversized Registry values:** fixed four-byte DWORD reads now classify `ERROR_MORE_DATA` as `UnsupportedRegistryState`, preserving the fail-closed exact-state contract.
+4. **Error taxonomy:** invalid preparation input is no longer reported as a Registry failure; it returns `InvalidRequest` so caller/input failures remain distinct from host execution failures.
 
-CodeRabbit confirmed each correction in-thread. PR #19 has zero unresolved review threads after reconciliation.
+CodeRabbit confirmed each of the three inline correctness corrections in-thread. PR #19 has zero unresolved inline review threads after reconciliation. The taxonomy item was not an inline thread and is closed by code plus regression/static proof.
+
+## MCP/RPC integration boundary
+
+Neo remains MCP/RPC-first above its typed core engines. Hunter, Oracle, the final Neo GUI, and other approved TTG callers are expected to use typed service/RPC contracts rather than bypassing the core through ad-hoc shell or public CLI mutation.
+
+Phase 11 does **not** issue `TweakExecutorCapability` through MCP/RPC yet. It proves the internal mutation engine that a later permission/confirmation-aware RPC service may call. CLI remains diagnostic/manual tooling and is not the primary mutation control plane.
 
 ## Implementation-code proof
 
-Current implementation head `53427008f41e383b46f8c7fea73a1e048d484844` passed run `31894350194` on Ubuntu and Windows:
+Corrected implementation head `5d51a226cf30735838d764586a28b9a8411d2f02` passed normal PR CI run `31894609222` on Ubuntu and Windows:
 
 - Phase 1–11 deterministic static reviews;
 - Cargo lock integrity;
 - rustfmt;
 - locked full-workspace type/build;
 - Clippy with warnings denied;
-- complete workspace unit/adversarial suite, including rollback-batch and Phase 11 review regressions;
+- complete workspace unit/adversarial suite, including semantic-value, invalid-request, rollback-batch, and Phase 11 review regressions;
 - Windows Phase 10 live read-only state proof;
 - Windows Runtime System X-Ray;
 - all applicable catalogue, matcher, runtime, gaming, vault, runtime-executor, and transaction CLI fixtures.
