@@ -1,9 +1,7 @@
 use crate::engine::{prepare_with_host, TweakHost};
 use crate::model::{RegistrySnapshot, RegistryTweakSpec};
 use crate::session::{apply_with_host, authorize_with_host};
-use crate::{
-    TweakExecutionError, TweakExecutionSession, SHOW_FILE_EXTENSIONS, SHOW_HIDDEN_FILES,
-};
+use crate::{TweakExecutionError, TweakExecutionSession, SHOW_FILE_EXTENSIONS, SHOW_HIDDEN_FILES};
 use neo_core::{EvidenceVerdict, RebootRequirement, RecommendationState, RiskLevel};
 use neo_state_plan::{TweakCatalogue, TweakDefinition, TweakOperation, TweakTarget, TweakValue};
 use neo_transaction::{TransactionAuthorization, TransactionStage};
@@ -80,7 +78,9 @@ fn definition(id: &str, desired: u32) -> TweakDefinition {
         selected_by_default: false,
         requires_admin: false,
         reboot: RebootRequirement::None,
-        target: TweakTarget { key: id.to_string() },
+        target: TweakTarget {
+            key: id.to_string(),
+        },
         operation: TweakOperation::Set {
             value: TweakValue::U32(desired),
         },
@@ -125,10 +125,8 @@ fn rollback_attempts_all_changed_tweaks_after_restore_failure() {
         corrupt_write: true,
         ..Default::default()
     };
-    host.values.insert(
-        SHOW_FILE_EXTENSIONS.to_string(),
-        RegistrySnapshot::Dword(1),
-    );
+    host.values
+        .insert(SHOW_FILE_EXTENSIONS.to_string(), RegistrySnapshot::Dword(1));
     host.values
         .insert(SHOW_HIDDEN_FILES.to_string(), RegistrySnapshot::Dword(0));
     host.restore_fail_ids
@@ -156,10 +154,7 @@ fn rollback_attempts_all_changed_tweaks_after_restore_failure() {
             SHOW_HIDDEN_FILES.to_string()
         ]
     );
-    assert_eq!(
-        host.value(SHOW_HIDDEN_FILES),
-        RegistrySnapshot::Dword(0)
-    );
+    assert_eq!(host.value(SHOW_HIDDEN_FILES), RegistrySnapshot::Dword(0));
     assert_eq!(
         host.value(SHOW_FILE_EXTENSIONS),
         RegistrySnapshot::Dword(99)
