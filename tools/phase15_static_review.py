@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 from pathlib import Path
 
@@ -39,7 +38,20 @@ checks = [
     ("dependency provisioned twins", "ensure_dependency_restore_ready" in production and "provisioned_exact" in production),
     ("debloat transaction binding", "kind: ActionKind::Debloat" in production and "requires_confirmation: true" in production and "StateTargetKind::AppxPackage" in production),
     ("captured baseline checkpoint", "checkpoint.capture_baseline(baseline_states)?" in production and "CapturedValue::Present" in production),
-    ("fingerprint continuity", "pub fn plan_fingerprint(&self) -> &str" in production and "self.checkpoint.plan_fingerprint()" in production and "TransactionCheckpoint::new(transaction.clone())?" in production),
+    (
+        "constructor-owned prepared authority and fingerprint continuity",
+        all(value in production for value in (
+            "pub(crate) steps: Vec<DebloatPreparedStep>",
+            "pub(crate) transaction: TransactionPlan",
+            "pub(crate) checkpoint: TransactionCheckpoint",
+            "pub fn steps(&self) -> &[DebloatPreparedStep]",
+            "pub fn transaction(&self) -> &TransactionPlan",
+            "pub fn checkpoint(&self) -> &TransactionCheckpoint",
+            "pub fn plan_fingerprint(&self) -> &str",
+            "self.checkpoint.plan_fingerprint()",
+            "TransactionCheckpoint::new(transaction.clone())?",
+        )),
+    ),
     ("live read only behavior", "native_exact_appx_identity_scan_is_read_only_to_fixture_state" in behavior and "assert!(!inventory.machine_changes);" in behavior and "before, after," in behavior),
     (
         "negative mutation and integration boundary",
