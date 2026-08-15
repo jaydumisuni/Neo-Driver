@@ -159,8 +159,10 @@ checks = [
         )),
     ),
     (
-        "Windows live inventory proof is behaviorally read-only",
+        "Windows live inventory proof is non-empty and behaviorally read-only",
         "native_exact_appx_identity_scan_is_read_only_to_fixture_state" in behavior
+        and "!inventory.current_user.is_empty()" in behavior
+        and "!inventory.provisioned.is_empty()" in behavior
         and "assert!(!inventory.machine_changes);" in behavior
         and "before, after," in behavior
         and phase15_live_step in ci,
