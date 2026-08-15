@@ -81,7 +81,7 @@ checks = [
     ("direct-windows-registry-no-shell", all(marker in WINDOWS for marker in ["RegOpenKeyExW", "RegQueryValueExW", "RegSetValueExW", "RegDeleteValueW"]) and all(marker not in production for marker in ["Command::new", "powershell", "reg.exe", "cmd.exe"])),
     ("no-public-cli-mutation", "neo-tweak-executor" not in cli_dependencies and "TweakExecutorCapability" not in (ROOT / "crates/neo-cli/src/main.rs").read_text(encoding="utf-8")),
     ("adversarial-regressions", required_regressions.issubset(regressions)),
-    ("decision-boundary", decision_markers.issubset(DECISION)),
+    ("decision-boundary", all(marker in DECISION for marker in decision_markers)),
 ]
 
 if len(checks) != 20 or len({name for name, _ in checks}) != 20:
