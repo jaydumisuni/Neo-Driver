@@ -75,7 +75,7 @@ checks = [
     ("raw-host-private", "pub(crate) trait TweakHost" in ENGINE and "pub(crate) struct WindowsRegistryHost" in WINDOWS and "pub use windows" not in LIB),
     ("phase4-transaction-reuse", all(marker in ENGINE for marker in ["TransactionPlan::new", "TransactionCheckpoint::new", "RollbackPlan::Reversible", "MatchesBaseline"])),
     ("actual-baseline-capture", "host.read(spec)?" in ENGINE and "checkpoint.capture_baseline" in ENGINE),
-    ("preapply-drift-and-same-session-serialization", SESSION.count("ensure_baseline_unchanged") >= 3 and "BaselineDrift" in SESSION and all(marker in WINDOWS for marker in ["TWEAK_MUTEX_NAME", "TWEAK_MUTEX_TIMEOUT_MS", "CreateMutexW", "WaitForSingleObject", "ReleaseMutex"]) and "TweakExecutionMutex::acquire()?" in LIB),
+    ("preapply-drift-and-same-session-serialization", SESSION.count("ensure_baseline_unchanged") >= 3 and "BaselineDrift" in SESSION and all(marker in WINDOWS for marker in ["TWEAK_MUTEX_NAME", "TWEAK_MUTEX_TIMEOUT_MS", "CreateMutexW", "WaitForSingleObject", "ReleaseMutex", "mutex_acquires_without_registry_mutation"]) and "TweakExecutionMutex::acquire()?" in LIB),
     ("api-result-separate-from-change", "machine_changed" in SESSION and "ApplyOutcome::Success" in SESSION and "ApplyOutcome::Failure" in SESSION),
     ("fresh-postwrite-verification", "verify_postconditions" in SESSION and "observe_steps" in SESSION),
     ("exact-baseline-rollback", "host.restore(spec, step.baseline())" in SESSION and "verify_rollback" in SESSION),
