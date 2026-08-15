@@ -12,10 +12,12 @@ pub enum TweakExecutionError {
     UnsupportedTweak(String),
     #[error("tweak target does not match the curated Phase 11 binding: {0}")]
     TargetMismatch(String),
-    #[error("Phase 11 supports only DWORD set operations with values 0 or 1: {0}")]
+    #[error("Phase 11 requires the exact approved forward DWORD for this curated tweak: {0}")]
     UnsupportedOperation(String),
     #[error("Phase 11 mutation requires certified tweak evidence: {0}")]
     NonCertifiedTweak(String),
+    #[error("invalid tweak execution request: {0}")]
+    InvalidRequest(String),
     #[error("all selected tweaks are already satisfied")]
     NothingToChange,
     #[error("registry state drifted before authority or apply: {0}")]
