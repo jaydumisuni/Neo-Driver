@@ -116,7 +116,11 @@ fn auth(session: &TweakExecutionSession) -> TransactionAuthorization {
 fn curated_catalogue_is_exactly_three_tweaks() {
     assert_eq!(
         curated_tweak_ids(),
-        [SHOW_FILE_EXTENSIONS, SHOW_HIDDEN_FILES, TASKBAR_CENTERED_ICONS]
+        [
+            SHOW_FILE_EXTENSIONS,
+            SHOW_HIDDEN_FILES,
+            TASKBAR_CENTERED_ICONS
+        ]
     );
     for id in curated_tweak_ids() {
         assert!(spec_for_id(id).is_some());
@@ -192,7 +196,10 @@ fn prepare_captures_exact_present_baseline() {
     )
     .unwrap();
     assert_eq!(session.stage(), TransactionStage::BaselineCaptured);
-    assert_eq!(session.plan().steps()[0].baseline(), RegistrySnapshot::Dword(1));
+    assert_eq!(
+        session.plan().steps()[0].baseline(),
+        RegistrySnapshot::Dword(1)
+    );
 }
 
 #[test]
@@ -205,7 +212,10 @@ fn prepare_captures_absent_baseline() {
         &host,
     )
     .unwrap();
-    assert_eq!(session.plan().steps()[0].baseline(), RegistrySnapshot::Absent);
+    assert_eq!(
+        session.plan().steps()[0].baseline(),
+        RegistrySnapshot::Absent
+    );
 }
 
 #[test]
@@ -218,10 +228,8 @@ fn baseline_drift_blocks_authority() {
         &host,
     )
     .unwrap();
-    host.values.insert(
-        SHOW_FILE_EXTENSIONS.to_string(),
-        RegistrySnapshot::Dword(0),
-    );
+    host.values
+        .insert(SHOW_FILE_EXTENSIONS.to_string(), RegistrySnapshot::Dword(0));
     let authorization = auth(&session);
     assert!(matches!(
         authorize_with_host(&mut session, authorization, &host),
@@ -242,10 +250,8 @@ fn baseline_drift_after_authority_blocks_apply_before_write() {
     .unwrap();
     let authorization = auth(&session);
     authorize_with_host(&mut session, authorization, &host).unwrap();
-    host.values.insert(
-        SHOW_FILE_EXTENSIONS.to_string(),
-        RegistrySnapshot::Dword(0),
-    );
+    host.values
+        .insert(SHOW_FILE_EXTENSIONS.to_string(), RegistrySnapshot::Dword(0));
     assert!(matches!(
         apply_with_host(&mut session, &mut host),
         Err(TweakExecutionError::BaselineDrift(_))
@@ -309,14 +315,10 @@ fn failed_write_after_change_rolls_back_absent_baseline() {
 #[test]
 fn multiple_curated_tweaks_complete_in_one_transaction() {
     let mut host = FakeHost::default();
-    host.values.insert(
-        SHOW_FILE_EXTENSIONS.to_string(),
-        RegistrySnapshot::Dword(1),
-    );
-    host.values.insert(
-        SHOW_HIDDEN_FILES.to_string(),
-        RegistrySnapshot::Dword(0),
-    );
+    host.values
+        .insert(SHOW_FILE_EXTENSIONS.to_string(), RegistrySnapshot::Dword(1));
+    host.values
+        .insert(SHOW_HIDDEN_FILES.to_string(), RegistrySnapshot::Dword(0));
     let catalogue = catalogue(vec![
         definition(SHOW_FILE_EXTENSIONS, 0),
         definition(SHOW_HIDDEN_FILES, 1),

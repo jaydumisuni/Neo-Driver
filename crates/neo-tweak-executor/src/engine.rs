@@ -98,8 +98,9 @@ pub(crate) fn prepare_with_host<H: TweakHost>(
                 risk: spec.risk,
                 recommendation: fixed_recommendation(),
                 verdict: EvidenceVerdict::Certified,
-                rationale: "Apply a curated current-user Windows preference after exact pre-state capture."
-                    .to_string(),
+                rationale:
+                    "Apply a curated current-user Windows preference after exact pre-state capture."
+                        .to_string(),
                 selected_by_default: false,
                 requires_confirmation: true,
                 requires_admin: false,
@@ -111,11 +112,7 @@ pub(crate) fn prepare_with_host<H: TweakHost>(
                         item.id.clone(),
                         "neo-tweak-executor curated binding",
                     ),
-                    EvidenceItem::new(
-                        "baseline",
-                        baseline.encoded()?,
-                        "live HKCU registry read",
-                    ),
+                    EvidenceItem::new("baseline", baseline.encoded()?, "live HKCU registry read"),
                     EvidenceItem::new(
                         "desired_dword",
                         desired_dword.to_string(),

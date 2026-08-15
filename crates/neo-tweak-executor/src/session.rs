@@ -2,8 +2,8 @@ use crate::engine::{baseline_snapshot, registry_state_target, spec_for_step, Twe
 use crate::model::{RegistrySnapshot, TweakExecutionSession};
 use crate::TweakExecutionError;
 use neo_transaction::{
-    ApplyOutcome, ApplyRecord, Observation, ObservedValue, RollbackRecord, TransactionAuthorization,
-    TransactionStage,
+    ApplyOutcome, ApplyRecord, Observation, ObservedValue, RollbackRecord,
+    TransactionAuthorization, TransactionStage,
 };
 
 pub(crate) fn authorize_with_host<H: TweakHost>(
@@ -88,10 +88,7 @@ fn ensure_baseline_unchanged<H: TweakHost>(
     Ok(())
 }
 
-fn observe_steps<H: TweakHost>(
-    session: &TweakExecutionSession,
-    host: &H,
-) -> Vec<Observation> {
+fn observe_steps<H: TweakHost>(session: &TweakExecutionSession, host: &H) -> Vec<Observation> {
     session
         .plan
         .steps()
@@ -140,7 +137,9 @@ fn rollback_with_host<H: TweakHost>(
     }
 
     if session.stage() == TransactionStage::RollingBack {
-        session.checkpoint.verify_rollback(observe_steps(session, host))?;
+        session
+            .checkpoint
+            .verify_rollback(observe_steps(session, host))?;
     }
     Ok(())
 }

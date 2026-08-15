@@ -71,7 +71,11 @@ pub(crate) fn spec_for_id(id: &str) -> Option<RegistryTweakSpec> {
 }
 
 pub fn curated_tweak_ids() -> [&'static str; 3] {
-    [SHOW_FILE_EXTENSIONS, SHOW_HIDDEN_FILES, TASKBAR_CENTERED_ICONS]
+    [
+        SHOW_FILE_EXTENSIONS,
+        SHOW_HIDDEN_FILES,
+        TASKBAR_CENTERED_ICONS,
+    ]
 }
 
 pub(crate) fn validate_definition(
