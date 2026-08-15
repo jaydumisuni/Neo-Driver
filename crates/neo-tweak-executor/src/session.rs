@@ -112,30 +112,39 @@ fn rollback_with_host<H: TweakHost>(
     host: &mut H,
 ) -> Result<(), TweakExecutionError> {
     let changed = session.changed_ids.clone();
+    let mut records = Vec::new();
+    let mut first_error = None;
+
     for step in session.plan.steps().to_vec() {
         if !changed.contains(step.tweak_id()) {
             continue;
         }
         let spec = spec_for_step(&step)?;
         match host.restore(spec, step.baseline()) {
-            Ok(()) => session.checkpoint.record_rollback_result(RollbackRecord {
+            Ok(()) => records.push(RollbackRecord {
                 action_id: step.tweak_id().to_string(),
                 outcome: ApplyOutcome::Success,
                 detail: "captured HKCU registry baseline restored".to_string(),
                 reboot_required: false,
-            })?,
+            }),
             Err(error) => {
-                session.checkpoint.record_rollback_result(RollbackRecord {
+                records.push(RollbackRecord {
                     action_id: step.tweak_id().to_string(),
                     outcome: ApplyOutcome::Failure,
                     detail: format!("captured registry baseline restore failed: {error}"),
                     reboot_required: false,
-                })?;
-                return Err(error);
+                });
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
             }
         }
     }
 
+    session.checkpoint.record_rollback_results_batch(records)?;
+    if let Some(error) = first_error {
+        return Err(error);
+    }
     if session.stage() == TransactionStage::RollingBack {
         session
             .checkpoint
