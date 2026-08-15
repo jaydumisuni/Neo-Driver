@@ -36,7 +36,7 @@ pub(crate) fn prepare_with_host<H: TweakHost>(
     catalogue.validate()?;
     let mission_id = mission_id.into();
     if mission_id.trim().is_empty() {
-        return Err(TweakExecutionError::Registry(
+        return Err(TweakExecutionError::InvalidRequest(
             "mission id must not be empty".to_string(),
         ));
     }
