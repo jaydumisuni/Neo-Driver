@@ -7,6 +7,7 @@ mod checkpoint;
 mod error;
 mod invariants;
 mod plan;
+mod rollback_batch;
 mod state;
 mod verification;
 
