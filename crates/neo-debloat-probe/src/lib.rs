@@ -8,7 +8,9 @@
 use neo_debloat::{
     DebloatCatalogue, DebloatError, DebloatEvidence, DebloatObservation, ObservedPresence,
 };
-use neo_probe::{CommandEvidence, CommandRunner, SystemCommandRunner};
+#[cfg(target_os = "windows")]
+use neo_probe::SystemCommandRunner;
+use neo_probe::{CommandEvidence, CommandRunner};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
