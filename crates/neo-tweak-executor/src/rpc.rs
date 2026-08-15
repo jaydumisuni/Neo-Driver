@@ -276,7 +276,7 @@ impl TweakRpcService {
             let capability = TweakExecutorCapability::for_rpc();
             pending.session.authorize(&capability, authorization)?;
             pending.session.apply(&capability)?;
-            return Ok(execution_receipt(request, pending));
+            Ok(execution_receipt(request, pending))
         }
 
         #[cfg(not(windows))]
