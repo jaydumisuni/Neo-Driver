@@ -1,6 +1,7 @@
 use neo_debloat::{assess_debloat, DebloatCatalogue, DebloatEvidence, DebloatProfile};
 use std::error::Error;
 use std::fs;
+use std::io;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -21,10 +22,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     };
 
     if args.len() != 4 {
-        return Err(
-            "usage: neo-debloat-assess <catalogue.json> <evidence.json> <profile> <id[,id...]> [--json]"
-                .into(),
-        );
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "usage: neo-debloat-assess <catalogue.json> <evidence.json> <profile> <id[,id...]> [--json]",
+        )
+        .into());
     }
 
     let catalogue_path = PathBuf::from(&args[0]);
