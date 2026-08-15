@@ -1,0 +1,35 @@
+name: Phase 14 Clippy diagnostic
+
+on:
+  push:
+    branches: ["implementation/phase-14-debloat-live-probe"]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup component add clippy --toolchain stable
+          rustup default stable
+      - name: Capture exact Clippy diagnostic
+        shell: python
+        run: |
+          import subprocess
+          result = subprocess.run(
+              ["cargo", "clippy", "--workspace", "--all-targets", "--locked", "--", "-D", "warnings"],
+              text=True,
+              stdout=subprocess.PIPE,
+              stderr=subprocess.STDOUT,
+          )
+          output = result.stdout[-12000:]
+          escaped = output.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          if result.returncode:
+              print(f"::error title=Exact Clippy diagnostic::{escaped}")
+              raise SystemExit(result.returncode)
+          print(output)
