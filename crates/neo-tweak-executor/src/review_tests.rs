@@ -120,6 +120,16 @@ fn contradictory_curated_semantics_fail_closed() {
 }
 
 #[test]
+fn empty_mission_id_is_invalid_request() {
+    let catalogue = TweakCatalogue::new(vec![definition(SHOW_FILE_EXTENSIONS, 0)]).unwrap();
+    let host = ReviewHost::default();
+    assert!(matches!(
+        prepare_with_host(&catalogue, &[SHOW_FILE_EXTENSIONS.to_string()], "   ", &host),
+        Err(TweakExecutionError::InvalidRequest(_))
+    ));
+}
+
+#[test]
 fn rollback_attempts_all_changed_tweaks_after_restore_failure() {
     let mut host = ReviewHost {
         corrupt_write: true,
