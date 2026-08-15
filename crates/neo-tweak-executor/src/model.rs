@@ -128,11 +128,7 @@ pub struct TweakExecutionStep {
 
 impl TweakExecutionStep {
     #[cfg(any(windows, test))]
-    pub(crate) fn new(
-        tweak_id: String,
-        desired_dword: u32,
-        baseline: RegistrySnapshot,
-    ) -> Self {
+    pub(crate) fn new(tweak_id: String, desired_dword: u32, baseline: RegistrySnapshot) -> Self {
         Self {
             tweak_id,
             desired_dword,
