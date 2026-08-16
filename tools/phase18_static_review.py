@@ -140,8 +140,9 @@ checks = [
     (
         "rollback restores Phase 17 baseline instead of historical pre-removal state",
         "apply_restore_time_baseline" in engine
-        and "Some(CapturedValue::Present(_)) => {}" in engine
+        and "host.register_current_user(&dependency.full_name, &[])?;" in engine
         and "Some(CapturedValue::Absent)" in engine
+        and "phase18_main_removal_dependency_cascade_reregisters_baseline_present_dependency" in tests
         and "phase18_failed_postcondition_preserves_existing_dependency_and_removes_restored_main" in tests,
     ),
     (
@@ -164,6 +165,7 @@ checks = [
             "phase18_staged_route_drift_after_authority_blocks_before_mutation",
             "phase18_side_by_side_dependency_after_exact_baseline_still_blocks_order_independently",
             "phase18_native_failure_after_mutation_restores_fresh_phase17_baseline",
+            "phase18_main_removal_dependency_cascade_reregisters_baseline_present_dependency",
             "phase18_failed_postcondition_preserves_existing_dependency_and_removes_restored_main",
             "phase18_post_write_observation_loss_is_conservative_and_rolls_back",
             "phase18_api_success_without_machine_change_does_not_invent_rollback_work",

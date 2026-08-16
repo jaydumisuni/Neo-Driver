@@ -167,7 +167,11 @@ fn apply_restore_time_baseline<H: DebloatRestoreHost>(
     for dependency in step.dependencies().iter().rev() {
         let target = appx_target(&dependency.full_name);
         match baseline.get(&target) {
-            Some(CapturedValue::Present(_)) => {}
+            Some(CapturedValue::Present(_)) => {
+                if !has_current_full_name(&host.current_inventory()?, &dependency.full_name) {
+                    host.register_current_user(&dependency.full_name, &[])?;
+                }
+            }
             Some(CapturedValue::Absent) => {
                 if has_current_full_name(&host.current_inventory()?, &dependency.full_name) {
                     host.remove_current_user(&dependency.full_name)?;

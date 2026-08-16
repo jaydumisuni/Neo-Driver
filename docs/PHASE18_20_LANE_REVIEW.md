@@ -19,10 +19,10 @@
 13. Forward verification observes and proves the exact restored main **and every direct dependency**, not only the main package.
 14. Restore `machine_changed` evidence is derived from observed target-vs-restore-time-baseline state and is conservative when observation is unavailable.
 15. Native restore failure after machine change routes through Phase 4 rollback and preserves both restore + rollback failure causes when recovery also fails.
-16. Rollback removes the restored main, preserves dependencies already present at the Phase 17 baseline, and removes only dependencies introduced from an `Absent` baseline.
+16. Rollback removes the restored main, actively re-registers an exact staged dependency if main removal cascades away a dependency that was already present at the Phase 17 baseline, and removes only dependencies introduced from an `Absent` baseline.
 17. Dependency rollback runs in reverse recorded order and Phase 4 `MatchesBaseline` verification must prove every target before `RolledBack`.
 18. Phase 16 removal and Phase 18 restore share the same named Debloat mutex so Neo cannot run the two AppX mutators concurrently.
-19. Deterministic regressions cover success, both baseline-drift windows, staged-route drift, order-independent side-by-side conflict, partial native failure, failed postcondition, post-write observation loss, no-change semantics, rollback failure composition, dependency preservation/removal, and opaque capability.
+19. Deterministic regressions cover success, both baseline-drift windows, staged-route drift, order-independent side-by-side conflict, partial native failure, dependency-cascade recovery, failed postcondition, post-write observation loss, no-change semantics, rollback failure composition, dependency preservation/removal, and opaque capability.
 20. No Store/network acquisition, package staging, provisioned/all-users/batch mutation, public restore write surface, plugin dependency, persistent history-store authority, or MCP/RPC restore capability issuance exists in Phase 18.
 
 A Phase 18 PASS requires all twenty lanes simultaneously. Public history/restore authority and trusted persistent receipt selection remain separately gated.

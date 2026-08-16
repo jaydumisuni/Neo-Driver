@@ -80,7 +80,7 @@ Rollback is against the **Phase 17 restore-time baseline**, never the historical
 For the one restore action, Phase 18 recovery:
 
 1. removes the restored main package if it is present;
-2. preserves every direct dependency that was already exact-and-present in the Phase 17 restore-time baseline;
+2. preserves every direct dependency that was already exact-and-present in the Phase 17 restore-time baseline, and if removing the restored main cascades away one of those baseline-present dependencies, re-registers that exact locally staged dependency by full name before rollback verification;
 3. removes only a dependency whose Phase 17 restore-time baseline was `Absent` and which the restore attempt introduced;
 4. applies dependency cleanup in reverse recorded order;
 5. records one Phase 4 rollback result for the one restore action;

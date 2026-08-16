@@ -41,6 +41,7 @@ struct FakeHost {
     remove_calls: Vec<String>,
     fail_remove_full_name: Option<String>,
     inventory_failures_after_registration: Cell<usize>,
+    cascade_remove_present_dependency_with_main: bool,
 }
 
 impl FakeHost {
@@ -62,6 +63,7 @@ impl FakeHost {
             remove_calls: Vec::new(),
             fail_remove_full_name: None,
             inventory_failures_after_registration: Cell::new(0),
+            cascade_remove_present_dependency_with_main: false,
         }
     }
 
@@ -134,6 +136,13 @@ impl DebloatRestoreHost for FakeHost {
         dependency_full_names: &[String],
     ) -> Result<(), DebloatRestoreExecutionError> {
         self.register_calls += 1;
+        if package_full_name.eq_ignore_ascii_case(DEP_PRESENT_FULL)
+            && dependency_full_names.is_empty()
+        {
+            let dep_present = self.dep_present.clone();
+            self.add_current_if_missing(dep_present);
+            return Ok(());
+        }
         assert_eq!(package_full_name, MAIN_FULL);
         assert_eq!(
             dependency_full_names,
@@ -180,6 +189,11 @@ impl DebloatRestoreHost for FakeHost {
             )));
         }
         self.remove_current(package_full_name);
+        if self.cascade_remove_present_dependency_with_main
+            && package_full_name.eq_ignore_ascii_case(MAIN_FULL)
+        {
+            self.remove_current(DEP_PRESENT_FULL);
+        }
         Ok(())
     }
 }
@@ -296,6 +310,31 @@ fn phase18_native_failure_after_mutation_restores_fresh_phase17_baseline() {
     assert!(!host.has_current(MAIN_FULL));
     assert!(host.has_current(DEP_PRESENT_FULL));
     assert!(!host.has_current(DEP_NEW_FULL));
+    assert_eq!(
+        host.remove_calls,
+        vec![MAIN_FULL.to_string(), DEP_NEW_FULL.to_string()]
+    );
+}
+
+#[test]
+fn phase18_main_removal_dependency_cascade_reregisters_baseline_present_dependency() {
+    let mut session = session();
+    let mut host = FakeHost::new(RegisterMode::FailAfterMutation);
+    host.cascade_remove_present_dependency_with_main = true;
+    authorize(&mut session, &host);
+
+    let error = apply_with_host(&mut session, &mut host)
+        .expect_err("main rollback can cascade-remove a baseline-present dependency");
+
+    assert!(matches!(
+        error,
+        DebloatRestoreExecutionError::NativeDeployment(_)
+    ));
+    assert_eq!(session.stage(), TransactionStage::RolledBack);
+    assert!(!host.has_current(MAIN_FULL));
+    assert!(host.has_current(DEP_PRESENT_FULL));
+    assert!(!host.has_current(DEP_NEW_FULL));
+    assert_eq!(host.register_calls, 2);
     assert_eq!(
         host.remove_calls,
         vec![MAIN_FULL.to_string(), DEP_NEW_FULL.to_string()]
