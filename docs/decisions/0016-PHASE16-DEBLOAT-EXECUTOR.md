@@ -24,7 +24,7 @@ Authorization is not accepted merely because Phase 15 captured a baseline earlie
 
 Apply repeats that entire comparison under the executor mutex immediately before any removal call. Drift in either window fails closed without a Phase 16 write.
 
-The main package baseline is compared using the exact serialized `ExactPackageIdentity`. Dependency baselines are compared using the exact serialized `ExactPackageDependency` triple used by Phase 15. This keeps fresh observation representation identical to the frozen rollback baseline rather than accidentally comparing different schemas.
+The main package baseline is compared using the exact serialized `ExactPackageIdentity`. Dependency baselines are compared using the exact serialized `ExactPackageDependency` triple used by Phase 15. This keeps fresh observation representation identical to the frozen rollback baseline rather than accidentally comparing different schemas. Phase 15 canonicalizes package/dependency ordering before these values are captured, and Phase 16 consumes constructor-produced Phase 15 prepared state rather than accepting an independently deserialized historical schema.
 
 ## Forward mutation
 
@@ -41,7 +41,7 @@ Forward mutation is exactly:
 
 `RemovePackageAsync` may also remove direct dependency registrations that Windows determines are no longer required. Phase 16 therefore observes every captured main/dependency target after the call; it does not assume only the main package changed.
 
-Native async completion is awaited. The returned `DeploymentResult.ExtendedErrorCode` is checked and deployment `ErrorText` is surfaced when the extended result is a failure. Starting or awaiting the API call is not itself considered successful machine mutation.
+Native async completion is awaited. After the wait, the operation must report terminal `AsyncStatus::Completed`; canceled, error, or nonterminal status fails closed even if the deployment result itself does not expose an extended failure code. Only then is `DeploymentResult.ExtendedErrorCode` checked, with deployment `ErrorText` surfaced when the extended result is a failure. Starting or awaiting the API call is not itself considered successful machine mutation.
 
 ## Transaction law
 
@@ -52,9 +52,9 @@ After authorization, the executor opens `Applying`, asserts the single prepared 
 - API outcome (`Success` / `Failure`);
 - observed `machine_changed`.
 
-`machine_changed` is true when any freshly observed captured target differs from baseline. If post-write observation itself is unavailable, it is conservatively true because Neo cannot prove the mutation did not occur.
+`machine_changed` is true when any freshly observed captured target differs from baseline. If post-write observation itself is unavailable, it is conservatively true because Neo cannot prove the mutation did not occur. That observation failure remains part of the returned diagnostic even when automatic rollback subsequently proves restoration.
 
-After a successful API result, Phase 4 postcondition verification determines completion. The required forward postcondition remains the Phase 15 main-package `Absent` predicate. If the API reports success but the postcondition is not proven, the checkpoint—not the API result—decides whether rollback is required.
+After a successful API result, Phase 4 postcondition verification determines completion. The required forward postcondition remains the Phase 15 main-package `Absent` predicate. Phase 16 observes dependencies for change evidence but filters forward verification to the declared main target so Phase 4 does not receive undeclared predicate observations. If the API reports success but the postcondition is not proven, the checkpoint—not the API result—decides whether rollback is required.
 
 ## Rollback
 
@@ -69,7 +69,9 @@ There is no Store, network, vendor download, manifest path, broad family-name re
 
 After registration, Phase 16 records the rollback result and freshly observes every main/dependency rollback target. Phase 4 `verify_rollback` must prove all `MatchesBaseline` predicates before the session reaches `RolledBack`. Registration API success alone is not rollback proof.
 
-If registration fails or restoration cannot be proven, the transaction remains failed/unresolved rather than claiming recovery.
+If removal fails after machine change and rollback also fails, the returned diagnostic preserves both the original removal failure and the rollback failure instead of replacing the root cause with only the later restore error. If registration fails or restoration cannot be proven, the transaction remains failed/unresolved rather than claiming recovery.
+
+Phase 16 rollback is an automatic recovery path for a failed or unverified removal. It is not a user-triggered undo operation after a transaction has already reached `Complete`; the shared Phase 4 state machine deliberately has no `Complete -> RollingBack` transition. A future post-success restore operation requires its own transaction and authority contract.
 
 ## Serialization
 
@@ -91,7 +93,7 @@ Phase 16 does **not** expose capability issuance through CLI, GUI, plugin, MCP, 
 
 ## Proof boundary
 
-CI must compile and Clippy-check the real Windows `PackageManager` removal/registration implementation, including the exact `windows` 0.62 API signatures.
+CI must compile and Clippy-check the real Windows `PackageManager` removal/registration implementation, including the exact `windows` 0.62 async-operation signatures and `AsyncStatus` handling.
 
 CI must **not** remove or register a real GitHub runner AppX package. Mutation semantics are proven with deterministic fake-host tests that exercise:
 
@@ -100,8 +102,9 @@ CI must **not** remove or register a real GitHub runner AppX package. Mutation s
 - drift after authorization but before mutation;
 - API failure after actual mutation;
 - dependency-only unexpected mutation causing forward verification failure and rollback;
+- post-write inventory observation failure with conservative change evidence and proven rollback;
 - API success with no machine change;
-- rollback registration failure;
+- compound removal failure plus rollback-registration failure diagnostics;
 - successful main-only removal while dependency remains.
 
 This is an engineering proof of the executor and real backend compilation, not a claim that Neo has performed a live destructive AppX mutation on a test machine.
