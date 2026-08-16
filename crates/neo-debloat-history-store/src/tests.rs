@@ -6,6 +6,7 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Barrier};
 
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(1);
 const FIXTURE: &str = include_str!("../../../fixtures/debloat/phase19_receipt.json");
@@ -139,6 +140,68 @@ fn valid_history_promotes_to_one_final_file_and_is_idempotent() {
 }
 
 #[test]
+fn concurrent_identical_writers_converge_on_one_valid_record() {
+    let root = TempRoot::new("concurrent");
+    let store = history_store(&root, VaultMode::Installed);
+    let receipt = fixture_receipt();
+    let record_id = DebloatHistoryRecordId::from_receipt(&receipt).expect("valid record id");
+    let barrier = Arc::new(Barrier::new(3));
+
+    let dispositions = std::thread::scope(|scope| {
+        let left_store = store.clone();
+        let left_receipt = receipt.clone();
+        let left_barrier = Arc::clone(&barrier);
+        let left = scope.spawn(move || {
+            left_barrier.wait();
+            left_store
+                .record_validated_receipt_for_tests(&left_receipt)
+                .expect("left writer must converge")
+                .disposition
+        });
+
+        let right_store = store.clone();
+        let right_receipt = receipt.clone();
+        let right_barrier = Arc::clone(&barrier);
+        let right = scope.spawn(move || {
+            right_barrier.wait();
+            right_store
+                .record_validated_receipt_for_tests(&right_receipt)
+                .expect("right writer must converge")
+                .disposition
+        });
+
+        barrier.wait();
+        [left.join().unwrap(), right.join().unwrap()]
+    });
+
+    assert_eq!(
+        dispositions
+            .iter()
+            .filter(|value| **value == HistoryRecordDisposition::Recorded)
+            .count(),
+        1
+    );
+    assert_eq!(
+        dispositions
+            .iter()
+            .filter(|value| **value == HistoryRecordDisposition::AlreadyPresent)
+            .count(),
+        1
+    );
+    assert_eq!(
+        fs::read_dir(store.records_root().join(".staging"))
+            .unwrap()
+            .count(),
+        0,
+        "concurrent convergence must not leave staging noise"
+    );
+    assert_eq!(
+        store.load(&record_id).expect("final record must load").receipt(),
+        &receipt
+    );
+}
+
+#[test]
 fn tampered_final_record_fails_closed_and_is_never_repaired_by_recording_again() {
     let root = TempRoot::new("tamper");
     let store = history_store(&root, VaultMode::Installed);
@@ -173,7 +236,6 @@ fn oversized_and_identity_mismatched_records_fail_before_selection() {
         Err(DebloatHistoryStoreError::RecordTooLarge { .. })
     ));
 
-    fs::write(&path, FIXTURE.as_bytes()).unwrap();
     let mut envelope = serde_json::json!({
         "schema_version": DEBLOAT_HISTORY_STORE_SCHEMA_VERSION,
         "record_id": "a".repeat(64),
