@@ -109,12 +109,13 @@ checks = [
     (
         "crash-staging-isolation",
         has_all(STORE, ('audit_staging', 'validate_staging_marker', 'STAGED_RECORD_DIRECTORY_NAME'))
-        and 'staging is never enumerated or selected as completed history' in DECISION,
+        and 'staging is never enumerated or selected as completed history' in REVIEW,
     ),
     (
         "trusted-selection",
         has_all(STORE, ('pub fn load(', 'prepare_restore_from_inventory_by_id', 'prepare_windows_restore_by_id'))
-        and 'caller-supplied filesystem paths' in DECISION,
+        and 'caller-supplied filesystem path' in DECISION
+        and 'raw path is never accepted as record-selection authority' in DECISION,
     ),
     (
         "fresh-restore-readiness",
