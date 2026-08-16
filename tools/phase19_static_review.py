@@ -109,6 +109,7 @@ checks = [
     (
         "crash-staging-isolation",
         has_all(STORE, ('audit_staging', 'validate_staging_marker', 'STAGED_RECORD_DIRECTORY_NAME'))
+        and 'owned_incomplete_staging_is_inert_and_not_history' in TESTS
         and 'staging is never enumerated or selected as completed history' in REVIEW,
     ),
     (
@@ -165,6 +166,7 @@ checks = [
             name in TESTS
             for name in (
                 'record_ids_reject_non_fingerprint_and_traversal_like_input',
+                'owned_incomplete_staging_is_inert_and_not_history',
                 'concurrent_identical_writers_converge_on_one_valid_record',
                 'tampered_final_record_fails_closed_and_is_never_repaired_by_recording_again',
                 'oversized_and_identity_mismatched_records_fail_before_selection',
