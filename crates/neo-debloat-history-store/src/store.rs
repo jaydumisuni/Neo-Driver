@@ -378,7 +378,7 @@ fn validate_record_directory_entries(
         let entry = entry?;
         let name = entry.file_name();
         let child = display.join(&name);
-        if name != OsString::from(RECORD_FILE_NAME) {
+        if name != RECORD_FILE_NAME {
             return Err(DebloatHistoryStoreError::UnexpectedEntry(child));
         }
         let file_type = entry.file_type()?;
@@ -507,14 +507,14 @@ fn audit_staging(staging: &Dir, display: &Path) -> Result<(), DebloatHistoryStor
             let nested = nested?;
             let nested_name = nested.file_name();
             let nested_display = child.join(&nested_name);
-            if nested_name == OsString::from(STAGING_MARKER_NAME) {
+            if nested_name == STAGING_MARKER_NAME {
                 let nested_type = nested.file_type()?;
                 if nested_type.is_symlink() || !nested_type.is_file() {
                     return Err(DebloatHistoryStoreError::UnexpectedEntry(nested_display));
                 }
                 continue;
             }
-            if nested_name == OsString::from(STAGED_RECORD_DIRECTORY_NAME) {
+            if nested_name == STAGED_RECORD_DIRECTORY_NAME {
                 let nested_type = nested.file_type()?;
                 if nested_type.is_symlink() || !nested_type.is_dir() {
                     return Err(DebloatHistoryStoreError::UnexpectedEntry(nested_display));
