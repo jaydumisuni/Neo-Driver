@@ -39,6 +39,7 @@ pub(crate) fn apply_with_host<H: DebloatHost>(
         .assert_action_pending(step.debloat_id())?;
     let removal_result = host.remove_current_user(step.package_full_name());
     let observed_after = observe_all(session, host);
+    let post_write_observation_error = observed_after.as_ref().err().map(ToString::to_string);
     let machine_changed = observed_after
         .as_ref()
         .map(|observations| any_target_changed_from_baseline(session, observations))
@@ -63,7 +64,11 @@ pub(crate) fn apply_with_host<H: DebloatHost>(
                 reboot_required: false,
             })?;
             if session.stage() == TransactionStage::RollingBack {
-                rollback_with_host(session, host)?;
+                if let Err(rollback_error) = rollback_with_host(session, host) {
+                    return Err(DebloatExecutionError::NativeDeployment(format!(
+                        "removal failed: {error}; rollback also failed: {rollback_error}"
+                    )));
+                }
             }
             return Err(error);
         }
@@ -81,6 +86,11 @@ pub(crate) fn apply_with_host<H: DebloatHost>(
 
     if session.stage() == TransactionStage::RollingBack {
         rollback_with_host(session, host)?;
+        if let Some(reason) = post_write_observation_error {
+            return Err(DebloatExecutionError::Observation(format!(
+                "post-write AppX observation failed: {reason}; captured baseline was restored"
+            )));
+        }
         return Err(DebloatExecutionError::Observation(
             "current-user AppX removal postcondition was not proven; captured baseline was restored"
                 .to_string(),
