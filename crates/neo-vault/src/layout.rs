@@ -26,6 +26,7 @@ pub struct VaultLayout {
     backups: PathBuf,
     logs: PathBuf,
     cache: PathBuf,
+    history: PathBuf,
 }
 
 impl VaultLayout {
@@ -44,6 +45,7 @@ impl VaultLayout {
             backups: managed_root.join("backups"),
             logs: managed_root.join("logs"),
             cache: managed_root.join("cache"),
+            history: managed_root.join("history"),
             managed_root,
         })
     }
@@ -96,7 +98,11 @@ impl VaultLayout {
         &self.cache
     }
 
-    pub fn all_managed_directories(&self) -> [&Path; 10] {
+    pub fn history(&self) -> &Path {
+        &self.history
+    }
+
+    pub fn all_managed_directories(&self) -> [&Path; 11] {
         [
             &self.managed_root,
             &self.catalogue,
@@ -108,6 +114,7 @@ impl VaultLayout {
             &self.backups,
             &self.logs,
             &self.cache,
+            &self.history,
         ]
     }
 
