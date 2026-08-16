@@ -1,5 +1,5 @@
 use crate::{DebloatExecutionError, DebloatExecutionSession};
-use neo_debloat_plan::{ExactAppxInventory, ExactPackageDependency, ExactPackageIdentity};
+use neo_debloat_plan::{ExactAppxInventory, ExactPackageDependency};
 use neo_transaction::{
     ApplyOutcome, ApplyRecord, CapturedValue, Observation, ObservedValue, RollbackRecord,
     StateTarget, StateTargetKind, TransactionAuthorization, TransactionStage,
@@ -268,21 +268,5 @@ fn appx_target(full_name: &str) -> StateTarget {
     StateTarget {
         kind: StateTargetKind::AppxPackage,
         key: format!("current_user:{full_name}"),
-    }
-}
-
-#[cfg(test)]
-pub(crate) fn identity_from_dependency(
-    dependency: &ExactPackageDependency,
-) -> ExactPackageIdentity {
-    ExactPackageIdentity {
-        name: dependency.name.clone(),
-        full_name: dependency.full_name.clone(),
-        family_name: dependency.family_name.clone(),
-        is_framework: true,
-        is_resource: false,
-        is_bundle: false,
-        is_optional: false,
-        dependencies: Vec::new(),
     }
 }
