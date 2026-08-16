@@ -32,10 +32,11 @@ jobs:
         run: |
           cargo generate-lockfile
           cargo fmt --all
-      - name: Self-clean bootstrap and publish permanent tree
+      - name: Publish normalized non-workflow tree
         shell: bash
         run: |
-          git rm .phase18_payload.aa .phase18_payload.ab .phase18_payload.ac .phase18_payload.ad .phase18_payload.ae .phase18_payload.af .phase18_payload.ag .github/workflows/phase18-bootstrap.yml
+          git checkout HEAD -- .github/workflows/ci.yml
+          git rm .phase18_payload.aa .phase18_payload.ab .phase18_payload.ac .phase18_payload.ad .phase18_payload.ae .phase18_payload.af .phase18_payload.ag
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
