@@ -20,11 +20,12 @@ pub use plan::prepare_restore_from_inventory;
 
 use model::appx_target;
 use neo_debloat_executor::DebloatExecutionSession;
-use neo_debloat_plan::{
-    scan_windows_exact_appx_inventory, DebloatRestoreRoute, ExactPackageDependency,
-    ExactPackageIdentity,
-};
-use neo_transaction::{CapturedValue, TransactionCheckpoint, TransactionStage};
+#[cfg(target_os = "windows")]
+use neo_debloat_plan::scan_windows_exact_appx_inventory;
+use neo_debloat_plan::{DebloatRestoreRoute, ExactPackageDependency, ExactPackageIdentity};
+use neo_transaction::{CapturedValue, TransactionStage};
+#[cfg(test)]
+use neo_transaction::TransactionCheckpoint;
 
 pub fn receipt_from_completed_execution(
     session: &DebloatExecutionSession,
