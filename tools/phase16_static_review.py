@@ -92,7 +92,8 @@ checks = [
     ),
     (
         "same-session named mutex serializes apply",
-        'Local\\\\THETECHGUY.NeoDriver.DebloatExecutor.v1' in windows
+        "THETECHGUY.NeoDriver.DebloatExecutor.v1" in windows
+        and "CreateMutexW" in windows
         and "DebloatExecutionMutex::acquire()?" in lib
         and "WaitForSingleObject" in windows,
     ),
