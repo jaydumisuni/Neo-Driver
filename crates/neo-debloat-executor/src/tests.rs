@@ -6,6 +6,7 @@ use neo_debloat_plan::{
     ExactPackageIdentity,
 };
 use neo_transaction::{TransactionAuthorization, TransactionStage};
+use std::cell::Cell;
 
 const MAIN_FULL: &str = "Contoso.Phase16_1.2.3.4_x64__contoso";
 const MAIN_FAMILY: &str = "Contoso.Phase16_contoso";
@@ -29,6 +30,7 @@ struct FakeHost {
     register_fails: bool,
     remove_calls: usize,
     register_calls: usize,
+    inventory_failures_after_mutation: Cell<usize>,
 }
 
 impl FakeHost {
@@ -42,7 +44,12 @@ impl FakeHost {
             register_fails: false,
             remove_calls: 0,
             register_calls: 0,
+            inventory_failures_after_mutation: Cell::new(0),
         }
+    }
+
+    fn fail_next_inventory_after_mutation(&self) {
+        self.inventory_failures_after_mutation.set(1);
     }
 
     fn remove_full_name(&mut self, full_name: &str) {
@@ -72,6 +79,15 @@ impl FakeHost {
 
 impl DebloatHost for FakeHost {
     fn current_inventory(&self) -> Result<ExactAppxInventory, DebloatExecutionError> {
+        if self.remove_calls > 0 {
+            let remaining = self.inventory_failures_after_mutation.get();
+            if remaining > 0 {
+                self.inventory_failures_after_mutation.set(remaining - 1);
+                return Err(DebloatExecutionError::Observation(
+                    "synthetic post-write inventory failure".to_string(),
+                ));
+            }
+        }
         Ok(self.inventory.clone())
     }
 
@@ -181,6 +197,7 @@ fn phase16_partial_removal_failure_restores_main_and_dependency_baselines() {
         .expect_err("synthetic mutation failure must be surfaced after rollback");
 
     assert!(matches!(error, DebloatExecutionError::NativeDeployment(_)));
+    assert!(error.to_string().contains("synthetic failure after mutation"));
     assert_eq!(session.stage(), TransactionStage::RolledBack);
     assert_eq!(host.remove_calls, 1);
     assert_eq!(host.register_calls, 1);
@@ -205,6 +222,27 @@ fn phase16_postcondition_failure_after_dependency_change_forces_rollback() {
 }
 
 #[test]
+fn phase16_post_write_observation_failure_is_conservative_and_rolls_back() {
+    let mut session = session();
+    let mut host = FakeHost::new(RemoveMode::MainAndDependency);
+    authorize(&mut session, &host);
+    host.fail_next_inventory_after_mutation();
+
+    let error = apply_with_host(&mut session, &mut host)
+        .expect_err("unavailable post-write state must not allow completion");
+
+    assert!(matches!(error, DebloatExecutionError::Observation(_)));
+    assert!(error
+        .to_string()
+        .contains("synthetic post-write inventory failure"));
+    assert_eq!(session.stage(), TransactionStage::RolledBack);
+    assert_eq!(host.remove_calls, 1);
+    assert_eq!(host.register_calls, 1);
+    assert!(host.has_current(MAIN_FULL));
+    assert!(host.has_current(DEP_FULL));
+}
+
+#[test]
 fn phase16_api_success_without_machine_change_does_not_invent_rollback_work() {
     let mut session = session();
     let mut host = FakeHost::new(RemoveMode::NoChange);
@@ -222,7 +260,7 @@ fn phase16_api_success_without_machine_change_does_not_invent_rollback_work() {
 }
 
 #[test]
-fn phase16_rollback_registration_failure_remains_failed_and_unresolved() {
+fn phase16_rollback_registration_failure_preserves_both_failure_causes() {
     let mut session = session();
     let mut host = FakeHost::new(RemoveMode::FailAfterMain);
     host.register_fails = true;
@@ -230,8 +268,11 @@ fn phase16_rollback_registration_failure_remains_failed_and_unresolved() {
 
     let error = apply_with_host(&mut session, &mut host)
         .expect_err("rollback registration failure must remain visible");
+    let message = error.to_string();
 
     assert!(matches!(error, DebloatExecutionError::NativeDeployment(_)));
+    assert!(message.contains("synthetic failure after mutation"));
+    assert!(message.contains("synthetic registration failure"));
     assert_eq!(session.stage(), TransactionStage::Failed);
     assert_eq!(host.register_calls, 1);
     assert!(!host.has_current(MAIN_FULL));
