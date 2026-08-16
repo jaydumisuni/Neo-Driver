@@ -8,6 +8,7 @@ use windows::Win32::Foundation::{
 };
 use windows::Win32::System::Threading::{CreateMutexW, ReleaseMutex, WaitForSingleObject};
 use windows_collections::IIterable;
+use windows_future::AsyncStatus;
 
 const DEBLOAT_MUTEX_NAME: &str = "Local\\THETECHGUY.NeoDriver.DebloatExecutor.v1";
 const DEBLOAT_MUTEX_TIMEOUT_MS: u32 = 300_000;
@@ -31,7 +32,10 @@ impl DebloatHost for WindowsDebloatHost {
         let result = operation
             .join()
             .map_err(native_error("await current-user package removal"))?;
-        validate_deployment_result(&result, "current-user package removal")
+        let status = operation
+            .Status()
+            .map_err(native_error("read current-user package removal status"))?;
+        validate_deployment_result(status, &result, "current-user package removal")
     }
 
     fn register_current_user(
@@ -56,14 +60,24 @@ impl DebloatHost for WindowsDebloatHost {
         let result = operation
             .join()
             .map_err(native_error("await staged full-name package registration"))?;
-        validate_deployment_result(&result, "staged full-name package registration")
+        let status = operation
+            .Status()
+            .map_err(native_error("read staged full-name package registration status"))?;
+        validate_deployment_result(status, &result, "staged full-name package registration")
     }
 }
 
 fn validate_deployment_result(
+    status: AsyncStatus,
     result: &windows::Management::Deployment::DeploymentResult,
     operation: &str,
 ) -> Result<(), DebloatExecutionError> {
+    if status != AsyncStatus::Completed {
+        return Err(DebloatExecutionError::NativeDeployment(format!(
+            "{operation} ended with async status {status:?}"
+        )));
+    }
+
     let extended = result
         .ExtendedErrorCode()
         .map_err(native_error("read deployment extended error"))?;
