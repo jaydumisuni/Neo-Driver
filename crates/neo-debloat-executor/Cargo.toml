@@ -1,0 +1,17 @@
+[package]
+name = "neo-debloat-executor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+neo-debloat-plan = { path = "../neo-debloat-plan" }
+neo-transaction = { path = "../neo-transaction" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true
+windows-collections = "0.3"
