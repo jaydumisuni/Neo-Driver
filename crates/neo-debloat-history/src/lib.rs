@@ -58,7 +58,9 @@ pub fn receipt_from_completed_execution(
         }
     };
     let main: ExactPackageIdentity = serde_json::from_str(main_json)?;
-    if !main.full_name.eq_ignore_ascii_case(step.package_full_name())
+    if !main
+        .full_name
+        .eq_ignore_ascii_case(step.package_full_name())
         || !main
             .family_name
             .eq_ignore_ascii_case(step.package_family_name())
@@ -80,7 +82,10 @@ pub fn receipt_from_completed_execution(
             }
         };
         let dependency: ExactPackageDependency = serde_json::from_str(json)?;
-        if !dependency.full_name.eq_ignore_ascii_case(dependency_full_name) {
+        if !dependency
+            .full_name
+            .eq_ignore_ascii_case(dependency_full_name)
+        {
             return Err(DebloatHistoryError::IncompleteRemoval(format!(
                 "completed Phase 16 dependency baseline differs from {dependency_full_name}"
             )));

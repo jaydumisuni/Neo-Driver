@@ -215,9 +215,7 @@ impl DebloatRemovalReceipt {
                     .to_string(),
             ));
         }
-        if self.receipt_id
-            != format!("{}:phase17-removal-receipt", self.source_transaction_id)
-        {
+        if self.receipt_id != format!("{}:phase17-removal-receipt", self.source_transaction_id) {
             return Err(DebloatHistoryError::InvalidReceipt(
                 "receipt id does not bind to source transaction id".to_string(),
             ));
@@ -415,11 +413,12 @@ impl DebloatRestorePreparedTransaction {
     }
 }
 
-fn validate_checkpoint_baseline(receipt: &DebloatRemovalReceipt) -> Result<(), DebloatHistoryError> {
-    let baseline = receipt
-        .source_checkpoint
-        .baseline()
-        .ok_or_else(|| DebloatHistoryError::InvalidReceipt("source baseline is missing".to_string()))?;
+fn validate_checkpoint_baseline(
+    receipt: &DebloatRemovalReceipt,
+) -> Result<(), DebloatHistoryError> {
+    let baseline = receipt.source_checkpoint.baseline().ok_or_else(|| {
+        DebloatHistoryError::InvalidReceipt("source baseline is missing".to_string())
+    })?;
     let main_target = appx_target(&receipt.main.full_name);
     let main_value = baseline.get(&main_target).ok_or_else(|| {
         DebloatHistoryError::InvalidReceipt("source main baseline target is missing".to_string())

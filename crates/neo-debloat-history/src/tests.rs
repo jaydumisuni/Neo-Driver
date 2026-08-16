@@ -30,7 +30,10 @@ fn completed_removal_becomes_versioned_fingerprinted_durable_history() {
         DEBLOAT_REMOVAL_RECEIPT_SCHEMA_VERSION
     );
     assert!(!receipt.receipt_fingerprint().is_empty());
-    assert_eq!(receipt.source_checkpoint().stage(), TransactionStage::Complete);
+    assert_eq!(
+        receipt.source_checkpoint().stage(),
+        TransactionStage::Complete
+    );
 
     let json = receipt.to_json_pretty().expect("receipt must serialize");
     let restored = DebloatRemovalReceipt::from_json_str(&json).expect("receipt must round-trip");
@@ -71,7 +74,10 @@ fn prepares_fresh_inverse_transaction_when_exact_local_restore_is_still_ready() 
         .expect("exact local staged restore should be ready");
 
     assert!(!prepared.machine_changes());
-    assert_eq!(prepared.checkpoint().stage(), TransactionStage::BaselineCaptured);
+    assert_eq!(
+        prepared.checkpoint().stage(),
+        TransactionStage::BaselineCaptured
+    );
     assert_eq!(prepared.transaction().actions().len(), 1);
     let action = &prepared.transaction().actions()[0];
     assert_eq!(action.action.kind, ActionKind::Debloat);
@@ -80,7 +86,10 @@ fn prepares_fresh_inverse_transaction_when_exact_local_restore_is_still_ready() 
     assert!(action.action.requires_confirmation);
     assert_eq!(action.snapshot_targets.len(), 2);
     assert_eq!(action.postconditions.len(), 2);
-    assert_eq!(prepared.receipt_fingerprint(), receipt.receipt_fingerprint());
+    assert_eq!(
+        prepared.receipt_fingerprint(),
+        receipt.receipt_fingerprint()
+    );
     let baseline = prepared
         .checkpoint()
         .baseline()
@@ -253,7 +262,8 @@ fn source_checkpoint_at_baseline() -> TransactionCheckpoint {
             risk: RiskLevel::Low,
             recommendation: RecommendationState::OptionalComponent,
             verdict: EvidenceVerdict::Certified,
-            rationale: "Synthetic completed Phase 16 removal for Phase 17 history proof.".to_string(),
+            rationale: "Synthetic completed Phase 16 removal for Phase 17 history proof."
+                .to_string(),
             selected_by_default: false,
             requires_confirmation: true,
             requires_admin: false,

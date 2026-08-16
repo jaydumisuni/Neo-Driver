@@ -63,7 +63,10 @@ pub fn prepare_restore_from_inventory(
             required: true,
         });
         rollback_verification.push(VerificationPredicate {
-            id: format!("rollback:restore:{}:dependency:{index}", receipt.debloat_id()),
+            id: format!(
+                "rollback:restore:{}:dependency:{index}",
+                receipt.debloat_id()
+            ),
             target,
             expectation: VerificationExpectation::MatchesBaseline,
             required: true,
@@ -212,7 +215,9 @@ fn ensure_provisioned_restore_route(
             .provisioned
             .iter()
             .filter(|package| {
-                package.full_name.eq_ignore_ascii_case(&dependency.full_name)
+                package
+                    .full_name
+                    .eq_ignore_ascii_case(&dependency.full_name)
                     && package
                         .family_name
                         .eq_ignore_ascii_case(&dependency.family_name)
@@ -248,7 +253,10 @@ fn ensure_dependency_restore_state(
     inventory: &ExactAppxInventory,
 ) -> Result<(), DebloatHistoryError> {
     for current in &inventory.current_user {
-        if current.full_name.eq_ignore_ascii_case(&dependency.full_name) {
+        if current
+            .full_name
+            .eq_ignore_ascii_case(&dependency.full_name)
+        {
             if current.name.eq_ignore_ascii_case(&dependency.name)
                 && current
                     .family_name
@@ -279,10 +287,11 @@ fn current_dependency_baseline(
     dependency: &ExactPackageDependency,
     inventory: &ExactAppxInventory,
 ) -> Result<CapturedValue, DebloatHistoryError> {
-    let current = inventory
-        .current_user
-        .iter()
-        .find(|package| package.full_name.eq_ignore_ascii_case(&dependency.full_name));
+    let current = inventory.current_user.iter().find(|package| {
+        package
+            .full_name
+            .eq_ignore_ascii_case(&dependency.full_name)
+    });
     match current {
         Some(package)
             if package.name.eq_ignore_ascii_case(&dependency.name)
@@ -290,9 +299,7 @@ fn current_dependency_baseline(
                     .family_name
                     .eq_ignore_ascii_case(&dependency.family_name) =>
         {
-            Ok(CapturedValue::Present(serde_json::to_string(
-                dependency,
-            )?))
+            Ok(CapturedValue::Present(serde_json::to_string(dependency)?))
         }
         Some(package) => Err(DebloatHistoryError::InventoryConflict(format!(
             "dependency {} baseline identity conflicts with {}",
