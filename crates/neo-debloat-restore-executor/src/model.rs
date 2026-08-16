@@ -386,6 +386,7 @@ pub struct DebloatRestoreExecutorCapability {
 }
 
 impl DebloatRestoreExecutorCapability {
+    #[cfg(any(windows, test))]
     pub(crate) fn for_rpc() -> Self {
         Self { _private: () }
     }

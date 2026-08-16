@@ -1,6 +1,8 @@
 #[cfg(test)]
 use crate::engine::{apply_with_host, authorize_with_host, DebloatRestoreHost};
-use crate::model::{DebloatRestoreExecutionSession, DebloatRestoreExecutorCapability};
+use crate::model::DebloatRestoreExecutionSession;
+#[cfg(any(windows, test))]
+use crate::model::DebloatRestoreExecutorCapability;
 use crate::{prepare_debloat_restore_execution, DebloatRestoreExecutionError};
 use neo_debloat_history::DebloatHistoryError;
 use neo_debloat_history_store::{
