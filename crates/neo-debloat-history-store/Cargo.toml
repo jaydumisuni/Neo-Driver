@@ -1,0 +1,18 @@
+[package]
+name = "neo-debloat-history-store"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+cap-fs-ext.workspace = true
+cap-std.workspace = true
+neo-debloat-executor = { path = "../neo-debloat-executor" }
+neo-debloat-history = { path = "../neo-debloat-history" }
+neo-debloat-plan = { path = "../neo-debloat-plan" }
+neo-transaction = { path = "../neo-transaction" }
+neo-vault = { path = "../neo-vault" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

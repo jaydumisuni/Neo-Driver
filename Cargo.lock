@@ -374,6 +374,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "neo-debloat-history-store"
+version = "0.1.0"
+dependencies = [
+ "cap-fs-ext",
+ "cap-std",
+ "neo-debloat-executor",
+ "neo-debloat-history",
+ "neo-debloat-plan",
+ "neo-transaction",
+ "neo-vault",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "neo-debloat-plan"
 version = "0.1.0"
 dependencies = [

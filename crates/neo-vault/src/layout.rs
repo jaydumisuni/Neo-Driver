@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Component, Path, PathBuf};
 
 pub const MANAGED_DIRECTORY_NAME: &str = "NeoData";
+pub const HISTORY_DIRECTORY_NAME: &str = "history";
 pub const STAGING_MARKER_NAME: &str = ".neo-owned-staging.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +27,7 @@ pub struct VaultLayout {
     backups: PathBuf,
     logs: PathBuf,
     cache: PathBuf,
+    history: PathBuf,
 }
 
 impl VaultLayout {
@@ -44,6 +46,7 @@ impl VaultLayout {
             backups: managed_root.join("backups"),
             logs: managed_root.join("logs"),
             cache: managed_root.join("cache"),
+            history: managed_root.join(HISTORY_DIRECTORY_NAME),
             managed_root,
         })
     }
@@ -96,7 +99,11 @@ impl VaultLayout {
         &self.cache
     }
 
-    pub fn all_managed_directories(&self) -> [&Path; 10] {
+    pub fn history(&self) -> &Path {
+        &self.history
+    }
+
+    pub fn all_managed_directories(&self) -> [&Path; 11] {
         [
             &self.managed_root,
             &self.catalogue,
@@ -108,6 +115,7 @@ impl VaultLayout {
             &self.backups,
             &self.logs,
             &self.cache,
+            &self.history,
         ]
     }
 

@@ -13,7 +13,9 @@ mod store;
 mod types;
 
 pub use error::VaultError;
-pub use layout::{VaultLayout, VaultMode, MANAGED_DIRECTORY_NAME, STAGING_MARKER_NAME};
+pub use layout::{
+    VaultLayout, VaultMode, HISTORY_DIRECTORY_NAME, MANAGED_DIRECTORY_NAME, STAGING_MARKER_NAME,
+};
 pub use source::{DriverSource, DriverSourceMap, SourcePackageKind, SOURCE_MAP_SCHEMA_VERSION};
 pub use store::{sha256_file, ImportDisposition, ImportReceipt, PackClass, VaultStore};
 pub use types::{Sha256Digest, VaultSegment};
