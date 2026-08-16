@@ -15,10 +15,10 @@
 6. **Bounded record envelope** — persisted data has a store schema version, record id, bounded byte size, and complete Phase 17 receipt whose custom deserialization/validation is rerun on every load.
 7. **Identity continuity on read** — directory id == envelope record id == receipt fingerprint, and any mismatch is rejected before the record is returned or used for restore preparation.
 8. **Append-only retention** — Phase 19 exposes create/idempotent-read behavior only; no retained-record update, overwrite, delete, arbitrary import, or broad cleanup API exists.
-9. **Staged promotion** — a new record is written into an exact marker-owned staging directory, synced, re-read/validated, and namespace-promoted into its final record-id directory only after validation succeeds.
-10. **Concurrent idempotence** — two writers for the same completed receipt cannot overwrite one another; one valid final record wins and the loser resolves only to identical already-present evidence or a fail-closed conflict.
+9. **Staged promotion** — a new record is written beneath a marker-owned unique staging session as `record/receipt.json`, synced, re-read/validated, then only the marker-free nested `record/` directory is namespace-promoted into the final record-id directory; the ownership marker stays with the staging session until cleanup.
+10. **Concurrent idempotence** — two simultaneous writers for the same completed receipt cannot overwrite one another; exactly one valid final record wins and the loser resolves only to identical already-present evidence or a fail-closed conflict.
 11. **Content drift fail-closed** — an existing final record whose envelope/receipt no longer validates is never overwritten or silently repaired by recording the same execution again.
-12. **Crash/staging isolation** — incomplete marker-owned staging material is never enumerated or selected as a completed history record; unexpected/unowned staging or final-tree entries fail audit closed.
+12. **Crash/staging isolation** — a crash may leave an inert marker-owned session containing no nested record or one validated nested `record/`; staging is never enumerated or selected as completed history, and unexpected/unowned staging or final-tree entries fail audit closed.
 13. **Trusted selection** — restore preparation selects by typed record id and reloads the receipt from the same store; the preparation API does not accept raw JSON or caller-supplied filesystem paths.
 14. **Fresh restore readiness preserved** — trusted selection still invokes Phase 17 fresh exact AppX inventory/readiness logic; persistence never converts historical evidence into an assumption of present-day safety.
 15. **Phase 18 capability preserved** — no production dependency or code path constructs/issues `DebloatRestoreExecutorCapability`; Phase 19 cannot call Phase 18 mutation methods.
@@ -26,7 +26,7 @@
 17. **Installed/portable parity** — both modes use the same `NeoData/history` child contract relative to the supplied application root; Phase 19 does not hard-code ProgramData/Program Files/user-profile storage.
 18. **Non-AppX-mutation proof** — deterministic tests prove record/list/load/prepare behavior without invoking AppX register/remove APIs; production store code contains no Windows deployment mutation implementation.
 19. **Regression compatibility** — inherited Phase 1–18 static gates, locked build, format, Clippy, full workspace tests, and relevant Windows read-only proofs remain green after the new crate/layout contract is integrated.
-20. **Adversarial trust-boundary proof** — tests/static review cover traversal-like ids, symlink/reparse substitution where the host supports it, malformed/oversized/tampered envelopes, record-id mismatch, unexpected tree entries, idempotence/conflict, incomplete staging, arbitrary-save absence, and exact no-capability-issuance boundaries.
+20. **Adversarial trust-boundary proof** — tests/static review cover traversal-like ids, symlink/reparse substitution where the host supports it, malformed/oversized/tampered envelopes, record-id mismatch, unexpected tree entries, simultaneous-writer convergence, incomplete staging, arbitrary-save absence, and exact no-capability-issuance boundaries.
 
 A Phase 19 PASS requires all twenty distinct lanes simultaneously, reconciliation of any contradictory evidence, a frozen exact candidate SHA, and Pass-B adversarial proof against that frozen candidate.
 
