@@ -116,9 +116,11 @@ checks = [
         and "missing_exact_staged_dependency_blocks_restore_readiness" in tests,
     ),
     (
-        "current dependency version/name/family conflicts fail closed",
+        "current dependency version/name/family conflicts fail closed independent of inventory order",
         "ensure_dependency_restore_state" in plan
-        and "different_current_dependency_version_blocks_restore_readiness" in tests,
+        and "continue;" in plan
+        and "different_current_dependency_version_blocks_restore_readiness" in tests
+        and "side_by_side_dependency_after_exact_match_still_blocks_restore_readiness" in tests,
     ),
     (
         "fresh restore baseline captures main absent and dependency present-or-absent",
@@ -161,6 +163,7 @@ checks = [
             "staged_main_kind_flag_drift_blocks_restore_readiness",
             "missing_exact_staged_dependency_blocks_restore_readiness",
             "different_current_dependency_version_blocks_restore_readiness",
+            "side_by_side_dependency_after_exact_match_still_blocks_restore_readiness",
             "restore_readiness_is_byte_for_byte_non_mutating",
         )),
     ),

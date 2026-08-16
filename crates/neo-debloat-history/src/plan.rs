@@ -262,7 +262,7 @@ fn ensure_dependency_restore_state(
                     .family_name
                     .eq_ignore_ascii_case(&dependency.family_name)
             {
-                return Ok(());
+                continue;
             }
             return Err(DebloatHistoryError::InventoryConflict(format!(
                 "exact dependency full name {} has a different current-user identity",

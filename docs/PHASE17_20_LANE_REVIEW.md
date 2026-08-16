@@ -17,7 +17,7 @@
 11. A different current-user main package name/family identity blocks deterministic old-version restore.
 12. Exact staged/provisioned main full-name + family identity must still exist and retain the receipt package-kind flags plus dependency shape.
 13. Every original direct dependency must still have an exact staged/provisioned full-name + family identity.
-14. Different current-user dependency version/name/family conflicts block preparation.
+14. Different current-user dependency version/name/family conflicts block preparation regardless of inventory ordering; exact matches never short-circuit the remaining conflict scan.
 15. Fresh restore-time baseline captures main as absent and every dependency as exactly present or absent at preparation time.
 16. The new inverse transaction requires exact original main + direct-dependency identities as forward postconditions.
 17. The new inverse transaction uses `MatchesBaseline` rollback verification over every restore-time snapshot target.
