@@ -8,14 +8,17 @@
 //! package is absent again, dependencies that were already present are preserved, and only
 //! dependencies introduced by the failed restore are removed.
 //!
-//! Mutation methods require an opaque capability with no public constructor. Phase 18 does not issue
-//! that capability through CLI, GUI, plugin, MCP, or RPC surfaces; it does not use Store/network
-//! acquisition, provision/deprovision packages, or mutate all-user state.
+//! Mutation methods require an opaque capability with no public constructor. Phase 20 adds typed
+//! MCP/RPC orchestration that may issue that capability only after trusted Phase 19 history selection,
+//! fresh Phase 17 preparation, trusted caller policy/scopes, explicit confirmation, exact plan
+//! fingerprint/action binding, and single-use service-session validation. No public CLI mutation
+//! surface is introduced.
 
 #[cfg(any(windows, test))]
 mod engine;
 mod error;
 mod model;
+mod rpc;
 #[cfg(windows)]
 mod windows;
 
@@ -23,6 +26,15 @@ pub use error::DebloatRestoreExecutionError;
 pub use model::{
     DebloatRestoreExecutionPlan, DebloatRestoreExecutionSession, DebloatRestoreExecutionStep,
     DebloatRestoreExecutorCapability,
+};
+pub use rpc::{
+    DebloatRestoreRpcApplyRequest, DebloatRestoreRpcCaller, DebloatRestoreRpcCallerKind,
+    DebloatRestoreRpcContext, DebloatRestoreRpcError, DebloatRestoreRpcErrorCode,
+    DebloatRestoreRpcErrorPayload, DebloatRestoreRpcExecutionReceipt, DebloatRestoreRpcPolicy,
+    DebloatRestoreRpcPrepareRequest, DebloatRestoreRpcPrepared, DebloatRestoreRpcService,
+    DEBLOAT_RESTORE_APPLY_PERMISSION_SCOPE, DEBLOAT_RESTORE_PREPARE_PERMISSION_SCOPE,
+    MCP_DEBLOAT_RESTORE_APPLY_TOOL, MCP_DEBLOAT_RESTORE_PREPARE_TOOL, NEO_DEBLOAT_RPC_SCHEMA_VERSION,
+    RPC_DEBLOAT_RESTORE_APPLY_METHOD, RPC_DEBLOAT_RESTORE_PREPARE_METHOD,
 };
 
 use neo_debloat_history::DebloatRestorePreparedTransaction;
