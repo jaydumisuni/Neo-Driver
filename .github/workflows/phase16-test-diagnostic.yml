@@ -1,0 +1,34 @@
+name: Phase 16 Test Diagnostic
+
+on:
+  push:
+    branches: ["implementation/phase16-debloat-executor"]
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase16-debloat-executor
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Capture Phase 16 unit output
+        shell: bash
+        run: |
+          set +e
+          cargo test --locked -p neo-debloat-executor -- --nocapture > phase16-unit-diagnostic.txt 2>&1
+          status=$?
+          echo "exit_status=$status" >> phase16-unit-diagnostic.txt
+          exit 0
+      - name: Publish disposable diagnostic
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add phase16-unit-diagnostic.txt
+          git commit -m "Temporary Phase 16 unit diagnostic output"
+          git push origin HEAD:implementation/phase16-debloat-executor
