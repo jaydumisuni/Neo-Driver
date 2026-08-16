@@ -154,7 +154,8 @@ impl DebloatRemovalReceipt {
     }
 
     pub fn from_json_str(input: &str) -> Result<Self, DebloatHistoryError> {
-        Ok(serde_json::from_str(input)?)
+        let wire: DebloatRemovalReceiptWire = serde_json::from_str(input)?;
+        Self::try_from(wire)
     }
 
     pub fn to_json_pretty(&self) -> Result<String, DebloatHistoryError> {
@@ -423,9 +424,7 @@ impl DebloatRestorePreparedTransaction {
     }
 }
 
-fn validate_checkpoint_baseline(
-    receipt: &DebloatRemovalReceipt,
-) -> Result<(), DebloatHistoryError> {
+fn validate_checkpoint_baseline(receipt: &DebloatRemovalReceipt) -> Result<(), DebloatHistoryError> {
     let baseline = receipt.source_checkpoint.baseline().ok_or_else(|| {
         DebloatHistoryError::InvalidReceipt("source baseline is missing".to_string())
     })?;
