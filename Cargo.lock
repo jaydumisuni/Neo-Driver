@@ -399,6 +399,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "neo-debloat-restore-executor"
+version = "0.1.0"
+dependencies = [
+ "neo-core",
+ "neo-debloat-history",
+ "neo-debloat-plan",
+ "neo-transaction",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "windows",
+ "windows-collections",
+ "windows-future",
+]
+
+[[package]]
 name = "neo-device"
 version = "0.1.0"
 dependencies = [
