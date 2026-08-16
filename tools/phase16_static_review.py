@@ -116,11 +116,14 @@ checks = [
         and "DeploymentOptions::None" in windows,
     ),
     (
-        "native DeploymentResult extended failure is checked",
-        "ExtendedErrorCode()" in windows
+        "native async completion status and DeploymentResult failure are both checked",
+        ".join()" in windows
+        and ".Status()" in windows
+        and "AsyncStatus::Completed" in windows
+        and "status != AsyncStatus::Completed" in windows
+        and "ExtendedErrorCode()" in windows
         and "extended.is_err()" in windows
-        and "ErrorText()" in windows
-        and ".join()" in windows,
+        and "ErrorText()" in windows,
     ),
     (
         "fresh main and dependency observations follow removal",
@@ -131,10 +134,12 @@ checks = [
         and "eq_ignore_ascii_case(full_name)" in engine,
     ),
     (
-        "unknown post-write state conservatively preserves machine-changed obligation",
+        "unknown post-write state conservatively preserves machine-changed obligation and is regression-proven",
         ".unwrap_or(true)" in engine
         and "any_target_changed_from_baseline" in engine
-        and "ObservedValue::Unavailable" in engine,
+        and "ObservedValue::Unavailable" in engine
+        and "post_write_observation_error" in engine
+        and "phase16_post_write_observation_failure_is_conservative_and_rolls_back" in tests,
     ),
     (
         "API outcome and machine_changed are separately recorded",
@@ -167,17 +172,19 @@ checks = [
         and "TransactionStage::RolledBack" in engine,
     ),
     (
-        "deterministic fake-host proof covers forward drift partial failure and rollback failure",
+        "deterministic fake-host proof covers forward drift partial failure observation failure and compound rollback failure",
         all(name in tests for name in (
             "phase16_successful_exact_current_user_removal_reaches_complete",
             "phase16_pre_authority_baseline_drift_fails_closed_without_mutation",
             "phase16_second_baseline_check_blocks_drift_after_authorization",
             "phase16_partial_removal_failure_restores_main_and_dependency_baselines",
             "phase16_postcondition_failure_after_dependency_change_forces_rollback",
+            "phase16_post_write_observation_failure_is_conservative_and_rolls_back",
             "phase16_api_success_without_machine_change_does_not_invent_rollback_work",
-            "phase16_rollback_registration_failure_remains_failed_and_unresolved",
+            "phase16_rollback_registration_failure_preserves_both_failure_causes",
             "phase16_main_only_removal_keeps_dependency_and_still_verifies",
         ))
+        and "removal failed: {error}; rollback also failed: {rollback_error}" in engine
         and "impl DebloatHost for FakeHost" in tests,
     ),
     (
