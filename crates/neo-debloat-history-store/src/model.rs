@@ -81,10 +81,7 @@ pub struct StoredDebloatRemovalReceipt {
 }
 
 impl StoredDebloatRemovalReceipt {
-    pub(crate) fn new(
-        record_id: DebloatHistoryRecordId,
-        receipt: DebloatRemovalReceipt,
-    ) -> Self {
+    pub(crate) fn new(record_id: DebloatHistoryRecordId, receipt: DebloatRemovalReceipt) -> Self {
         Self { record_id, receipt }
     }
 

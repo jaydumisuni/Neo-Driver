@@ -70,9 +70,7 @@ impl DebloatHistoryStore {
         load_record_from_root(&handles.records, &self.records_root(), record_id)
     }
 
-    pub fn list(
-        &self,
-    ) -> Result<Vec<StoredDebloatRemovalSummary>, DebloatHistoryStoreError> {
+    pub fn list(&self) -> Result<Vec<StoredDebloatRemovalSummary>, DebloatHistoryStoreError> {
         let Some(handles) = self.open_existing_store()? else {
             return Ok(Vec::new());
         };
@@ -148,11 +146,9 @@ impl DebloatHistoryStore {
         receipt.validate()?;
         let record_id = DebloatHistoryRecordId::from_receipt(receipt)?;
         let handles = self.open_or_create_store()?;
-        if let Some(existing) = try_load_record_from_root(
-            &handles.records,
-            &self.records_root(),
-            &record_id,
-        )? {
+        if let Some(existing) =
+            try_load_record_from_root(&handles.records, &self.records_root(), &record_id)?
+        {
             return existing_write_receipt(self, &record_id, receipt, existing);
         }
 
@@ -196,12 +192,7 @@ impl DebloatHistoryStore {
                     record_id.to_string(),
                 ));
             }
-            validate_staging_marker(
-                &staging_dir,
-                &staging_name,
-                &staging_display,
-                &record_id,
-            )?;
+            validate_staging_marker(&staging_dir, &staging_name, &staging_display, &record_id)?;
             drop(staged_record_dir);
             Ok(())
         })();
@@ -222,11 +213,8 @@ impl DebloatHistoryStore {
         match promotion {
             Ok(()) => {
                 cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id)?;
-                let stored = load_record_from_root(
-                    &handles.records,
-                    &self.records_root(),
-                    &record_id,
-                )?;
+                let stored =
+                    load_record_from_root(&handles.records, &self.records_root(), &record_id)?;
                 if stored.receipt() != receipt {
                     return Err(DebloatHistoryStoreError::RecordConflict(
                         record_id.to_string(),
@@ -239,11 +227,8 @@ impl DebloatHistoryStore {
                 })
             }
             Err(rename_error) => {
-                let existing = try_load_record_from_root(
-                    &handles.records,
-                    &self.records_root(),
-                    &record_id,
-                );
+                let existing =
+                    try_load_record_from_root(&handles.records, &self.records_root(), &record_id);
                 cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id)?;
                 match existing? {
                     Some(stored) => existing_write_receipt(self, &record_id, receipt, stored),
@@ -263,17 +248,10 @@ impl DebloatHistoryStore {
         let history_display = self.history_root();
         let history = open_or_create_child_dir(&managed, "history", &history_display)?;
         let records_display = self.records_root();
-        let records = open_or_create_child_dir(
-            &history,
-            DEBLOAT_REMOVALS_DIRECTORY_NAME,
-            &records_display,
-        )?;
+        let records =
+            open_or_create_child_dir(&history, DEBLOAT_REMOVALS_DIRECTORY_NAME, &records_display)?;
         let staging_display = records_display.join(STAGING_DIRECTORY_NAME);
-        let staging = open_or_create_child_dir(
-            &records,
-            STAGING_DIRECTORY_NAME,
-            &staging_display,
-        )?;
+        let staging = open_or_create_child_dir(&records, STAGING_DIRECTORY_NAME, &staging_display)?;
         Ok(StoreHandles {
             records,
             staging: Some(staging),
@@ -286,29 +264,22 @@ impl DebloatHistoryStore {
             &application,
             neo_vault::MANAGED_DIRECTORY_NAME,
             self.layout.managed_root(),
-        )? else {
-            return Ok(None);
-        };
-        let history_display = self.history_root();
-        let Some(history) =
-            open_optional_child_dir(&managed, "history", &history_display)?
+        )?
         else {
             return Ok(None);
         };
+        let history_display = self.history_root();
+        let Some(history) = open_optional_child_dir(&managed, "history", &history_display)? else {
+            return Ok(None);
+        };
         let records_display = self.records_root();
-        let Some(records) = open_optional_child_dir(
-            &history,
-            DEBLOAT_REMOVALS_DIRECTORY_NAME,
-            &records_display,
-        )? else {
+        let Some(records) =
+            open_optional_child_dir(&history, DEBLOAT_REMOVALS_DIRECTORY_NAME, &records_display)?
+        else {
             return Ok(None);
         };
         let staging_display = records_display.join(STAGING_DIRECTORY_NAME);
-        let staging = open_optional_child_dir(
-            &records,
-            STAGING_DIRECTORY_NAME,
-            &staging_display,
-        )?;
+        let staging = open_optional_child_dir(&records, STAGING_DIRECTORY_NAME, &staging_display)?;
         Ok(Some(StoreHandles { records, staging }))
     }
 
@@ -551,11 +522,7 @@ fn audit_staging(staging: &Dir, display: &Path) -> Result<(), DebloatHistoryStor
                 let staged_record_dir = staging_dir
                     .open_dir_nofollow(&nested_name)
                     .map_err(|error| classify_link_error(&nested_display, error))?;
-                load_envelope_from_dir(
-                    &staged_record_dir,
-                    &nested_display,
-                    &marker.record_id,
-                )?;
+                load_envelope_from_dir(&staged_record_dir, &nested_display, &marker.record_id)?;
                 continue;
             }
             return Err(DebloatHistoryStoreError::UnexpectedEntry(nested_display));
@@ -635,9 +602,7 @@ fn open_absolute_dir_nofollow(path: &Path) -> Result<Dir, DebloatHistoryStoreErr
     Ok(current)
 }
 
-fn split_absolute_dir(
-    path: &Path,
-) -> Result<(PathBuf, Vec<OsString>), DebloatHistoryStoreError> {
+fn split_absolute_dir(path: &Path) -> Result<(PathBuf, Vec<OsString>), DebloatHistoryStoreError> {
     let mut root = PathBuf::new();
     let mut names = Vec::new();
     let mut saw_root = false;
@@ -675,10 +640,7 @@ fn classify_link_error(path: &Path, error: std::io::Error) -> DebloatHistoryStor
     }
 }
 
-fn map_file_error(
-    path: &Path,
-    error: DebloatHistoryStoreError,
-) -> DebloatHistoryStoreError {
+fn map_file_error(path: &Path, error: DebloatHistoryStoreError) -> DebloatHistoryStoreError {
     match error {
         DebloatHistoryStoreError::Io(io_error) => classify_link_error(path, io_error),
         other => other,

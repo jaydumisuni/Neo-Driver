@@ -46,9 +46,7 @@ fn history_store(root: &TempRoot, mode: VaultMode) -> DebloatHistoryStore {
     DebloatHistoryStore::new(VaultLayout::new(mode, root.path()).expect("absolute test root"))
 }
 
-fn record_fixture(
-    store: &DebloatHistoryStore,
-) -> (DebloatRemovalReceipt, DebloatHistoryRecordId) {
+fn record_fixture(store: &DebloatHistoryStore) -> (DebloatRemovalReceipt, DebloatHistoryRecordId) {
     let receipt = fixture_receipt();
     let record_id = DebloatHistoryRecordId::from_receipt(&receipt).expect("valid record id");
     let written = store
@@ -196,7 +194,10 @@ fn concurrent_identical_writers_converge_on_one_valid_record() {
         "concurrent convergence must not leave staging noise"
     );
     assert_eq!(
-        store.load(&record_id).expect("final record must load").receipt(),
+        store
+            .load(&record_id)
+            .expect("final record must load")
+            .receipt(),
         &receipt
     );
 }
@@ -241,8 +242,7 @@ fn oversized_and_identity_mismatched_records_fail_before_selection() {
         "record_id": "a".repeat(64),
         "receipt": serde_json::from_str::<Value>(FIXTURE).unwrap()
     });
-    envelope["receipt"]["receipt_fingerprint"] =
-        Value::String(record_id.as_str().to_string());
+    envelope["receipt"]["receipt_fingerprint"] = Value::String(record_id.as_str().to_string());
     fs::write(&path, serde_json::to_vec_pretty(&envelope).unwrap()).unwrap();
     assert!(matches!(
         store.load(&record_id),
