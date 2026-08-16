@@ -18,3 +18,4 @@ neo-debloat = { path = "../neo-debloat" }
 [target.'cfg(windows)'.dependencies]
 windows.workspace = true
 windows-collections = "0.3"
+windows-future = "0.3"
