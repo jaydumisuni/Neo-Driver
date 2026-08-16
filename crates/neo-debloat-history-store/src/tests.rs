@@ -104,6 +104,32 @@ fn empty_store_listing_is_read_only() {
 }
 
 #[test]
+fn owned_incomplete_staging_is_inert_and_not_history() {
+    let root = TempRoot::new("owned-incomplete-staging");
+    let store = history_store(&root, VaultMode::Installed);
+    store.ensure_layout().expect("create history layout");
+    let receipt = fixture_receipt();
+    let record_id = DebloatHistoryRecordId::from_receipt(&receipt).expect("valid record id");
+    let staging_name = format!("record-{}-crash-proof", &record_id.as_str()[..16]);
+    let staging_dir = store.records_root().join(".staging").join(&staging_name);
+    fs::create_dir(&staging_dir).expect("create owned staging session");
+    fs::write(
+        staging_dir.join(".neo-history-staging.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": DEBLOAT_HISTORY_STORE_SCHEMA_VERSION,
+            "staging_name": staging_name,
+            "record_id": record_id,
+        }))
+        .unwrap(),
+    )
+    .expect("write exact ownership marker");
+
+    assert_eq!(store.list().expect("staging is not history"), Vec::new());
+    store.audit().expect("owned incomplete staging is inert");
+    assert!(staging_dir.exists(), "audit must not silently clean staging");
+}
+
+#[test]
 fn valid_history_promotes_to_one_final_file_and_is_idempotent() {
     let root = TempRoot::new("record");
     let store = history_store(&root, VaultMode::Installed);
