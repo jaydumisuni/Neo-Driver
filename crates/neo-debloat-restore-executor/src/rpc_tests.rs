@@ -137,10 +137,14 @@ fn fixture_inventory(receipt: &DebloatRemovalReceipt) -> ExactAppxInventory {
 
 fn fixture_store(root: &TempRoot) -> (DebloatHistoryStore, DebloatHistoryRecordId) {
     let receipt = fixture_receipt();
-    let record_id = DebloatHistoryRecordId::from_receipt(&receipt).expect("valid fixture record id");
-    let layout = VaultLayout::new(VaultMode::Installed, root.path()).expect("absolute fixture root");
+    let record_id =
+        DebloatHistoryRecordId::from_receipt(&receipt).expect("valid fixture record id");
+    let layout =
+        VaultLayout::new(VaultMode::Installed, root.path()).expect("absolute fixture root");
     let store = DebloatHistoryStore::new(layout);
-    store.ensure_layout().expect("create trusted history layout");
+    store
+        .ensure_layout()
+        .expect("create trusted history layout");
     let record_dir = store.records_root().join(record_id.as_str());
     fs::create_dir(&record_dir).expect("create fixture record directory");
     let envelope = json!({
@@ -175,7 +179,10 @@ fn policy(callers: &[DebloatRestoreRpcCaller]) -> DebloatRestoreRpcPolicy {
     DebloatRestoreRpcPolicy::new(callers.to_vec()).expect("valid policy")
 }
 
-fn prepare_request(record_id: &DebloatHistoryRecordId, suffix: &str) -> DebloatRestoreRpcPrepareRequest {
+fn prepare_request(
+    record_id: &DebloatHistoryRecordId,
+    suffix: &str,
+) -> DebloatRestoreRpcPrepareRequest {
     DebloatRestoreRpcPrepareRequest {
         request_id: format!("prepare-{suffix}"),
         mission_id: format!("mission-{suffix}"),
@@ -235,10 +242,7 @@ fn policy_and_prepare_scope_fail_before_history_selection() {
 
     let unauthorized = service
         .prepare_with_inventory(
-            &context(
-                outsider,
-                &[DEBLOAT_RESTORE_PREPARE_PERMISSION_SCOPE],
-            ),
+            &context(outsider, &[DEBLOAT_RESTORE_PREPARE_PERMISSION_SCOPE]),
             prepare_request(&record_id, "unauthorized"),
             &inventory,
         )
@@ -338,7 +342,10 @@ fn apply_requires_same_caller_confirmation_fingerprint_and_exact_action_set() {
     let mut request = apply_request(&prepared, "confirm");
     request.confirmed = false;
     assert_eq!(
-        service.validate_apply(&owner_ctx, &request).unwrap_err().code(),
+        service
+            .validate_apply(&owner_ctx, &request)
+            .unwrap_err()
+            .code(),
         DebloatRestoreRpcErrorCode::ConfirmationRequired
     );
     assert_eq!(service.pending_session_count(), 1);
@@ -346,14 +353,20 @@ fn apply_requires_same_caller_confirmation_fingerprint_and_exact_action_set() {
     let mut request = apply_request(&prepared, "fingerprint");
     request.plan_fingerprint = "0".repeat(64);
     assert_eq!(
-        service.validate_apply(&owner_ctx, &request).unwrap_err().code(),
+        service
+            .validate_apply(&owner_ctx, &request)
+            .unwrap_err()
+            .code(),
         DebloatRestoreRpcErrorCode::PlanMismatch
     );
 
     let mut request = apply_request(&prepared, "actions");
     request.approved_action_ids = vec![prepared.action_id.clone(), "restore:extra".to_string()];
     assert_eq!(
-        service.validate_apply(&owner_ctx, &request).unwrap_err().code(),
+        service
+            .validate_apply(&owner_ctx, &request)
+            .unwrap_err()
+            .code(),
         DebloatRestoreRpcErrorCode::PlanMismatch
     );
 
@@ -473,7 +486,9 @@ fn history_and_fresh_readiness_errors_are_structurally_classified() {
         DebloatRestoreRpcErrorCode::HistoryUnavailable
     );
 
-    inventory.current_user.push(fixture_receipt().main().clone());
+    inventory
+        .current_user
+        .push(fixture_receipt().main().clone());
     inventory.validate().unwrap();
     assert_eq!(
         service

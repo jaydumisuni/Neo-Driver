@@ -1,7 +1,7 @@
-use crate::model::{DebloatRestoreExecutionSession, DebloatRestoreExecutorCapability};
-use crate::{prepare_debloat_restore_execution, DebloatRestoreExecutionError};
 #[cfg(test)]
 use crate::engine::{apply_with_host, authorize_with_host, DebloatRestoreHost};
+use crate::model::{DebloatRestoreExecutionSession, DebloatRestoreExecutorCapability};
+use crate::{prepare_debloat_restore_execution, DebloatRestoreExecutionError};
 use neo_debloat_history::DebloatHistoryError;
 use neo_debloat_history_store::{
     DebloatHistoryRecordId, DebloatHistoryStore, DebloatHistoryStoreError,
@@ -19,8 +19,7 @@ pub const MCP_DEBLOAT_RESTORE_APPLY_TOOL: &str = "neo_debloat_restore_apply";
 pub const RPC_DEBLOAT_RESTORE_PREPARE_METHOD: &str = "neo.debloat.restore.prepare";
 pub const RPC_DEBLOAT_RESTORE_APPLY_METHOD: &str = "neo.debloat.restore.apply";
 pub const DEBLOAT_RESTORE_PREPARE_PERMISSION_SCOPE: &str = "neo.debloat.restore.prepare";
-pub const DEBLOAT_RESTORE_APPLY_PERMISSION_SCOPE: &str =
-    "neo.debloat.restore.low-risk.apply";
+pub const DEBLOAT_RESTORE_APPLY_PERMISSION_SCOPE: &str = "neo.debloat.restore.low-risk.apply";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -352,7 +351,11 @@ impl DebloatRestoreRpcService {
         record_id: DebloatHistoryRecordId,
         session: DebloatRestoreExecutionSession,
     ) -> Result<DebloatRestoreRpcPrepared, DebloatRestoreRpcError> {
-        let plan_fingerprint = session.plan().transaction().fingerprint()?;
+        let plan_fingerprint = session
+            .plan()
+            .transaction()
+            .fingerprint()
+            .map_err(DebloatRestoreExecutionError::from)?;
         let sequence = self
             .next_session_sequence
             .checked_add(1)
@@ -492,11 +495,7 @@ fn execution_receipt(
     }
 }
 
-fn require_text(
-    label: &str,
-    value: &str,
-    max_len: usize,
-) -> Result<(), DebloatRestoreRpcError> {
+fn require_text(label: &str, value: &str, max_len: usize) -> Result<(), DebloatRestoreRpcError> {
     if value.trim().is_empty() || value.len() > max_len || value.chars().any(char::is_control) {
         return Err(DebloatRestoreRpcError::InvalidRequest(format!(
             "{label} must be non-empty, bounded, and contain no control characters"
