@@ -109,7 +109,9 @@ impl DebloatHistoryStore {
             return Ok(());
         };
         let _ = self.list()?;
-        audit_staging(&handles.staging, &self.records_root().join(STAGING_DIRECTORY_NAME))?;
+        if let Some(staging) = &handles.staging {
+            audit_staging(staging, &self.records_root().join(STAGING_DIRECTORY_NAME))?;
+        }
         Ok(())
     }
 
@@ -163,8 +165,12 @@ impl DebloatHistoryStore {
             });
         }
 
+        let staging = handles
+            .staging
+            .as_ref()
+            .expect("write path creates staging");
         let (staging_name, staging_dir) = begin_unique_staging(
-            &handles.staging,
+            staging,
             &self.records_root().join(STAGING_DIRECTORY_NAME),
             &record_id,
         )?;
@@ -178,7 +184,8 @@ impl DebloatHistoryStore {
             file.write_all(&encoded)?;
             file.sync_all()?;
             drop(file);
-            let reloaded = load_envelope_from_dir(&staging_dir, &staging_display, &record_id)?;
+            let reloaded =
+                load_envelope_file_from_dir(&staging_dir, &staging_display, &record_id)?;
             if reloaded.receipt() != receipt {
                 return Err(DebloatHistoryStoreError::RecordConflict(
                     record_id.to_string(),
@@ -190,7 +197,7 @@ impl DebloatHistoryStore {
 
         if let Err(error) = write_result {
             let _ = cleanup_owned_staging(
-                &handles.staging,
+                staging,
                 &staging_name,
                 &staging_display,
                 &record_id,
@@ -198,7 +205,7 @@ impl DebloatHistoryStore {
             return Err(error);
         }
 
-        match handles.staging.rename(
+        match staging.rename(
             &staging_name,
             &handles.records,
             record_id.as_str(),
@@ -227,7 +234,7 @@ impl DebloatHistoryStore {
                     &record_id,
                 );
                 let _ = cleanup_owned_staging(
-                    &handles.staging,
+                    staging,
                     &staging_name,
                     &staging_display,
                     &record_id,
@@ -261,7 +268,10 @@ impl DebloatHistoryStore {
             STAGING_DIRECTORY_NAME,
             &staging_display,
         )?;
-        Ok(StoreHandles { records, staging })
+        Ok(StoreHandles {
+            records,
+            staging: Some(staging),
+        })
     }
 
     fn open_existing_store(&self) -> Result<Option<StoreHandles>, DebloatHistoryStoreError> {
@@ -288,14 +298,11 @@ impl DebloatHistoryStore {
             return Ok(None);
         };
         let staging_display = records_display.join(STAGING_DIRECTORY_NAME);
-        let staging = match open_optional_child_dir(
+        let staging = open_optional_child_dir(
             &records,
             STAGING_DIRECTORY_NAME,
             &staging_display,
-        )? {
-            Some(staging) => staging,
-            None => return Ok(Some(StoreHandles::read_only(records)?)),
-        };
+        )?;
         Ok(Some(StoreHandles { records, staging }))
     }
 
@@ -310,14 +317,7 @@ impl DebloatHistoryStore {
 
 struct StoreHandles {
     records: Dir,
-    staging: Dir,
-}
-
-impl StoreHandles {
-    fn read_only(records: Dir) -> Result<Self, DebloatHistoryStoreError> {
-        let staging = Dir::open_ambient_dir(std::env::temp_dir(), ambient_authority())?;
-        Ok(Self { records, staging })
-    }
+    staging: Option<Dir>,
 }
 
 fn existing_write_receipt(
@@ -370,6 +370,14 @@ fn load_envelope_from_dir(
     record_id: &DebloatHistoryRecordId,
 ) -> Result<StoredDebloatRemovalReceipt, DebloatHistoryStoreError> {
     validate_record_directory_entries(record_dir, display)?;
+    load_envelope_file_from_dir(record_dir, display, record_id)
+}
+
+fn load_envelope_file_from_dir(
+    record_dir: &Dir,
+    display: &Path,
+    record_id: &DebloatHistoryRecordId,
+) -> Result<StoredDebloatRemovalReceipt, DebloatHistoryStoreError> {
     let file_display = display.join(RECORD_FILE_NAME);
     let file = open_read_file_nofollow(record_dir, RECORD_FILE_NAME)
         .map_err(|error| map_file_error(&file_display, error))?;
