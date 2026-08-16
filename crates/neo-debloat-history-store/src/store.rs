@@ -22,7 +22,6 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static NEXT_STAGING_SEQUENCE: AtomicU64 = AtomicU64::new(1);
-const HISTORY_DIRECTORY_NAME: &str = "history";
 const DEBLOAT_REMOVALS_DIRECTORY_NAME: &str = "debloat-removals";
 
 #[derive(Debug, Clone)]
@@ -40,7 +39,7 @@ impl DebloatHistoryStore {
     }
 
     pub fn history_root(&self) -> PathBuf {
-        self.layout.managed_root().join(HISTORY_DIRECTORY_NAME)
+        self.layout.history().to_path_buf()
     }
 
     pub fn records_root(&self) -> PathBuf {
@@ -191,6 +190,13 @@ impl DebloatHistoryStore {
                     record_id.to_string(),
                 ));
             }
+            validate_staging_marker(
+                &staging_dir,
+                &staging_name,
+                &staging_display,
+                &record_id,
+            )?;
+            staging_dir.remove_file(STAGING_MARKER_NAME)?;
             Ok(())
         })();
         drop(staging_dir);
@@ -255,7 +261,7 @@ impl DebloatHistoryStore {
             self.layout.managed_root(),
         )?;
         let history_display = self.history_root();
-        let history = open_or_create_child_dir(&managed, HISTORY_DIRECTORY_NAME, &history_display)?;
+        let history = open_or_create_child_dir(&managed, "history", &history_display)?;
         let records_display = self.records_root();
         let records = open_or_create_child_dir(
             &history,
@@ -285,7 +291,7 @@ impl DebloatHistoryStore {
         };
         let history_display = self.history_root();
         let Some(history) =
-            open_optional_child_dir(&managed, HISTORY_DIRECTORY_NAME, &history_display)?
+            open_optional_child_dir(&managed, "history", &history_display)?
         else {
             return Ok(None);
         };
