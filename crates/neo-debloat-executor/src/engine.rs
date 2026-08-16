@@ -74,7 +74,9 @@ pub(crate) fn apply_with_host<H: DebloatHost>(
             Ok(observations) => observations,
             Err(error) => unavailable_observations(session, &error.to_string()),
         };
-        session.checkpoint.verify_postconditions(observations)?;
+        session
+            .checkpoint
+            .verify_postconditions(forward_postcondition_observations(session, observations))?;
     }
 
     if session.stage() == TransactionStage::RollingBack {
@@ -179,6 +181,17 @@ fn unavailable_observations(session: &DebloatExecutionSession, reason: &str) -> 
             target,
             value: ObservedValue::Unavailable(reason.to_string()),
         })
+        .collect()
+}
+
+fn forward_postcondition_observations(
+    session: &DebloatExecutionSession,
+    observations: Vec<Observation>,
+) -> Vec<Observation> {
+    let main_target = appx_target(session.plan.step().package_full_name());
+    observations
+        .into_iter()
+        .filter(|observation| observation.target == main_target)
         .collect()
 }
 
