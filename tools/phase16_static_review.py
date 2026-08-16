@@ -125,8 +125,10 @@ checks = [
     (
         "fresh main and dependency observations follow removal",
         "let observed_after = observe_all(session, host);" in engine
+        and "fn observe_all" in engine
         and "session_targets(session)" in engine
-        and "inventory.current_user" in engine,
+        and ".current_user" in engine
+        and "eq_ignore_ascii_case(full_name)" in engine,
     ),
     (
         "unknown post-write state conservatively preserves machine-changed obligation",
