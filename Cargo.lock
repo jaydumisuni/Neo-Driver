@@ -360,6 +360,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "neo-debloat-history"
+version = "0.1.0"
+dependencies = [
+ "neo-core",
+ "neo-debloat-executor",
+ "neo-debloat-plan",
+ "neo-transaction",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "neo-debloat-plan"
 version = "0.1.0"
 dependencies = [
