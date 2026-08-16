@@ -75,7 +75,10 @@ impl DebloatHost for FakeHost {
         Ok(self.inventory.clone())
     }
 
-    fn remove_current_user(&mut self, package_full_name: &str) -> Result<(), DebloatExecutionError> {
+    fn remove_current_user(
+        &mut self,
+        package_full_name: &str,
+    ) -> Result<(), DebloatExecutionError> {
         self.remove_calls += 1;
         assert_eq!(package_full_name, MAIN_FULL);
         match self.remove_mode {
@@ -210,7 +213,10 @@ fn phase16_api_success_without_machine_change_does_not_invent_rollback_work() {
     let error = apply_with_host(&mut session, &mut host)
         .expect_err("unchanged main package cannot satisfy the absent postcondition");
 
-    assert!(matches!(error, DebloatExecutionError::InvalidPreparedState(_)));
+    assert!(matches!(
+        error,
+        DebloatExecutionError::InvalidPreparedState(_)
+    ));
     assert_eq!(session.stage(), TransactionStage::Failed);
     assert_eq!(host.register_calls, 0);
 }

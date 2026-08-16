@@ -348,6 +348,7 @@ dependencies = [
 name = "neo-debloat-executor"
 version = "0.1.0"
 dependencies = [
+ "neo-debloat",
  "neo-debloat-plan",
  "neo-transaction",
  "serde",

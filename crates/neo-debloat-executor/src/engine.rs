@@ -7,7 +7,8 @@ use neo_transaction::{
 
 pub(crate) trait DebloatHost {
     fn current_inventory(&self) -> Result<ExactAppxInventory, DebloatExecutionError>;
-    fn remove_current_user(&mut self, package_full_name: &str) -> Result<(), DebloatExecutionError>;
+    fn remove_current_user(&mut self, package_full_name: &str)
+        -> Result<(), DebloatExecutionError>;
     fn register_current_user(
         &mut self,
         package_full_name: &str,
@@ -33,7 +34,9 @@ pub(crate) fn apply_with_host<H: DebloatHost>(
     session.checkpoint.begin_apply()?;
 
     let step = session.plan.step().clone();
-    session.checkpoint.assert_action_pending(step.debloat_id())?;
+    session
+        .checkpoint
+        .assert_action_pending(step.debloat_id())?;
     let removal_result = host.remove_current_user(step.package_full_name());
     let observed_after = observe_all(session, host);
     let machine_changed = observed_after
@@ -96,10 +99,8 @@ fn rollback_with_host<H: DebloatHost>(
     host: &mut H,
 ) -> Result<(), DebloatExecutionError> {
     let step = session.plan.step().clone();
-    let restore_result = host.register_current_user(
-        step.package_full_name(),
-        step.dependency_full_names(),
-    );
+    let restore_result =
+        host.register_current_user(step.package_full_name(), step.dependency_full_names());
     match restore_result {
         Ok(()) => session.checkpoint.record_rollback_result(RollbackRecord {
             action_id: step.debloat_id().to_string(),
@@ -171,10 +172,7 @@ fn observe_all<H: DebloatHost>(
         .collect()
 }
 
-fn unavailable_observations(
-    session: &DebloatExecutionSession,
-    reason: &str,
-) -> Vec<Observation> {
+fn unavailable_observations(session: &DebloatExecutionSession, reason: &str) -> Vec<Observation> {
     session_targets(session)
         .into_iter()
         .map(|target| Observation {
@@ -221,11 +219,13 @@ fn captured_value_for_target(
     inventory: &ExactAppxInventory,
     target: &StateTarget,
 ) -> Result<CapturedValue, DebloatExecutionError> {
-    Ok(match observed_value_for_target(session, inventory, target)? {
-        ObservedValue::Present(value) => CapturedValue::Present(value),
-        ObservedValue::Absent => CapturedValue::Absent,
-        ObservedValue::Unavailable(reason) => CapturedValue::Unavailable(reason),
-    })
+    Ok(
+        match observed_value_for_target(session, inventory, target)? {
+            ObservedValue::Present(value) => CapturedValue::Present(value),
+            ObservedValue::Absent => CapturedValue::Absent,
+            ObservedValue::Unavailable(reason) => CapturedValue::Unavailable(reason),
+        },
+    )
 }
 
 fn observed_value_for_target(

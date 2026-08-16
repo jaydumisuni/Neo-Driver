@@ -20,7 +20,10 @@ impl DebloatHost for WindowsDebloatHost {
             .map_err(|error| DebloatExecutionError::Observation(error.to_string()))
     }
 
-    fn remove_current_user(&mut self, package_full_name: &str) -> Result<(), DebloatExecutionError> {
+    fn remove_current_user(
+        &mut self,
+        package_full_name: &str,
+    ) -> Result<(), DebloatExecutionError> {
         let manager = PackageManager::new().map_err(native_error("create PackageManager"))?;
         let operation = manager
             .RemovePackageAsync(&HSTRING::from(package_full_name))
@@ -76,7 +79,9 @@ fn validate_deployment_result(
     Ok(())
 }
 
-fn native_error(operation: &'static str) -> impl FnOnce(windows::core::Error) -> DebloatExecutionError {
+fn native_error(
+    operation: &'static str,
+) -> impl FnOnce(windows::core::Error) -> DebloatExecutionError {
     move |error| DebloatExecutionError::NativeDeployment(format!("{operation}: {error}"))
 }
 
@@ -88,8 +93,10 @@ pub(crate) struct DebloatExecutionMutex {
 impl DebloatExecutionMutex {
     pub(crate) fn acquire() -> Result<Self, DebloatExecutionError> {
         let name = wide(DEBLOAT_MUTEX_NAME);
-        let handle = unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }
-            .map_err(|error| DebloatExecutionError::NativeDeployment(format!("mutex creation failed: {error}")))?;
+        let handle =
+            unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }.map_err(|error| {
+                DebloatExecutionError::NativeDeployment(format!("mutex creation failed: {error}"))
+            })?;
         let wait = unsafe { WaitForSingleObject(handle, DEBLOAT_MUTEX_TIMEOUT_MS) };
         if wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED {
             return Ok(Self {

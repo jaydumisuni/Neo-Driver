@@ -39,7 +39,8 @@ impl DebloatExecutionStep {
                 .all(|(left, right)| left.eq_ignore_ascii_case(right))
         {
             return Err(DebloatExecutionError::InvalidPreparedState(
-                "restore route does not match the prepared package/dependency identities".to_string(),
+                "restore route does not match the prepared package/dependency identities"
+                    .to_string(),
             ));
         }
         Ok(Self {
