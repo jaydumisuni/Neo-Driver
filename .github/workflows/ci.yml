@@ -79,6 +79,9 @@ jobs:
       - name: Phase 17 twenty-lane static review
         run: python -W error tools/phase17_static_review.py
 
+      - name: Phase 18 twenty-lane static review
+        run: python -W error tools/phase18_static_review.py
+
       - name: Cargo lockfile proof
         run: |
           cargo generate-lockfile
@@ -95,6 +98,9 @@ jobs:
 
       - name: Rust unit proof
         run: cargo test --workspace --all-targets --locked
+
+      - name: Phase 18 deterministic AppX restore executor proof
+        run: cargo test --locked -p neo-debloat-restore-executor
 
       - name: Phase 17 history and restore-readiness proof
         run: cargo test --locked -p neo-debloat-history
