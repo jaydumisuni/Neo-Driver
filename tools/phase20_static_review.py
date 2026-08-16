@@ -141,7 +141,7 @@ checks = [
         has_all(
             RPC,
             (
-                "session.plan().transaction().fingerprint()?",
+                ".map_err(DebloatRestoreExecutionError::from)?",
                 "if !request.confirmed",
                 "if request.plan_fingerprint != pending.plan_fingerprint",
                 "ConfirmationRequired",
