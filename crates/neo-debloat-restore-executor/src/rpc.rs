@@ -233,7 +233,9 @@ impl DebloatRestoreRpcError {
 
 struct PendingDebloatRestoreRpcSession {
     caller: DebloatRestoreRpcCaller,
+    #[cfg(any(windows, test))]
     record_id: DebloatHistoryRecordId,
+    #[cfg(any(windows, test))]
     mission_id: String,
     plan_fingerprint: String,
     session: DebloatRestoreExecutionSession,
@@ -390,7 +392,9 @@ impl DebloatRestoreRpcService {
             session_id,
             PendingDebloatRestoreRpcSession {
                 caller: context.caller.clone(),
+                #[cfg(any(windows, test))]
                 record_id,
+                #[cfg(any(windows, test))]
                 mission_id: request.mission_id,
                 plan_fingerprint,
                 session,
