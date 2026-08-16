@@ -19,6 +19,7 @@ members = [
     "crates/neo-debloat-probe",
     "crates/neo-debloat-plan",
     "crates/neo-debloat-executor",
+    "crates/neo-debloat-history",
     "crates/neo-cli",
 ]
 
