@@ -133,6 +133,34 @@ fn owned_incomplete_staging_is_inert_and_not_history() {
 }
 
 #[test]
+fn noncanonical_record_directory_alias_is_rejected() {
+    let root = TempRoot::new("noncanonical-record-directory");
+    let store = history_store(&root, VaultMode::Installed);
+    store.ensure_layout().expect("create history layout");
+    let receipt = fixture_receipt();
+    let record_id = DebloatHistoryRecordId::from_receipt(&receipt).expect("valid record id");
+    let alias = record_id.as_str().to_ascii_uppercase();
+    assert_ne!(alias, record_id.as_str());
+    let alias_dir = store.records_root().join(&alias);
+    fs::create_dir(&alias_dir).expect("create noncanonical record directory");
+    let envelope = serde_json::json!({
+        "schema_version": DEBLOAT_HISTORY_STORE_SCHEMA_VERSION,
+        "record_id": record_id.as_str(),
+        "receipt": serde_json::from_str::<Value>(FIXTURE).unwrap(),
+    });
+    fs::write(
+        alias_dir.join("receipt.json"),
+        serde_json::to_vec_pretty(&envelope).unwrap(),
+    )
+    .expect("write otherwise valid aliased record");
+
+    assert!(matches!(
+        store.audit(),
+        Err(DebloatHistoryStoreError::UnexpectedEntry(path)) if path == alias_dir
+    ));
+}
+
+#[test]
 fn valid_history_promotes_to_one_final_file_and_is_idempotent() {
     let root = TempRoot::new("record");
     let store = history_store(&root, VaultMode::Installed);

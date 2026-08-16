@@ -93,6 +93,9 @@ impl DebloatHistoryStore {
             }
             let record_id = DebloatHistoryRecordId::new(name_text.as_ref().to_string())
                 .map_err(|_| DebloatHistoryStoreError::UnexpectedEntry(display.clone()))?;
+            if name_text.as_ref() != record_id.as_str() {
+                return Err(DebloatHistoryStoreError::UnexpectedEntry(display));
+            }
             summaries.push(
                 load_record_from_root(&handles.records, &self.records_root(), &record_id)?
                     .summary(),
