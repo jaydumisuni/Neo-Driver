@@ -1,0 +1,48 @@
+name: Phase 17 Canonical Status Helper
+
+on:
+  push:
+    branches: ["docs/phase17-final-status"]
+
+permissions:
+  contents: write
+
+jobs:
+  update-status:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/phase17-final-status
+      - name: Insert canonical Phase 17 recovery record
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("docs/IMPLEMENTATION_STATUS.md")
+          text = path.read_text(encoding="utf-8")
+
+          phase17_bullet = "- **Phase 17:** merged and engineering-proven — versioned/fingerprinted durable completed-removal history plus fresh post-success AppX restore-readiness and inverse Phase 4 transaction preparation, with full Phase 13→15 source-authority revalidation, exact current/provisioned conflict detection, order-independent dependency conflict scanning, restore-time baseline capture, exact main/dependency forward identities, and `MatchesBaseline` recovery predicates. Phase 17 is read-only (`machine_changes = false`): actual post-success restore execution, trusted persistent history-store authority, public restore writes, plugin dependency, and MCP/RPC Debloat restore authority remain blocked.\n"
+          if phase17_bullet not in text:
+              anchor = "- **Phase 16:** merged and engineering-proven — internal capability-gated transaction-bound current-user AppX executor over exactly one Phase 15 prepared transaction, with two fresh exact baseline-drift checks, same-session serialization, native PackageManager full-name removal, terminal AsyncStatus + DeploymentResult validation, all-target change evidence, Phase 4 forward verification, exact staged full-name dependency-aware rollback, and Phase 4 MatchesBaseline recovery verification. Live destructive AppX mutation, post-success user undo, provisioned/all-users/batch mutation, Store/network restore, public GUI/CLI writes, plugin dependency, and MCP/RPC Debloat authority remain blocked.\n"
+              if anchor not in text:
+                  raise SystemExit("Phase 16 current-state anchor not found")
+              text = text.replace(anchor, anchor + phase17_bullet, 1)
+
+          phase17_baseline = "Phase 17 corrected implementation head `0fc32129614c2042f38c50e8226ae2a5ad66d793` passed complete independent push run `31935375936` and PR run `31935377064` on Ubuntu and Windows. CodeRabbit full review identified one valid Major correctness defect: dependency conflict detection could return success after an exact dependency match and miss a later side-by-side conflicting version, making restore readiness inventory-order-dependent. Correction commit `4b24cb0d10918cd6b35d7bdb10abc55b49b9a4f3` changed exact-match handling to continue scanning and added a regression where the exact dependency appears before the conflicting version. The final exact head was `0fc32129614c2042f38c50e8226ae2a5ad66d793`; CodeRabbit re-review explicitly reported no remaining correctness issue, the original Major thread was resolved, and GitGuardian scanned all 46 commits with no secrets detected. Phase 17 merged through PR #34 as `09a0e81a54e1f8ed8e936e258d3d3c03b6dcbc96`, and merged-main run `31935609871` then passed the complete Ubuntu and Windows Phase 1–17 pipeline. Post-success AppX restore execution, trusted persistent history-store authority, public restore mutation, plugin integration, and MCP/RPC restore authority are explicitly not claimed.\n\n"
+          if phase17_baseline not in text:
+              marker = "\n## Phase 5 frozen implementation\n"
+              if marker not in text:
+                  raise SystemExit("Proven-baseline section terminator not found")
+              text = text.replace(marker, "\n" + phase17_baseline + "## Phase 5 frozen implementation\n", 1)
+
+          path.write_text(text, encoding="utf-8")
+      - name: Remove helper and commit one-file cumulative status delta
+        shell: bash
+        run: |
+          git rm .github/workflows/phase17-status-helper.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/IMPLEMENTATION_STATUS.md
+          git commit -m "Phase 17: record canonical implementation status"
+          git push origin HEAD:docs/phase17-final-status
