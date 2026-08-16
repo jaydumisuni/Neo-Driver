@@ -49,7 +49,11 @@ checks = [
         "DEBLOAT_REMOVAL_RECEIPT_SCHEMA_VERSION: u32 = 1" in model
         and "impl<'de> Deserialize<'de> for DebloatRemovalReceipt" in model
         and "receipt.validate()?" in model
-        and "source_checkpoint: TransactionCheckpoint" in model,
+        and "source_checkpoint: TransactionCheckpoint" in model
+        and "source_action.verdict != neo_core::EvidenceVerdict::Certified" in model
+        and "!source_action.requires_confirmation" in model
+        and "!source_action.rollback_available" in model
+        and "source_action.selected_by_default" in model,
     ),
     (
         "receipt id is deterministic and source-transaction-bound",
@@ -88,7 +92,12 @@ checks = [
         "exact staged main must remain present with receipt dependency shape",
         "ensure_provisioned_restore_route" in plan
         and "same_main_restore_shape(main, receipt.main())" in plan
-        and "missing_exact_staged_main_blocks_restore_readiness" in tests,
+        and "left.is_framework == right.is_framework" in plan
+        and "left.is_resource == right.is_resource" in plan
+        and "left.is_bundle == right.is_bundle" in plan
+        and "left.is_optional == right.is_optional" in plan
+        and "missing_exact_staged_main_blocks_restore_readiness" in tests
+        and "staged_main_kind_flag_drift_blocks_restore_readiness" in tests,
     ),
     (
         "every original dependency must remain exactly staged",
@@ -137,6 +146,7 @@ checks = [
             "already_restored_main_is_not_prepared_again",
             "different_current_main_version_blocks_old_history_restore",
             "missing_exact_staged_main_blocks_restore_readiness",
+            "staged_main_kind_flag_drift_blocks_restore_readiness",
             "missing_exact_staged_dependency_blocks_restore_readiness",
             "different_current_dependency_version_blocks_restore_readiness",
             "restore_readiness_is_byte_for_byte_non_mutating",

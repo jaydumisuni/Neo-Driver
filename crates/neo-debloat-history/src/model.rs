@@ -206,12 +206,22 @@ impl DebloatRemovalReceipt {
                 "source transaction/checkpoint identity continuity failed".to_string(),
             ));
         }
-        if source_plan.actions().len() != 1
-            || source_plan.actions()[0].action.id != self.debloat_id
-            || source_plan.actions()[0].action.kind != neo_core::ActionKind::Debloat
+        if source_plan.actions().len() != 1 {
+            return Err(DebloatHistoryError::InvalidReceipt(
+                "source checkpoint does not contain exactly one completed Debloat action"
+                    .to_string(),
+            ));
+        }
+        let source_action = &source_plan.actions()[0].action;
+        if source_action.id != self.debloat_id
+            || source_action.kind != neo_core::ActionKind::Debloat
+            || source_action.verdict != neo_core::EvidenceVerdict::Certified
+            || !source_action.requires_confirmation
+            || !source_action.rollback_available
+            || source_action.selected_by_default
         {
             return Err(DebloatHistoryError::InvalidReceipt(
-                "source checkpoint does not contain exactly the completed Debloat action"
+                "source checkpoint action is not the certified confirmed reversible non-default Debloat authority expected from Phase 15/16"
                     .to_string(),
             ));
         }

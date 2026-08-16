@@ -8,14 +8,14 @@
 2. Execution-plan and checkpoint transaction fingerprints must agree before history is emitted.
 3. Receipt main/dependency identities are recovered from the captured Phase 16 baseline, not reconstructed from package names.
 4. Receipt restore route must exactly match the captured main full/family identity and ordered dependency full-name list.
-5. Receipt schema is explicitly versioned and durable JSON deserialization revalidates the complete source checkpoint.
+5. Receipt schema is explicitly versioned and durable JSON deserialization revalidates the complete source checkpoint plus the certified, confirmation-required, reversible, non-default source Debloat action shape.
 6. Receipt id is deterministic and bound to the source transaction id.
 7. Receipt SHA-256 fingerprint covers all authority-bearing receipt fields except the fingerprint itself and is rechecked on deserialization.
 8. Receipt fingerprint is documented as tamper detection only, not a signature or caller-authentication mechanism.
 9. Restore preparation always performs a fresh exact AppX inventory validation; a historical receipt is never assumed current.
 10. Exact original main package already present returns `AlreadyRestored` and produces no inverse transaction.
 11. A different current-user main package name/family identity blocks deterministic old-version restore.
-12. Exact staged/provisioned main full-name + family identity must still exist and retain the receipt dependency shape.
+12. Exact staged/provisioned main full-name + family identity must still exist and retain the receipt package-kind flags plus dependency shape.
 13. Every original direct dependency must still have an exact staged/provisioned full-name + family identity.
 14. Different current-user dependency version/name/family conflicts block preparation.
 15. Fresh restore-time baseline captures main as absent and every dependency as exactly present or absent at preparation time.

@@ -163,6 +163,18 @@ fn missing_exact_staged_main_blocks_restore_readiness() {
 }
 
 #[test]
+fn staged_main_kind_flag_drift_blocks_restore_readiness() {
+    let receipt = receipt();
+    let mut inventory = restore_inventory(false);
+    inventory.provisioned[0].is_optional = true;
+    inventory.validate().expect("inventory must remain valid");
+
+    let error = prepare_restore_from_inventory(&receipt, &inventory, "mission-kind-drift")
+        .expect_err("staged package-kind drift must block deterministic restore");
+    assert!(matches!(error, DebloatHistoryError::RestoreNotReady(_)));
+}
+
+#[test]
 fn missing_exact_staged_dependency_blocks_restore_readiness() {
     let receipt = receipt();
     let mut inventory = restore_inventory(false);

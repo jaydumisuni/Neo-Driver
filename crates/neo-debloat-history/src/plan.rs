@@ -313,6 +313,10 @@ fn same_main_restore_shape(left: &ExactPackageIdentity, right: &ExactPackageIden
     left.name.eq_ignore_ascii_case(&right.name)
         && left.full_name.eq_ignore_ascii_case(&right.full_name)
         && left.family_name.eq_ignore_ascii_case(&right.family_name)
+        && left.is_framework == right.is_framework
+        && left.is_resource == right.is_resource
+        && left.is_bundle == right.is_bundle
+        && left.is_optional == right.is_optional
         && left.dependencies.len() == right.dependencies.len()
         && left
             .dependencies

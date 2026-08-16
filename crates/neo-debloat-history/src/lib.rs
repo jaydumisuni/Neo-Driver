@@ -23,9 +23,9 @@ use neo_debloat_executor::DebloatExecutionSession;
 #[cfg(target_os = "windows")]
 use neo_debloat_plan::scan_windows_exact_appx_inventory;
 use neo_debloat_plan::{DebloatRestoreRoute, ExactPackageDependency, ExactPackageIdentity};
-use neo_transaction::{CapturedValue, TransactionStage};
 #[cfg(test)]
 use neo_transaction::TransactionCheckpoint;
+use neo_transaction::{CapturedValue, TransactionStage};
 
 pub fn receipt_from_completed_execution(
     session: &DebloatExecutionSession,

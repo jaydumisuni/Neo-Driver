@@ -14,7 +14,7 @@ No AppX registration/removal occurs in Phase 17.
 
 ## Completed-removal receipt
 
-A receipt may be created only from a Phase 16 `DebloatExecutionSession` whose checkpoint is exactly `Complete` and whose execution-plan/checkpoint transaction fingerprints still agree.
+A receipt may be created only from a Phase 16 `DebloatExecutionSession` whose checkpoint is exactly `Complete` and whose execution-plan/checkpoint transaction fingerprints still agree. Durable validation also requires that the completed source contains exactly one `Debloat` action and that action remains `Certified`, explicit-confirmation-required, reversible, and not selected by default—the authority shape frozen by the Phase 15→16 path.
 
 The receipt records:
 
@@ -41,7 +41,7 @@ Restore readiness requires all of the following:
 1. the exact original main package is currently absent for the current user;
 2. no different current-user package with the same package name or family has replaced it;
 3. the exact original staged/provisioned main full-name + family identity still exists;
-4. the staged main identity still has the same direct dependency identity shape recorded by the receipt;
+4. the staged main identity still has the same package-kind flags and direct dependency identity shape recorded by the receipt;
 5. every exact original direct dependency still has a matching staged/provisioned full-name + family identity;
 6. no different current-user dependency version/family identity conflicts with any receipt dependency.
 
