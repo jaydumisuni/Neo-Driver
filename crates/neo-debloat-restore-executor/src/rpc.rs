@@ -98,6 +98,7 @@ impl DebloatRestoreRpcPolicy {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DebloatRestoreRpcPrepareRequest {
     pub request_id: String,
     pub mission_id: String,
@@ -105,6 +106,7 @@ pub struct DebloatRestoreRpcPrepareRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DebloatRestoreRpcApplyRequest {
     pub request_id: String,
     pub session_id: String,
