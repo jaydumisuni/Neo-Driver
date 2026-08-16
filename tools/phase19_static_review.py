@@ -69,7 +69,7 @@ checks = [
         "no-arbitrary-receipt-import",
         not any(surface in PRODUCTION for surface in forbidden_write_surfaces)
         and 'record_validated_receipt(' not in LIB
-        and 'caller-supplied receipt JSON' in LIB,
+        and 'arbitrary receipt JSON' in LIB,
     ),
     (
         "no-follow-traversal",
