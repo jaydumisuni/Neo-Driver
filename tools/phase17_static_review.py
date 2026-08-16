@@ -20,6 +20,10 @@ phase17_static_step = """      - name: Phase 17 twenty-lane static review
         run: python -W error tools/phase17_static_review.py"""
 phase17_behavior_step = """      - name: Phase 17 history and restore-readiness proof
         run: cargo test --locked -p neo-debloat-history"""
+inherited_runtime_step = """      - name: Runtime CLI fixture proof
+        run: cargo run --locked -p neo-cli -- runtimes --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/catalogue/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json --profile fresh-windows"""
+inherited_gaming_step = """      - name: Gaming CLI fixture proof
+        run: cargo run --locked -p neo-cli -- gaming --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/catalogue/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json"""
 
 checks = [
     (
@@ -153,10 +157,12 @@ checks = [
         )),
     ),
     (
-        "CI proves Phase 17 without adding restore mutation or public integration authority",
+        "CI proves Phase 17 without restore mutation and preserves inherited runtime fixture authority",
         '"crates/neo-debloat-history"' in workspace
         and phase17_static_step in ci
         and phase17_behavior_step in ci
+        and inherited_runtime_step in ci
+        and inherited_gaming_step in ci
         and "neo-debloat-history" not in cli_manifest
         and "RemovePackageAsync" not in production
         and "RegisterPackageByFullNameAsync" not in production
