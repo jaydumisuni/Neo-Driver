@@ -23,6 +23,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 static NEXT_STAGING_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 const DEBLOAT_REMOVALS_DIRECTORY_NAME: &str = "debloat-removals";
+const STAGED_RECORD_DIRECTORY_NAME: &str = "record";
 
 #[derive(Debug, Clone)]
 pub struct DebloatHistoryStore {
@@ -177,14 +178,19 @@ impl DebloatHistoryStore {
             .records_root()
             .join(STAGING_DIRECTORY_NAME)
             .join(&staging_name);
+        let staged_record_display = staging_display.join(STAGED_RECORD_DIRECTORY_NAME);
         let write_result = (|| -> Result<(), DebloatHistoryStoreError> {
             write_staging_marker(&staging_dir, &staging_name, &record_id)?;
-            let mut file = create_new_file_nofollow(&staging_dir, RECORD_FILE_NAME)?;
+            staging_dir.create_dir(STAGED_RECORD_DIRECTORY_NAME)?;
+            let staged_record_dir = staging_dir
+                .open_dir_nofollow(STAGED_RECORD_DIRECTORY_NAME)
+                .map_err(|error| classify_link_error(&staged_record_display, error))?;
+            let mut file = create_new_file_nofollow(&staged_record_dir, RECORD_FILE_NAME)?;
             file.write_all(&encoded)?;
             file.sync_all()?;
             drop(file);
             let reloaded =
-                load_envelope_file_from_dir(&staging_dir, &staging_display, &record_id)?;
+                load_envelope_from_dir(&staged_record_dir, &staged_record_display, &record_id)?;
             if reloaded.receipt() != receipt {
                 return Err(DebloatHistoryStoreError::RecordConflict(
                     record_id.to_string(),
@@ -196,27 +202,26 @@ impl DebloatHistoryStore {
                 &staging_display,
                 &record_id,
             )?;
-            staging_dir.remove_file(STAGING_MARKER_NAME)?;
+            drop(staged_record_dir);
             Ok(())
         })();
-        drop(staging_dir);
 
         if let Err(error) = write_result {
-            let _ = cleanup_owned_staging(
-                staging,
-                &staging_name,
-                &staging_display,
-                &record_id,
-            );
+            drop(staging_dir);
+            cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id)?;
             return Err(error);
         }
 
-        match staging.rename(
-            &staging_name,
+        let promotion = staging_dir.rename(
+            STAGED_RECORD_DIRECTORY_NAME,
             &handles.records,
             record_id.as_str(),
-        ) {
+        );
+        drop(staging_dir);
+
+        match promotion {
             Ok(()) => {
+                cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id)?;
                 let stored = load_record_from_root(
                     &handles.records,
                     &self.records_root(),
@@ -239,12 +244,7 @@ impl DebloatHistoryStore {
                     &self.records_root(),
                     &record_id,
                 );
-                let _ = cleanup_owned_staging(
-                    staging,
-                    &staging_name,
-                    &staging_display,
-                    &record_id,
-                );
+                cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id)?;
                 match existing? {
                     Some(stored) => existing_write_receipt(self, &record_id, receipt, stored),
                     None => Err(DebloatHistoryStoreError::Io(rename_error)),
@@ -522,8 +522,10 @@ fn audit_staging(staging: &Dir, display: &Path) -> Result<(), DebloatHistoryStor
         let marker_file = open_read_file_nofollow(&staging_dir, STAGING_MARKER_NAME)
             .map_err(|error| map_file_error(&marker_display, error))?;
         let marker: StagingMarker = serde_json::from_reader(marker_file)?;
+        let expected_prefix = format!("record-{}-", &marker.record_id.as_str()[..16]);
         if marker.schema_version != DEBLOAT_HISTORY_STORE_SCHEMA_VERSION
             || marker.staging_name != staging_name
+            || !staging_name.starts_with(&expected_prefix)
         {
             return Err(DebloatHistoryStoreError::InvalidRecord(format!(
                 "unowned or mismatched staging directory {}",
@@ -533,18 +535,30 @@ fn audit_staging(staging: &Dir, display: &Path) -> Result<(), DebloatHistoryStor
         for nested in staging_dir.entries()? {
             let nested = nested?;
             let nested_name = nested.file_name();
-            if nested_name != OsString::from(STAGING_MARKER_NAME)
-                && nested_name != OsString::from(RECORD_FILE_NAME)
-            {
-                return Err(DebloatHistoryStoreError::UnexpectedEntry(
-                    child.join(nested_name),
-                ));
+            let nested_display = child.join(&nested_name);
+            if nested_name == OsString::from(STAGING_MARKER_NAME) {
+                let nested_type = nested.file_type()?;
+                if nested_type.is_symlink() || !nested_type.is_file() {
+                    return Err(DebloatHistoryStoreError::UnexpectedEntry(nested_display));
+                }
+                continue;
             }
-            if nested.file_type()?.is_symlink() {
-                return Err(DebloatHistoryStoreError::UnsafeLink(
-                    child.join(nested.file_name()),
-                ));
+            if nested_name == OsString::from(STAGED_RECORD_DIRECTORY_NAME) {
+                let nested_type = nested.file_type()?;
+                if nested_type.is_symlink() || !nested_type.is_dir() {
+                    return Err(DebloatHistoryStoreError::UnexpectedEntry(nested_display));
+                }
+                let staged_record_dir = staging_dir
+                    .open_dir_nofollow(&nested_name)
+                    .map_err(|error| classify_link_error(&nested_display, error))?;
+                load_envelope_from_dir(
+                    &staged_record_dir,
+                    &nested_display,
+                    &marker.record_id,
+                )?;
+                continue;
             }
+            return Err(DebloatHistoryStoreError::UnexpectedEntry(nested_display));
         }
     }
     Ok(())
