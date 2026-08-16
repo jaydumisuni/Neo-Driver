@@ -126,8 +126,9 @@ checks = [
         "fresh-phase17-readiness",
         "prepare_windows_restore_by_id" in RPC
         and "prepare_restore_from_inventory_by_id" in RPC
-        and "prepare_windows_restore_from_receipt" in HISTORY_STORE
-        and "every prepare reloads the store record" in DECISION,
+        and "pub fn prepare_windows_restore_by_id" in HISTORY_STORE
+        and "let stored = self.load(record_id)?;" in HISTORY_STORE
+        and "prepare_windows_restore_from_receipt" in HISTORY_STORE,
     ),
     (
         "phase18-shape-continuity",
@@ -216,7 +217,8 @@ checks = [
         and "batch restore" in DECISION
         and "all-users restore" in DECISION
         and "plugin dependency" in DECISION
-        and "No Store/network acquisition" in REVIEW,
+        and "Store/network acquisition" in REVIEW
+        and "batch/all-users/provisioned restore" in REVIEW,
     ),
     (
         "proof-and-ci-wiring",
