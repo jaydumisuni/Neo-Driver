@@ -145,7 +145,10 @@ checks = [
     ),
     (
         "Phase 4 postcondition verification determines forward completion",
-        "session.checkpoint.verify_postconditions(observations)?;" in engine
+        "verify_postconditions(" in engine
+        and "forward_postcondition_observations(session, observations)" in engine
+        and "fn forward_postcondition_observations" in engine
+        and "appx_target(session.plan.step().package_full_name())" in engine
         and "TransactionStage::Complete" in engine
         and "TransactionStage::RollingBack" in engine,
     ),
