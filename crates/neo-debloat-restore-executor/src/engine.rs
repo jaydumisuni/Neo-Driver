@@ -100,6 +100,11 @@ pub(crate) fn apply_with_host<H: DebloatRestoreHost>(
         ));
     }
 
+    if session.stage() == TransactionStage::Failed {
+        return Err(DebloatRestoreExecutionError::Observation(
+            "native AppX restore reported success but no exact restore postconditions were proven and no machine change required rollback".to_string(),
+        ));
+    }
     if session.stage() != TransactionStage::Complete {
         return Err(DebloatRestoreExecutionError::InvalidPreparedState(format!(
             "unexpected terminal stage after AppX restore: {:?}",

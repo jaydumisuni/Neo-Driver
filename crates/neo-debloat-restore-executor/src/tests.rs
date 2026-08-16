@@ -395,7 +395,7 @@ fn phase18_api_success_without_machine_change_does_not_invent_rollback_work() {
 
     assert!(matches!(
         error,
-        DebloatRestoreExecutionError::InvalidPreparedState(_)
+        DebloatRestoreExecutionError::Observation(_)
     ));
     assert_eq!(session.stage(), TransactionStage::Failed);
     assert!(host.remove_calls.is_empty());

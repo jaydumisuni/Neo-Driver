@@ -87,7 +87,7 @@ For the one restore action, Phase 18 recovery:
 6. re-probes every target;
 7. requires every rollback predicate to satisfy `MatchesBaseline` before reaching `RolledBack`.
 
-If the native restore fails after changing state, rollback is attempted. If both restore and rollback fail, both causes remain in the returned diagnostic. If the API reports success but no target changed, Phase 4 does not invent rollback work; failed forward verification reaches `Failed` because there is no proven changed action to recover.
+If the native restore fails after changing state, rollback is attempted. If both restore and rollback fail, both causes remain in the returned diagnostic. If the API reports success but no target changed, Phase 4 does not invent rollback work; failed forward verification reaches `Failed` because there is no proven changed action to recover, and Phase 18 reports an observation/unproven-restore error rather than misclassifying the prepared state as invalid.
 
 ## Concurrency and observation loss
 
