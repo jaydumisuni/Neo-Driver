@@ -141,8 +141,9 @@ fn phase16_pre_authority_baseline_drift_fails_closed_without_mutation() {
     let mut session = session();
     let mut host = FakeHost::new(RemoveMode::MainOnly);
     host.remove_full_name(MAIN_FULL);
+    let auth = authorization(&session);
 
-    let error = authorize_with_host(&mut session, authorization(&session), &host)
+    let error = authorize_with_host(&mut session, auth, &host)
         .expect_err("baseline drift must block authority");
 
     assert!(matches!(error, DebloatExecutionError::BaselineDrift(_)));
