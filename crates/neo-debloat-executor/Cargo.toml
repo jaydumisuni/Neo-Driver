@@ -12,6 +12,9 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+neo-debloat = { path = "../neo-debloat" }
+
 [target.'cfg(windows)'.dependencies]
 windows.workspace = true
 windows-collections = "0.3"
