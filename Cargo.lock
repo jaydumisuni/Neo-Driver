@@ -345,6 +345,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "neo-debloat-executor"
+version = "0.1.0"
+dependencies = [
+ "neo-debloat",
+ "neo-debloat-plan",
+ "neo-transaction",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "windows",
+ "windows-collections",
+ "windows-future",
+]
+
+[[package]]
 name = "neo-debloat-plan"
 version = "0.1.0"
 dependencies = [
