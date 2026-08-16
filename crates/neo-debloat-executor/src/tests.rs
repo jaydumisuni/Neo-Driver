@@ -197,7 +197,9 @@ fn phase16_partial_removal_failure_restores_main_and_dependency_baselines() {
         .expect_err("synthetic mutation failure must be surfaced after rollback");
 
     assert!(matches!(error, DebloatExecutionError::NativeDeployment(_)));
-    assert!(error.to_string().contains("synthetic failure after mutation"));
+    assert!(error
+        .to_string()
+        .contains("synthetic failure after mutation"));
     assert_eq!(session.stage(), TransactionStage::RolledBack);
     assert_eq!(host.remove_calls, 1);
     assert_eq!(host.register_calls, 1);

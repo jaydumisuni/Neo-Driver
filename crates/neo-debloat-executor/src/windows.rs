@@ -60,9 +60,9 @@ impl DebloatHost for WindowsDebloatHost {
         let result = operation
             .join()
             .map_err(native_error("await staged full-name package registration"))?;
-        let status = operation
-            .Status()
-            .map_err(native_error("read staged full-name package registration status"))?;
+        let status = operation.Status().map_err(native_error(
+            "read staged full-name package registration status",
+        ))?;
         validate_deployment_result(status, &result, "staged full-name package registration")
     }
 }
