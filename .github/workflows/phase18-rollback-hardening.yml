@@ -1,0 +1,160 @@
+name: Phase 18 Rollback Hardening Helper
+
+on:
+  push:
+    branches: [implementation/phase18-debloat-restore-executor]
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase18-debloat-restore-executor
+          fetch-depth: 0
+      - name: Apply exact rollback hardening
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'marker not found in {path}: {old!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace(
+              'crates/neo-debloat-restore-executor/src/engine.rs',
+              '            Some(CapturedValue::Present(_)) => {}',
+              '''            Some(CapturedValue::Present(_)) => {
+                if !has_current_full_name(&host.current_inventory()?, &dependency.full_name) {
+                    host.register_current_user(&dependency.full_name, &[])?;
+                }
+            }''',
+          )
+
+          replace(
+              'crates/neo-debloat-restore-executor/src/tests.rs',
+              '    inventory_failures_after_registration: Cell<usize>,\n}',
+              '    inventory_failures_after_registration: Cell<usize>,\n    cascade_remove_present_dependency_with_main: bool,\n}',
+          )
+          replace(
+              'crates/neo-debloat-restore-executor/src/tests.rs',
+              '            inventory_failures_after_registration: Cell::new(0),\n        }',
+              '            inventory_failures_after_registration: Cell::new(0),\n            cascade_remove_present_dependency_with_main: false,\n        }',
+          )
+          replace(
+              'crates/neo-debloat-restore-executor/src/tests.rs',
+              '''        self.register_calls += 1;
+        assert_eq!(package_full_name, MAIN_FULL);''',
+              '''        self.register_calls += 1;
+        if package_full_name.eq_ignore_ascii_case(DEP_PRESENT_FULL)
+            && dependency_full_names.is_empty()
+        {
+            let dep_present = self.dep_present.clone();
+            self.add_current_if_missing(dep_present);
+            return Ok(());
+        }
+        assert_eq!(package_full_name, MAIN_FULL);''',
+          )
+          replace(
+              'crates/neo-debloat-restore-executor/src/tests.rs',
+              '''        self.remove_current(package_full_name);
+        Ok(())''',
+              '''        self.remove_current(package_full_name);
+        if self.cascade_remove_present_dependency_with_main
+            && package_full_name.eq_ignore_ascii_case(MAIN_FULL)
+        {
+            self.remove_current(DEP_PRESENT_FULL);
+        }
+        Ok(())''',
+          )
+          insert_marker = '''#[test]
+fn phase18_failed_postcondition_preserves_existing_dependency_and_removes_restored_main()'''
+          new_test = '''#[test]
+fn phase18_main_removal_dependency_cascade_reregisters_baseline_present_dependency() {
+    let mut session = session();
+    let mut host = FakeHost::new(RegisterMode::FailAfterMutation);
+    host.cascade_remove_present_dependency_with_main = true;
+    authorize(&mut session, &host);
+
+    let error = apply_with_host(&mut session, &mut host)
+        .expect_err("main rollback can cascade-remove a baseline-present dependency");
+
+    assert!(matches!(
+        error,
+        DebloatRestoreExecutionError::NativeDeployment(_)
+    ));
+    assert_eq!(session.stage(), TransactionStage::RolledBack);
+    assert!(!host.has_current(MAIN_FULL));
+    assert!(host.has_current(DEP_PRESENT_FULL));
+    assert!(!host.has_current(DEP_NEW_FULL));
+    assert_eq!(host.register_calls, 2);
+    assert_eq!(
+        host.remove_calls,
+        vec![MAIN_FULL.to_string(), DEP_NEW_FULL.to_string()]
+    );
+}
+
+#[test]
+fn phase18_failed_postcondition_preserves_existing_dependency_and_removes_restored_main()'''
+          replace('crates/neo-debloat-restore-executor/src/tests.rs', insert_marker, new_test)
+
+          replace(
+              'tools/phase18_static_review.py',
+              '''        "apply_restore_time_baseline" in engine
+        and "Some(CapturedValue::Present(_)) => {}" in engine
+        and "Some(CapturedValue::Absent)" in engine
+        and "phase18_failed_postcondition_preserves_existing_dependency_and_removes_restored_main" in tests,''',
+              '''        "apply_restore_time_baseline" in engine
+        and "host.register_current_user(&dependency.full_name, &[])?;" in engine
+        and "Some(CapturedValue::Absent)" in engine
+        and "phase18_main_removal_dependency_cascade_reregisters_baseline_present_dependency" in tests
+        and "phase18_failed_postcondition_preserves_existing_dependency_and_removes_restored_main" in tests,''',
+          )
+          replace(
+              'tools/phase18_static_review.py',
+              '''            "phase18_native_failure_after_mutation_restores_fresh_phase17_baseline",
+            "phase18_failed_postcondition_preserves_existing_dependency_and_removes_restored_main",''',
+              '''            "phase18_native_failure_after_mutation_restores_fresh_phase17_baseline",
+            "phase18_main_removal_dependency_cascade_reregisters_baseline_present_dependency",
+            "phase18_failed_postcondition_preserves_existing_dependency_and_removes_restored_main",''',
+          )
+
+          replace(
+              'docs/PHASE18_20_LANE_REVIEW.md',
+              '16. Rollback removes the restored main, preserves dependencies already present at the Phase 17 baseline, and removes only dependencies introduced from an `Absent` baseline.',
+              '16. Rollback removes the restored main, actively re-registers an exact staged dependency if main removal cascades away a dependency that was already present at the Phase 17 baseline, and removes only dependencies introduced from an `Absent` baseline.',
+          )
+          replace(
+              'docs/PHASE18_20_LANE_REVIEW.md',
+              '19. Deterministic regressions cover success, both baseline-drift windows, staged-route drift, order-independent side-by-side conflict, partial native failure, failed postcondition, post-write observation loss, no-change semantics, rollback failure composition, dependency preservation/removal, and opaque capability.',
+              '19. Deterministic regressions cover success, both baseline-drift windows, staged-route drift, order-independent side-by-side conflict, partial native failure, dependency-cascade recovery, failed postcondition, post-write observation loss, no-change semantics, rollback failure composition, dependency preservation/removal, and opaque capability.',
+          )
+          replace(
+              'docs/decisions/0018-PHASE18-DEBLOAT-RESTORE-EXECUTOR.md',
+              '2. preserves every direct dependency that was already exact-and-present in the Phase 17 restore-time baseline;',
+              '2. preserves every direct dependency that was already exact-and-present in the Phase 17 restore-time baseline, and if removing the restored main cascades away one of those baseline-present dependencies, re-registers that exact locally staged dependency by full name before rollback verification;',
+          )
+          PY
+      - name: Install and format Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup component add rustfmt --toolchain stable
+          rustup default stable
+          cargo fmt --all
+      - name: Commit permanent hardening only
+        shell: bash
+        run: |
+          git checkout HEAD -- .github/workflows/phase18-rollback-hardening.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/neo-debloat-restore-executor/src/engine.rs crates/neo-debloat-restore-executor/src/tests.rs tools/phase18_static_review.py docs/PHASE18_20_LANE_REVIEW.md docs/decisions/0018-PHASE18-DEBLOAT-RESTORE-EXECUTOR.md
+          git commit -m 'Phase 18: recover baseline-present dependency cascades'
+          git push origin HEAD:implementation/phase18-debloat-restore-executor
