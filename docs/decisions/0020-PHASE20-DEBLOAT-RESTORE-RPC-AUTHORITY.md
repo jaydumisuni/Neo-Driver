@@ -1,7 +1,7 @@
 # Decision 0020 — Phase 20 Debloat Restore MCP/RPC Authority
 
-**Status:** FROZEN FOR IMPLEMENTATION PROOF  
-**Product domain:** eighth bounded Debloat child  
+**Status:** FROZEN FOR IMPLEMENTATION PROOF
+**Product domain:** eighth bounded Debloat child
 **Authority:** typed MCP/RPC orchestration for one trusted Phase 19 history record into the proven Phase 18 current-user restore executor
 
 ## Decision
