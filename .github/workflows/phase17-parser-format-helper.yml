@@ -1,0 +1,31 @@
+name: Phase 17 Parser Format Helper
+
+on:
+  push:
+    branches: ["implementation/phase17-debloat-history-restore-readiness"]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase17-debloat-history-restore-readiness
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format Phase 17 Rust
+        run: cargo fmt --all
+      - name: Commit formatter output and remove helper
+        shell: bash
+        run: |
+          git rm .github/workflows/phase17-parser-format-helper.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crates/neo-debloat-history/src/model.rs
+          git commit -m "Phase 17: normalize semantic receipt parser formatting"
+          git push origin HEAD:implementation/phase17-debloat-history-restore-readiness
