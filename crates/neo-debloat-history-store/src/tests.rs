@@ -126,7 +126,10 @@ fn owned_incomplete_staging_is_inert_and_not_history() {
 
     assert_eq!(store.list().expect("staging is not history"), Vec::new());
     store.audit().expect("owned incomplete staging is inert");
-    assert!(staging_dir.exists(), "audit must not silently clean staging");
+    assert!(
+        staging_dir.exists(),
+        "audit must not silently clean staging"
+    );
 }
 
 #[test]
