@@ -22,7 +22,7 @@ Phase 19 does **not** issue `DebloatRestoreExecutorCapability` and does not exec
 
 ## Storage authority
 
-Decision 0007 remains the application-root authority. Phase 19 does not choose `ProgramData`, `Program Files`, a profile directory, or a second managed root.
+Decision 0007 remains the application-root authority. Phase 19 does not choose `ProgramData`, `Program Files`, a profile directory, or a second managed root. `VaultLayout` owns the canonical `NeoData/history` child.
 
 The bounded extension is:
 
@@ -32,13 +32,15 @@ The bounded extension is:
     └── history/
         └── debloat-removals/
             ├── .staging/
+            │   └── <unique-record-session>/
+            │       ├── .neo-history-staging.json
+            │       └── record/
+            │           └── receipt.json
             └── <receipt-fingerprint>/
                 └── receipt.json
 ```
 
-`NeoData/history` is retained Neo-owned data. It is not cache and is never broad-cleanup authority.
-
-Installed and portable modes use the same child layout relative to the supplied application root.
+`NeoData/history` is retained Neo-owned data. It is not cache and is never broad-cleanup authority. Installed and portable modes use the same child layout relative to the supplied application root.
 
 ## Record identity
 
@@ -78,15 +80,16 @@ Persistence is append-only:
 All managed traversal follows the Phase 7 retained-capability pattern:
 
 - absolute application root supplied by Builder/portable mode;
-- `NeoData`, `history`, `debloat-removals`, `.staging`, record directories, and record files opened without following symlinks/reparse paths;
+- `NeoData`, `history`, `debloat-removals`, `.staging`, unique staging sessions, nested `record`, final record directories, and record files opened without following symlinks/reparse paths;
 - no `..`, caller separators, or caller-controlled relative paths;
-- staged record file created exclusively and synced before promotion;
-- staging directory has a Neo ownership marker bound to the exact record id;
-- completed staging directory is renamed into the final record-id directory as one namespace promotion;
-- concurrent identical writers converge on one valid record or idempotent already-present evidence;
+- each unique staging session has a Neo ownership marker bound to the exact record id;
+- the nested `record/receipt.json` is created exclusively, synced, re-read, and fully validated while the session marker remains intact;
+- only the marker-free nested `record/` directory is renamed into the final record-id directory as the namespace promotion;
+- the marker-owned session remains independently cleanable after successful promotion or a rename race;
+- concurrent identical writers converge on one valid record plus idempotent already-present evidence;
 - unexpected files/directories or link-like entries fail store audit/listing closed.
 
-A crash may leave an inert marker-owned staging directory. Final record enumeration never treats staging as history evidence.
+A crash may leave an inert marker-owned staging session containing no nested record or one validated nested `record/`. Final record enumeration never treats staging as history evidence. The store does not delete an unowned or marker-mismatched staging directory.
 
 ## Trust boundary and ACL policy
 
