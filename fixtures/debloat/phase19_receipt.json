@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "receipt_id": "mission-phase17-source:phase15-debloat-current-user:phase17-removal-receipt",
+  "source_transaction_id": "mission-phase17-source:phase15-debloat-current-user",
+  "source_transaction_fingerprint": "8b0d56e5d2a860be0edac28a3d542f2a68f3fcb67e62f5586e4249ed427c14a7",
+  "source_mission_id": "mission-phase17-source",
+  "debloat_id": "appx.contoso.phase17",
+  "package_id": "Contoso.Phase17",
+  "main": {
+    "name": "Contoso.Phase17",
+    "full_name": "Contoso.Phase17_1.2.3.4_x64__contoso",
+    "family_name": "Contoso.Phase17_contoso",
+    "is_framework": false,
+    "is_resource": false,
+    "is_bundle": false,
+    "is_optional": false,
+    "dependencies": [
+      {
+        "name": "Contoso.Framework",
+        "full_name": "Contoso.Framework_1.0.0.0_x64__contoso",
+        "family_name": "Contoso.Framework_contoso"
+      }
+    ]
+  },
+  "dependencies": [
+    {
+      "name": "Contoso.Framework",
+      "full_name": "Contoso.Framework_1.0.0.0_x64__contoso",
+      "family_name": "Contoso.Framework_contoso"
+    }
+  ],
+  "restore": {
+    "package_full_name": "Contoso.Phase17_1.2.3.4_x64__contoso",
+    "package_family_name": "Contoso.Phase17_contoso",
+    "dependency_full_names": [
+      "Contoso.Framework_1.0.0.0_x64__contoso"
+    ]
+  },
+  "source_checkpoint": {
+    "plan": {
+      "transaction_id": "mission-phase17-source:phase15-debloat-current-user",
+      "revision": 1,
+      "mission_id": "mission-phase17-source",
+      "actions": [
+        {
+          "action": {
+            "id": "appx.contoso.phase17",
+            "title": "Remove Contoso Phase17 for current user",
+            "kind": "debloat",
+            "risk": "low",
+            "recommendation": "optional_component",
+            "verdict": "certified",
+            "rationale": "Synthetic completed Phase 16 removal for Phase 17 history proof.",
+            "selected_by_default": false,
+            "requires_confirmation": true,
+            "requires_admin": false,
+            "reboot": "none",
+            "rollback_available": true,
+            "evidence": [
+              {
+                "key": "fixture",
+                "value": "true",
+                "source": "phase17-test"
+              }
+            ],
+            "warnings": []
+          },
+          "snapshot_targets": [
+            {
+              "kind": "appx_package",
+              "key": "current_user:Contoso.Phase17_1.2.3.4_x64__contoso"
+            },
+            {
+              "kind": "appx_package",
+              "key": "current_user:Contoso.Framework_1.0.0.0_x64__contoso"
+            }
+          ],
+          "postconditions": [
+            {
+              "id": "verify:appx.contoso.phase17:main-absent",
+              "target": {
+                "kind": "appx_package",
+                "key": "current_user:Contoso.Phase17_1.2.3.4_x64__contoso"
+              },
+              "expectation": {
+                "type": "absent"
+              },
+              "required": true
+            }
+          ],
+          "rollback": {
+            "mode": "reversible",
+            "restore_targets": [
+              {
+                "kind": "appx_package",
+                "key": "current_user:Contoso.Phase17_1.2.3.4_x64__contoso"
+              },
+              {
+                "kind": "appx_package",
+                "key": "current_user:Contoso.Framework_1.0.0.0_x64__contoso"
+              }
+            ],
+            "verification": [
+              {
+                "id": "rollback:appx.contoso.phase17:main",
+                "target": {
+                  "kind": "appx_package",
+                  "key": "current_user:Contoso.Phase17_1.2.3.4_x64__contoso"
+                },
+                "expectation": {
+                  "type": "matches_baseline"
+                },
+                "required": true
+              },
+              {
+                "id": "rollback:appx.contoso.phase17:dependency:0",
+                "target": {
+                  "kind": "appx_package",
+                  "key": "current_user:Contoso.Framework_1.0.0.0_x64__contoso"
+                },
+                "expectation": {
+                  "type": "matches_baseline"
+                },
+                "required": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "plan_fingerprint": "8b0d56e5d2a860be0edac28a3d542f2a68f3fcb67e62f5586e4249ed427c14a7",
+    "stage": "complete",
+    "baseline": {
+      "states": [
+        {
+          "target": {
+            "kind": "appx_package",
+            "key": "current_user:Contoso.Phase17_1.2.3.4_x64__contoso"
+          },
+          "value": {
+            "state": "present",
+            "value": "{\"name\":\"Contoso.Phase17\",\"full_name\":\"Contoso.Phase17_1.2.3.4_x64__contoso\",\"family_name\":\"Contoso.Phase17_contoso\",\"is_framework\":false,\"is_resource\":false,\"is_bundle\":false,\"is_optional\":false,\"dependencies\":[{\"name\":\"Contoso.Framework\",\"full_name\":\"Contoso.Framework_1.0.0.0_x64__contoso\",\"family_name\":\"Contoso.Framework_contoso\"}]}"
+          }
+        },
+        {
+          "target": {
+            "kind": "appx_package",
+            "key": "current_user:Contoso.Framework_1.0.0.0_x64__contoso"
+          },
+          "value": {
+            "state": "present",
+            "value": "{\"name\":\"Contoso.Framework\",\"full_name\":\"Contoso.Framework_1.0.0.0_x64__contoso\",\"family_name\":\"Contoso.Framework_contoso\"}"
+          }
+        }
+      ]
+    },
+    "authorization": {
+      "plan_fingerprint": "8b0d56e5d2a860be0edac28a3d542f2a68f3fcb67e62f5586e4249ed427c14a7",
+      "approved_action_ids": [
+        "appx.contoso.phase17"
+      ],
+      "manual_override_action_ids": [],
+      "high_risk_ack_action_ids": [],
+      "irreversible_acknowledgements": []
+    },
+    "apply_records": [
+      {
+        "action_id": "appx.contoso.phase17",
+        "outcome": "success",
+        "detail": "synthetic exact removal",
+        "machine_changed": true,
+        "reboot_required": false
+      }
+    ],
+    "resume_results": [],
+    "verification_results": [
+      {
+        "predicate": {
+          "id": "verify:appx.contoso.phase17:main-absent",
+          "target": {
+            "kind": "appx_package",
+            "key": "current_user:Contoso.Phase17_1.2.3.4_x64__contoso"
+          },
+          "expectation": {
+            "type": "absent"
+          },
+          "required": true
+        },
+        "observed": {
+          "state": "absent"
+        }
+      }
+    ],
+    "rollback_records": [],
+    "rollback_results": [],
+    "reboot_checkpoint": null,
+    "events": [
+      {
+        "sequence": 1,
+        "stage": "planned",
+        "message": "transaction checkpoint created"
+      },
+      {
+        "sequence": 2,
+        "stage": "baseline_captured",
+        "message": "actual pre-state captured"
+      },
+      {
+        "sequence": 3,
+        "stage": "authorized",
+        "message": "user authority recorded"
+      },
+      {
+        "sequence": 4,
+        "stage": "applying",
+        "message": "apply phase opened"
+      },
+      {
+        "sequence": 5,
+        "stage": "applying",
+        "message": "apply result recorded for appx.contoso.phase17"
+      },
+      {
+        "sequence": 6,
+        "stage": "verifying",
+        "message": "apply records complete; verification required"
+      },
+      {
+        "sequence": 7,
+        "stage": "complete",
+        "message": "all required postconditions proven"
+      }
+    ]
+  },
+  "receipt_fingerprint": "16c3c7e18116ef4b98c0bb010a4045c5992e4b9c6eedb1b6dbe1082da5f5e431"
+}
