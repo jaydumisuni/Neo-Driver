@@ -64,8 +64,9 @@ checks = [
     ),
     (
         "fingerprint is explicitly not a signature/authentication mechanism",
-        "not a cryptographic signature" in decision
-        and "caller-authentication" in decision,
+        "cryptographic signature" in decision
+        and "caller-authentication mechanism" in decision
+        and "trusted storage provenance" in decision,
     ),
     (
         "fresh exact AppX inventory is mandatory before restore preparation",
