@@ -424,7 +424,9 @@ impl DebloatRestorePreparedTransaction {
     }
 }
 
-fn validate_checkpoint_baseline(receipt: &DebloatRemovalReceipt) -> Result<(), DebloatHistoryError> {
+fn validate_checkpoint_baseline(
+    receipt: &DebloatRemovalReceipt,
+) -> Result<(), DebloatHistoryError> {
     let baseline = receipt.source_checkpoint.baseline().ok_or_else(|| {
         DebloatHistoryError::InvalidReceipt("source baseline is missing".to_string())
     })?;
