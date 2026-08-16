@@ -207,6 +207,16 @@ impl DebloatRemovalReceipt {
                 "source transaction/checkpoint identity continuity failed".to_string(),
             ));
         }
+        if source_plan.revision() != 1
+            || !source_plan
+                .transaction_id()
+                .ends_with(":phase15-debloat-current-user")
+        {
+            return Err(DebloatHistoryError::InvalidReceipt(
+                "source checkpoint is not the frozen Phase 15 current-user Debloat transaction shape"
+                    .to_string(),
+            ));
+        }
         if source_plan.actions().len() != 1 {
             return Err(DebloatHistoryError::InvalidReceipt(
                 "source checkpoint does not contain exactly one completed Debloat action"
@@ -216,10 +226,18 @@ impl DebloatRemovalReceipt {
         let source_action = &source_plan.actions()[0].action;
         if source_action.id != self.debloat_id
             || source_action.kind != neo_core::ActionKind::Debloat
+            || source_action.risk != neo_core::RiskLevel::Low
+            || !matches!(
+                source_action.recommendation,
+                neo_core::RecommendationState::Recommended
+                    | neo_core::RecommendationState::OptionalComponent
+            )
             || source_action.verdict != neo_core::EvidenceVerdict::Certified
-            || !source_action.requires_confirmation
-            || !source_action.rollback_available
             || source_action.selected_by_default
+            || !source_action.requires_confirmation
+            || source_action.requires_admin
+            || source_action.reboot != neo_core::RebootRequirement::None
+            || !source_action.rollback_available
         {
             return Err(DebloatHistoryError::InvalidReceipt(
                 "source checkpoint action is not the certified confirmed reversible non-default Debloat authority expected from Phase 15/16"

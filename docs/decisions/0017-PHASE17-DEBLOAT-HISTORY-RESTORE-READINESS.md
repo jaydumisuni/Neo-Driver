@@ -14,7 +14,7 @@ No AppX registration/removal occurs in Phase 17.
 
 ## Completed-removal receipt
 
-A receipt may be created only from a Phase 16 `DebloatExecutionSession` whose checkpoint is exactly `Complete` and whose execution-plan/checkpoint transaction fingerprints still agree. Durable validation also requires that the completed source contains exactly one `Debloat` action and that action remains `Certified`, explicit-confirmation-required, reversible, and not selected by default—the authority shape frozen by the Phase 15→16 path.
+A receipt may be created only from a Phase 16 `DebloatExecutionSession` whose checkpoint is exactly `Complete` and whose execution-plan/checkpoint transaction fingerprints still agree. Durable validation also requires the source transaction to remain revision `1` with the frozen `:phase15-debloat-current-user` identity, and exactly one `Debloat` action whose authority still matches the Phase 13→15 candidate law: `LOW` risk, `Recommended` or `OptionalComponent`, `Certified`, explicit-confirmation-required, non-admin, no-reboot, reversible, and not selected by default.
 
 The receipt records:
 

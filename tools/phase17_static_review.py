@@ -54,10 +54,17 @@ checks = [
         and "impl<'de> Deserialize<'de> for DebloatRemovalReceipt" in model
         and "receipt.validate()?" in model
         and "source_checkpoint: TransactionCheckpoint" in model
+        and "source_plan.revision() != 1" in model
+        and '.ends_with(":phase15-debloat-current-user")' in model
+        and "source_action.risk != neo_core::RiskLevel::Low" in model
+        and "neo_core::RecommendationState::Recommended" in model
+        and "neo_core::RecommendationState::OptionalComponent" in model
         and "source_action.verdict != neo_core::EvidenceVerdict::Certified" in model
+        and "source_action.selected_by_default" in model
         and "!source_action.requires_confirmation" in model
-        and "!source_action.rollback_available" in model
-        and "source_action.selected_by_default" in model,
+        and "source_action.requires_admin" in model
+        and "source_action.reboot != neo_core::RebootRequirement::None" in model
+        and "!source_action.rollback_available" in model,
     ),
     (
         "receipt id is deterministic and source-transaction-bound",
@@ -144,6 +151,7 @@ checks = [
         all(name in tests for name in (
             "completed_removal_becomes_versioned_fingerprinted_durable_history",
             "receipt_fingerprint_rejects_history_tampering",
+            "receipt_rejects_broadened_source_authority_even_with_valid_json_shape",
             "non_complete_source_checkpoint_cannot_become_history_receipt",
             "prepares_fresh_inverse_transaction_when_exact_local_restore_is_still_ready",
             "existing_exact_dependency_is_preserved_as_restore_time_baseline",

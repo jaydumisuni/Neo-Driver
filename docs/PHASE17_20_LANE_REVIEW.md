@@ -8,7 +8,7 @@
 2. Execution-plan and checkpoint transaction fingerprints must agree before history is emitted.
 3. Receipt main/dependency identities are recovered from the captured Phase 16 baseline, not reconstructed from package names.
 4. Receipt restore route must exactly match the captured main full/family identity and ordered dependency full-name list.
-5. Receipt schema is explicitly versioned and durable JSON deserialization revalidates the complete source checkpoint plus the certified, confirmation-required, reversible, non-default source Debloat action shape.
+5. Receipt schema is explicitly versioned and durable JSON deserialization revalidates the complete revision-1 Phase 15 source checkpoint plus the LOW-risk, allowed-recommendation, certified, confirmation-required, non-admin, no-reboot, reversible, non-default Debloat action shape.
 6. Receipt id is deterministic and bound to the source transaction id.
 7. Receipt SHA-256 fingerprint covers all authority-bearing receipt fields except the fingerprint itself and is rechecked on deserialization.
 8. Receipt fingerprint is documented as tamper detection only, not a signature or caller-authentication mechanism.

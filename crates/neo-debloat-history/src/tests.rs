@@ -53,6 +53,22 @@ fn receipt_fingerprint_rejects_history_tampering() {
 }
 
 #[test]
+fn receipt_rejects_broadened_source_authority_even_with_valid_json_shape() {
+    let receipt = receipt();
+    let mut value = serde_json::to_value(&receipt).expect("receipt must serialize");
+    value["source_checkpoint"]["plan"]["actions"][0]["action"]["risk"] =
+        serde_json::Value::String("high".to_string());
+    let json = serde_json::to_string(&value).expect("tampered receipt must encode");
+
+    let error = DebloatRemovalReceipt::from_json_str(&json)
+        .expect_err("durable history must reject broadened source authority");
+    assert!(matches!(error, DebloatHistoryError::InvalidReceipt(_)));
+    assert!(error
+        .to_string()
+        .contains("authority expected from Phase 15/16"));
+}
+
+#[test]
 fn non_complete_source_checkpoint_cannot_become_history_receipt() {
     let checkpoint = source_checkpoint_at_baseline();
     let error = receipt_from_completed_checkpoint_for_tests(
