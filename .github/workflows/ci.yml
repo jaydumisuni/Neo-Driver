@@ -128,7 +128,7 @@ jobs:
         run: cargo run --locked -p neo-cli -- match --device fixtures/match/device.json --catalogue fixtures/catalogue/sample_driver_catalogue.json --architecture x64 --build 26100
 
       - name: Runtime CLI fixture proof
-        run: cargo run --locked -p neo-cli -- runtimes --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/runtime/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json --profile fresh-windows
+        run: cargo run --locked -p neo-cli -- runtimes --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/catalogue/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json --profile fresh-windows
 
       - name: Gaming CLI fixture proof
         run: cargo run --locked -p neo-cli -- gaming --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/runtime/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json
