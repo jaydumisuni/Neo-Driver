@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Component, Path, PathBuf};
 
 pub const MANAGED_DIRECTORY_NAME: &str = "NeoData";
+pub const HISTORY_DIRECTORY_NAME: &str = "history";
 pub const STAGING_MARKER_NAME: &str = ".neo-owned-staging.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,7 +46,7 @@ impl VaultLayout {
             backups: managed_root.join("backups"),
             logs: managed_root.join("logs"),
             cache: managed_root.join("cache"),
-            history: managed_root.join("history"),
+            history: managed_root.join(HISTORY_DIRECTORY_NAME),
             managed_root,
         })
     }

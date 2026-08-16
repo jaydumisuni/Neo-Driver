@@ -54,9 +54,11 @@ checks = [
     ),
     (
         "single-managed-root",
-        'history: managed_root.join("history")' in VAULT_LAYOUT
+        'pub const HISTORY_DIRECTORY_NAME: &str = "history";' in VAULT_LAYOUT
+        and 'history: managed_root.join(HISTORY_DIRECTORY_NAME)' in VAULT_LAYOUT
         and 'pub fn history(&self)' in VAULT_LAYOUT
         and 'self.layout.history().to_path_buf()' in STORE
+        and STORE.count('neo_vault::HISTORY_DIRECTORY_NAME') == 2
         and "ProgramData" not in PRODUCTION
         and "Program Files" not in PRODUCTION,
     ),
@@ -78,7 +80,10 @@ checks = [
     (
         "bounded-record-envelope",
         has_all(MODEL, ('DEBLOAT_HISTORY_STORE_SCHEMA_VERSION', 'MAX_HISTORY_RECORD_BYTES', 'StoredReceiptEnvelope'))
-        and 'metadata.len() > MAX_HISTORY_RECORD_BYTES' in STORE,
+        and 'metadata.len() > MAX_HISTORY_RECORD_BYTES' in STORE
+        and 'file.take(MAX_HISTORY_RECORD_BYTES + 1)' in STORE
+        and 'bounded.read_to_end(&mut encoded)?' in STORE
+        and 'serde_json::from_slice(&encoded)?' in STORE,
     ),
     (
         "identity-continuity-on-read",
@@ -110,6 +115,8 @@ checks = [
         "crash-staging-isolation",
         has_all(STORE, ('audit_staging', 'validate_staging_marker', 'STAGED_RECORD_DIRECTORY_NAME'))
         and 'owned_incomplete_staging_is_inert_and_not_history' in TESTS
+        and STORE.count('let _ = cleanup_owned_staging(') == 3
+        and 'does **not** claim platform-independent power-loss durability' in DECISION
         and 'staging is never enumerated or selected as completed history' in REVIEW,
     ),
     (
@@ -174,8 +181,11 @@ checks = [
                 'unexpected_final_or_staging_entries_fail_audit_closed',
                 'trusted_selection_by_id_preserves_phase17_fresh_restore_readiness',
                 'receipt_symlink_substitution_is_rejected',
+                'receipt_windows_reparse_substitution_is_rejected',
             )
         )
+        and '#[cfg(unix)]\n#[test]\nfn receipt_symlink_substitution_is_rejected' in TESTS
+        and '#[cfg(windows)]\n#[test]\nfn receipt_windows_reparse_substitution_is_rejected' in TESTS
         and 'same OS principal' in DECISION,
     ),
 ]

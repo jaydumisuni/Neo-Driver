@@ -86,10 +86,13 @@ All managed traversal follows the Phase 7 retained-capability pattern:
 - the nested `record/receipt.json` is created exclusively, synced, re-read, and fully validated while the session marker remains intact;
 - only the marker-free nested `record/` directory is renamed into the final record-id directory as the namespace promotion;
 - the marker-owned session remains independently cleanable after successful promotion or a rename race;
+- staging cleanup is best-effort after the primary write/promotion outcome: cleanup failure never masks an earlier write/validation failure and never converts an already-promoted, revalidated final record into a reported publication failure; inert residue remains visible to `audit()`;
 - concurrent identical writers converge on one valid record plus idempotent already-present evidence;
 - unexpected files/directories or link-like entries fail store audit/listing closed.
 
 A crash may leave an inert marker-owned staging session containing no nested record or one validated nested `record/`. Final record enumeration never treats staging as history evidence. The store does not delete an unowned or marker-mismatched staging directory.
+
+`receipt.json` is file-synced before namespace promotion, but Phase 19 does **not** claim platform-independent power-loss durability for parent-directory metadata or the rename itself. The atomic rename is the live namespace/process-crash publication boundary; persistence of directory entries across sudden power loss remains filesystem/platform dependent and requires a stronger platform-specific durability design if that guarantee is introduced later.
 
 ## Trust boundary and ACL policy
 

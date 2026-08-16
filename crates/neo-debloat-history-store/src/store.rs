@@ -17,7 +17,7 @@ use neo_debloat_plan::ExactAppxInventory;
 use neo_vault::VaultLayout;
 use std::ffi::OsString;
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -202,7 +202,9 @@ impl DebloatHistoryStore {
 
         if let Err(error) = write_result {
             drop(staging_dir);
-            cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id)?;
+            // Preserve the primary write/validation failure. Any cleanup residue remains inert
+            // staging and is surfaced by the existing audit boundary.
+            let _ = cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id);
             return Err(error);
         }
 
@@ -215,7 +217,6 @@ impl DebloatHistoryStore {
 
         match promotion {
             Ok(()) => {
-                cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id)?;
                 let stored =
                     load_record_from_root(&handles.records, &self.records_root(), &record_id)?;
                 if stored.receipt() != receipt {
@@ -223,6 +224,10 @@ impl DebloatHistoryStore {
                         record_id.to_string(),
                     ));
                 }
+                // The final record has already been promoted and revalidated. Cleanup is
+                // best-effort so inert staging residue cannot turn a successful publication
+                // into a false failure.
+                let _ = cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id);
                 Ok(HistoryRecordWriteReceipt {
                     record_id: record_id.clone(),
                     disposition: HistoryRecordDisposition::Recorded,
@@ -232,7 +237,9 @@ impl DebloatHistoryStore {
             Err(rename_error) => {
                 let existing =
                     try_load_record_from_root(&handles.records, &self.records_root(), &record_id);
-                cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id)?;
+                // Preserve the promotion/convergence result. Any owned residue is inert and
+                // remains visible to audit rather than replacing the primary outcome.
+                let _ = cleanup_owned_staging(staging, &staging_name, &staging_display, &record_id);
                 match existing? {
                     Some(stored) => existing_write_receipt(self, &record_id, receipt, stored),
                     None => Err(DebloatHistoryStoreError::Io(rename_error)),
@@ -249,7 +256,11 @@ impl DebloatHistoryStore {
             self.layout.managed_root(),
         )?;
         let history_display = self.history_root();
-        let history = open_or_create_child_dir(&managed, "history", &history_display)?;
+        let history = open_or_create_child_dir(
+            &managed,
+            neo_vault::HISTORY_DIRECTORY_NAME,
+            &history_display,
+        )?;
         let records_display = self.records_root();
         let records =
             open_or_create_child_dir(&history, DEBLOAT_REMOVALS_DIRECTORY_NAME, &records_display)?;
@@ -272,7 +283,12 @@ impl DebloatHistoryStore {
             return Ok(None);
         };
         let history_display = self.history_root();
-        let Some(history) = open_optional_child_dir(&managed, "history", &history_display)? else {
+        let Some(history) = open_optional_child_dir(
+            &managed,
+            neo_vault::HISTORY_DIRECTORY_NAME,
+            &history_display,
+        )?
+        else {
             return Ok(None);
         };
         let records_display = self.records_root();
@@ -368,7 +384,16 @@ fn load_envelope_file_from_dir(
             limit: MAX_HISTORY_RECORD_BYTES,
         });
     }
-    let envelope: StoredReceiptEnvelope = serde_json::from_reader(file)?;
+    let mut bounded = file.take(MAX_HISTORY_RECORD_BYTES + 1);
+    let mut encoded = Vec::with_capacity(metadata.len() as usize);
+    bounded.read_to_end(&mut encoded)?;
+    if encoded.len() as u64 > MAX_HISTORY_RECORD_BYTES {
+        return Err(DebloatHistoryStoreError::RecordTooLarge {
+            path: file_display,
+            limit: MAX_HISTORY_RECORD_BYTES,
+        });
+    }
+    let envelope: StoredReceiptEnvelope = serde_json::from_slice(&encoded)?;
     envelope.validate(record_id)
 }
 

@@ -378,3 +378,37 @@ fn receipt_symlink_substitution_is_rejected() {
             | Err(DebloatHistoryStoreError::UnexpectedEntry(_))
     ));
 }
+
+#[cfg(windows)]
+#[test]
+fn receipt_windows_reparse_substitution_is_rejected() {
+    use std::io::ErrorKind;
+    use std::os::windows::fs::symlink_file;
+
+    let root = TempRoot::new("windows-reparse");
+    let store = history_store(&root, VaultMode::Installed);
+    let (_receipt, record_id) = record_fixture(&store);
+    let final_file = store
+        .records_root()
+        .join(record_id.as_str())
+        .join("receipt.json");
+    let outside = root.path().join("outside.json");
+    fs::write(&outside, FIXTURE.as_bytes()).unwrap();
+    fs::remove_file(&final_file).unwrap();
+
+    if let Err(error) = symlink_file(&outside, &final_file) {
+        if error.kind() == ErrorKind::PermissionDenied || error.raw_os_error() == Some(1314) {
+            eprintln!(
+                "Windows symlink/reparse creation unavailable for this runner; no-follow production code remains covered by static proof"
+            );
+            return;
+        }
+        panic!("create Windows receipt substitution link: {error}");
+    }
+
+    assert!(matches!(
+        store.load(&record_id),
+        Err(DebloatHistoryStoreError::UnsafeLink(_))
+            | Err(DebloatHistoryStoreError::UnexpectedEntry(_))
+    ));
+}
