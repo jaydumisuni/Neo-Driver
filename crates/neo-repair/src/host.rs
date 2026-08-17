@@ -4,7 +4,9 @@ use crate::model::{
     SystemFileObservation, WindowsFeatureObservation,
 };
 use crate::operation::RepairOperation;
+#[cfg(windows)]
 use crate::parse::{component_store_observation, feature_observation, system_file_observation};
+#[cfg(windows)]
 use neo_probe::{CommandEvidence, CommandRunner, SystemCommandRunner};
 
 pub(crate) trait RepairHost {
