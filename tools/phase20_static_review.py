@@ -201,11 +201,19 @@ checks = [
         "structured-error-taxonomy",
         all(value in RPC for value in required_errors)
         and "pub fn code(&self) -> DebloatRestoreRpcErrorCode" in RPC
-        and "history_and_fresh_readiness_errors_are_structurally_classified" in RPC_TESTS,
+        and "pub fn caller_message(self) -> &'static str" in RPC
+        and "message: code.caller_message().to_string()" in RPC
+        and "message: self.to_string()" not in RPC
+        and "history_and_fresh_readiness_errors_are_structurally_classified" in RPC_TESTS
+        and "rpc_error_payload_redacts_operator_only_details" in RPC_TESTS,
     ),
     (
         "no-cli-or-shell-bypass",
         "DebloatRestoreExecutorCapability" not in CLI
+        and "DebloatRestoreRpcService" not in CLI
+        and "DebloatRestoreRpcPrepareRequest" not in CLI
+        and "DebloatRestoreRpcApplyRequest" not in CLI
+        and "DebloatRestoreRpcContext" not in CLI
         and "neo_debloat_restore_apply" not in CLI
         and "neo.debloat.restore.apply" not in CLI
         and "std::process::Command" not in RPC

@@ -299,7 +299,8 @@ fn prepare_requires_canonical_store_id_and_returns_exact_phase18_plan() {
 fn newer_prepare_replaces_only_that_callers_older_unconfirmed_session() {
     let root = TempRoot::new("replace");
     let owner = caller(DebloatRestoreRpcCallerKind::Hunter, "owner:john");
-    let (mut service, record_id, inventory) = service(&root, std::slice::from_ref(&owner));
+    let admin = caller(DebloatRestoreRpcCallerKind::Oracle, "admin:oracle");
+    let (mut service, record_id, inventory) = service(&root, &[owner.clone(), admin.clone()]);
     let ctx = context(
         owner,
         &[
@@ -307,6 +308,10 @@ fn newer_prepare_replaces_only_that_callers_older_unconfirmed_session() {
             DEBLOAT_RESTORE_APPLY_PERMISSION_SCOPE,
         ],
     );
+    let admin_ctx = context(admin, &[DEBLOAT_RESTORE_PREPARE_PERMISSION_SCOPE]);
+    let admin_prepared = service
+        .prepare_with_inventory(&admin_ctx, prepare_request(&record_id, "admin"), &inventory)
+        .unwrap();
     let first = service
         .prepare_with_inventory(&ctx, prepare_request(&record_id, "first"), &inventory)
         .unwrap();
@@ -314,7 +319,8 @@ fn newer_prepare_replaces_only_that_callers_older_unconfirmed_session() {
         .prepare_with_inventory(&ctx, prepare_request(&record_id, "second"), &inventory)
         .unwrap();
     assert_ne!(first.session_id, second.session_id);
-    assert_eq!(service.pending_session_count(), 1);
+    assert_eq!(service.pending_session_count(), 2);
+    assert!(service.pending.contains_key(&admin_prepared.session_id));
     let error = service
         .validate_apply(&ctx, &apply_request(&first, "old"))
         .expect_err("older session must be invalidated");
@@ -362,6 +368,26 @@ fn apply_requires_same_caller_confirmation_fingerprint_and_exact_action_set() {
 
     let mut request = apply_request(&prepared, "actions");
     request.approved_action_ids = vec![prepared.action_id.clone(), "restore:extra".to_string()];
+    assert_eq!(
+        service
+            .validate_apply(&owner_ctx, &request)
+            .unwrap_err()
+            .code(),
+        DebloatRestoreRpcErrorCode::PlanMismatch
+    );
+
+    let mut request = apply_request(&prepared, "empty-actions");
+    request.approved_action_ids.clear();
+    assert_eq!(
+        service
+            .validate_apply(&owner_ctx, &request)
+            .unwrap_err()
+            .code(),
+        DebloatRestoreRpcErrorCode::PlanMismatch
+    );
+
+    let mut request = apply_request(&prepared, "duplicate-actions");
+    request.approved_action_ids = vec![prepared.action_id.clone(), prepared.action_id.clone()];
     assert_eq!(
         service
             .validate_apply(&owner_ctx, &request)
@@ -497,4 +523,24 @@ fn history_and_fresh_readiness_errors_are_structurally_classified() {
             .code(),
         DebloatRestoreRpcErrorCode::RestoreNotReady
     );
+}
+
+#[test]
+fn rpc_error_payload_redacts_operator_only_details() {
+    let error = DebloatRestoreRpcError::Execution(DebloatRestoreExecutionError::NativeDeployment(
+        "secret native deployment detail".to_string(),
+    ));
+    let payload = error.payload();
+    assert_eq!(payload.code, DebloatRestoreRpcErrorCode::ExecutionFailed);
+    assert_eq!(payload.message, "Debloat restore execution failed");
+    assert!(!payload.message.contains("secret native deployment detail"));
+    assert!(error
+        .to_string()
+        .contains("secret native deployment detail"));
+
+    let invalid = DebloatRestoreRpcError::InvalidRequest("secret request detail".to_string());
+    let payload = invalid.payload();
+    assert_eq!(payload.code, DebloatRestoreRpcErrorCode::InvalidRequest);
+    assert_eq!(payload.message, "invalid MCP/RPC Debloat restore request");
+    assert!(!payload.message.contains("secret request detail"));
 }

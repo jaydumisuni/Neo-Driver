@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::engine::{apply_with_host, authorize_with_host, DebloatRestoreHost};
 use crate::model::DebloatRestoreExecutionSession;
-#[cfg(any(windows, test))]
+#[cfg(windows)]
 use crate::model::DebloatRestoreExecutorCapability;
 use crate::{prepare_debloat_restore_execution, DebloatRestoreExecutionError};
 use neo_debloat_history::DebloatHistoryError;
@@ -163,6 +163,27 @@ pub enum DebloatRestoreRpcErrorCode {
     ExecutionFailed,
 }
 
+impl DebloatRestoreRpcErrorCode {
+    pub fn caller_message(self) -> &'static str {
+        match self {
+            Self::InvalidRequest => "invalid MCP/RPC Debloat restore request",
+            Self::UnauthorizedCaller => "RPC caller is not allowed by Neo policy",
+            Self::PermissionDenied => "RPC caller lacks the required Neo permission scope",
+            Self::ConfirmationRequired => "explicit confirmation is required",
+            Self::SessionNotFound => "prepared RPC Debloat restore session was not found",
+            Self::ServiceStateExhausted => "RPC service session sequence is exhausted",
+            Self::CallerMismatch => "RPC caller differs from the preparing caller",
+            Self::PlanMismatch => {
+                "RPC apply request does not match the prepared Debloat restore transaction"
+            }
+            Self::HistoryUnavailable => "trusted Debloat history record is unavailable",
+            Self::RestoreNotReady => "the requested Debloat restore is not ready",
+            Self::UnsupportedPlatform => "Debloat restore execution is supported only on Windows",
+            Self::ExecutionFailed => "Debloat restore execution failed",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DebloatRestoreRpcErrorPayload {
     pub code: DebloatRestoreRpcErrorCode,
@@ -224,9 +245,10 @@ impl DebloatRestoreRpcError {
     }
 
     pub fn payload(&self) -> DebloatRestoreRpcErrorPayload {
+        let code = self.code();
         DebloatRestoreRpcErrorPayload {
-            code: self.code(),
-            message: self.to_string(),
+            code,
+            message: code.caller_message().to_string(),
         }
     }
 }
@@ -283,16 +305,26 @@ impl DebloatRestoreRpcService {
         self.store_prepared(context, request, record_id, session)
     }
 
+    fn consume_authorized_session(
+        &mut self,
+        context: &DebloatRestoreRpcContext,
+        request: &DebloatRestoreRpcApplyRequest,
+    ) -> Result<(TransactionAuthorization, PendingDebloatRestoreRpcSession), DebloatRestoreRpcError>
+    {
+        let authorization = self.validate_apply(context, request)?;
+        let pending = self
+            .pending
+            .remove(&request.session_id)
+            .ok_or_else(|| DebloatRestoreRpcError::SessionNotFound(request.session_id.clone()))?;
+        Ok((authorization, pending))
+    }
+
     pub fn apply(
         &mut self,
         context: &DebloatRestoreRpcContext,
         request: DebloatRestoreRpcApplyRequest,
     ) -> Result<DebloatRestoreRpcExecutionReceipt, DebloatRestoreRpcError> {
-        let authorization = self.validate_apply(context, &request)?;
-        let pending = self
-            .pending
-            .remove(&request.session_id)
-            .ok_or_else(|| DebloatRestoreRpcError::SessionNotFound(request.session_id.clone()))?;
+        let (authorization, pending) = self.consume_authorized_session(context, &request)?;
 
         #[cfg(windows)]
         {
@@ -466,12 +498,7 @@ impl DebloatRestoreRpcService {
         request: DebloatRestoreRpcApplyRequest,
         host: &mut H,
     ) -> Result<DebloatRestoreRpcExecutionReceipt, DebloatRestoreRpcError> {
-        let authorization = self.validate_apply(context, &request)?;
-        let mut pending = self
-            .pending
-            .remove(&request.session_id)
-            .ok_or_else(|| DebloatRestoreRpcError::SessionNotFound(request.session_id.clone()))?;
-        let _capability = DebloatRestoreExecutorCapability::for_rpc();
+        let (authorization, mut pending) = self.consume_authorized_session(context, &request)?;
         authorize_with_host(&mut pending.session, authorization, host)?;
         apply_with_host(&mut pending.session, host)?;
         Ok(execution_receipt(request, pending))
