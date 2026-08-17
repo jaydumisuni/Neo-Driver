@@ -147,7 +147,10 @@ impl SupportedWindowsFeature {
     }
 
     pub fn parse_id(value: &str) -> Option<Self> {
-        Self::all().iter().copied().find(|feature| feature.id() == value)
+        Self::all()
+            .iter()
+            .copied()
+            .find(|feature| feature.id() == value)
     }
 }
 
@@ -240,10 +243,7 @@ pub struct RepairInspectionReport {
 }
 
 impl RepairInspectionReport {
-    pub fn feature(
-        &self,
-        feature: SupportedWindowsFeature,
-    ) -> Option<&WindowsFeatureObservation> {
+    pub fn feature(&self, feature: SupportedWindowsFeature) -> Option<&WindowsFeatureObservation> {
         self.features.iter().find(|item| item.feature == feature)
     }
 }
@@ -275,7 +275,10 @@ mod tests {
         for feature in SupportedWindowsFeature::all() {
             assert!(ids.insert(feature.id()));
             assert!(names.insert(feature.dism_name().to_ascii_lowercase()));
-            assert_eq!(SupportedWindowsFeature::parse_id(feature.id()), Some(*feature));
+            assert_eq!(
+                SupportedWindowsFeature::parse_id(feature.id()),
+                Some(*feature)
+            );
         }
     }
 

@@ -1,6 +1,7 @@
 use crate::model::{
-    BoundedCommandEvidence, ComponentStoreObservation, ComponentStoreState, SupportedWindowsFeature,
-    SystemFileObservation, SystemFileState, WindowsFeatureObservation, WindowsFeatureState,
+    BoundedCommandEvidence, ComponentStoreObservation, ComponentStoreState,
+    SupportedWindowsFeature, SystemFileObservation, SystemFileState, WindowsFeatureObservation,
+    WindowsFeatureState,
 };
 
 const ELEVATION_EXIT_CODE: i32 = 740;
@@ -47,9 +48,7 @@ pub(crate) fn component_store_observation(
     }
 }
 
-pub(crate) fn system_file_observation(
-    evidence: BoundedCommandEvidence,
-) -> SystemFileObservation {
+pub(crate) fn system_file_observation(evidence: BoundedCommandEvidence) -> SystemFileObservation {
     if let Some(reason) = unavailable_reason(&evidence) {
         return SystemFileObservation {
             state: SystemFileState::Unavailable,
@@ -58,7 +57,9 @@ pub(crate) fn system_file_observation(
         };
     }
     let text = normalized_text(&evidence);
-    let (state, detail) = if text.contains("windows resource protection did not find any integrity violations") {
+    let (state, detail) = if text
+        .contains("windows resource protection did not find any integrity violations")
+    {
         (
             SystemFileState::Healthy,
             "SFC reports no protected-system-file integrity violations.".to_string(),
@@ -70,7 +71,8 @@ pub(crate) fn system_file_observation(
             SystemFileState::IntegrityViolations,
             "SFC reports protected-system-file integrity violations.".to_string(),
         )
-    } else if text.contains("windows resource protection could not perform the requested operation") {
+    } else if text.contains("windows resource protection could not perform the requested operation")
+    {
         (
             SystemFileState::Unavailable,
             "SFC could not perform the requested verification operation.".to_string(),
@@ -135,9 +137,7 @@ pub(crate) fn feature_observation(
 }
 
 fn parse_feature_state(text: &str) -> WindowsFeatureState {
-    if contains_state(text, "disabled with payload removed")
-        || contains_state(text, "removed")
-    {
+    if contains_state(text, "disabled with payload removed") || contains_state(text, "removed") {
         WindowsFeatureState::Removed
     } else if contains_state(text, "enable pending") || contains_state(text, "enablepending") {
         WindowsFeatureState::EnablePending
@@ -214,8 +214,7 @@ mod tests {
             ComponentStoreState::Healthy
         );
         assert_eq!(
-            component_store_observation(evidence(0, "The component store is repairable."))
-                .state,
+            component_store_observation(evidence(0, "The component store is repairable.")).state,
             ComponentStoreState::Repairable
         );
         assert_eq!(

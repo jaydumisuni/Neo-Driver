@@ -26,7 +26,10 @@ pub(crate) struct RepairSessionOwner {
 }
 
 impl RepairSessionOwner {
-    pub(crate) fn new(kind: impl Into<String>, principal: impl Into<String>) -> Result<Self, RepairError> {
+    pub(crate) fn new(
+        kind: impl Into<String>,
+        principal: impl Into<String>,
+    ) -> Result<Self, RepairError> {
         let owner = Self {
             kind: kind.into(),
             principal: principal.into(),
@@ -282,7 +285,8 @@ fn validate_append(previous: &SessionEnvelope, next: &SessionEnvelope) -> Result
 fn require_persistable_stage(stage: TransactionStage) -> Result<(), RepairError> {
     if matches!(
         stage,
-        TransactionStage::AwaitingReboot
+        TransactionStage::Applying
+            | TransactionStage::AwaitingReboot
             | TransactionStage::Blocked
             | TransactionStage::AwaitingRollbackReboot
             | TransactionStage::Complete
@@ -363,14 +367,19 @@ fn latest_envelope(
                 display.join(&name).display()
             )));
         };
-        let file_type = entry.file_type().map_err(|error| classify_io(display, error))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|error| classify_io(display, error))?;
         if file_type.is_symlink() || !file_type.is_file() {
             return Err(RepairError::InvalidPersistedSession(format!(
                 "session version is not a regular file: {}",
                 display.join(&name).display()
             )));
         }
-        if latest.as_ref().is_none_or(|(current, _)| version > *current) {
+        if latest
+            .as_ref()
+            .is_none_or(|(current, _)| version > *current)
+        {
             latest = Some((version, read_envelope(dir, display, name_text.as_ref())?));
         }
     }
@@ -378,8 +387,10 @@ fn latest_envelope(
 }
 
 fn read_envelope(dir: &Dir, display: &Path, name: &str) -> Result<SessionEnvelope, RepairError> {
-    let mut file = open_read_file_nofollow(dir, name)?;
-    let metadata = file.metadata().map_err(|error| classify_io(&display.join(name), error))?;
+    let file = open_read_file_nofollow(dir, name)?;
+    let metadata = file
+        .metadata()
+        .map_err(|error| classify_io(&display.join(name), error))?;
     if metadata.len() > MAX_SESSION_RECORD_BYTES {
         return Err(RepairError::InvalidPersistedSession(format!(
             "session record exceeds {} bytes",
@@ -406,8 +417,9 @@ fn write_version(
     version: u64,
     envelope: &SessionEnvelope,
 ) -> Result<(), RepairError> {
-    let encoded = serde_json::to_vec_pretty(envelope)
-        .map_err(|error| RepairError::SessionStore(format!("session serialization failed: {error}")))?;
+    let encoded = serde_json::to_vec_pretty(envelope).map_err(|error| {
+        RepairError::SessionStore(format!("session serialization failed: {error}"))
+    })?;
     if encoded.len() as u64 > MAX_SESSION_RECORD_BYTES {
         return Err(RepairError::SessionStore(
             "session record exceeds durable size bound".to_string(),
@@ -455,8 +467,9 @@ fn write_marker(
         session_id: session_id.to_string(),
         owner: owner.clone(),
     };
-    let encoded = serde_json::to_vec_pretty(&marker)
-        .map_err(|error| RepairError::SessionStore(format!("marker serialization failed: {error}")))?;
+    let encoded = serde_json::to_vec_pretty(&marker).map_err(|error| {
+        RepairError::SessionStore(format!("marker serialization failed: {error}"))
+    })?;
     let mut file = create_new_file_nofollow(dir, SESSION_MARKER)?;
     file.write_all(&encoded)
         .map_err(|error| RepairError::SessionStore(error.to_string()))?;
@@ -716,17 +729,21 @@ mod tests {
         let store = RepairResumeSessionStore::new(layout);
         let owner = RepairSessionOwner::new("oracle", "owner").unwrap();
         let session = pending_session();
-        let first = store.persist("phase21:test:session", &owner, &session).unwrap();
-        assert_eq!(first.version, 1);
-        let loaded = store
-            .load_latest("phase21:test:session")
-            .unwrap()
+        let first = store
+            .persist("phase21:test:session", &owner, &session)
             .unwrap();
+        assert_eq!(first.version, 1);
+        let loaded = store.load_latest("phase21:test:session").unwrap().unwrap();
         assert_eq!(loaded.owner, owner);
         assert_eq!(loaded.version, 1);
         assert_eq!(loaded.session.stage(), TransactionStage::AwaitingReboot);
-        let second = store.persist("phase21:test:session", &owner, &session).unwrap();
-        assert_eq!(second.version, 1, "identical persistence must be idempotent");
+        let second = store
+            .persist("phase21:test:session", &owner, &session)
+            .unwrap();
+        assert_eq!(
+            second.version, 1,
+            "identical persistence must be idempotent"
+        );
         let _ = fs::remove_dir_all(root);
     }
 

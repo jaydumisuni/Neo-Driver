@@ -1,6 +1,4 @@
-use crate::{
-    FeatureDesiredState, RepairOperation, SupportedWindowsFeature, WindowsFeatureState,
-};
+use crate::{FeatureDesiredState, RepairOperation, SupportedWindowsFeature, WindowsFeatureState};
 
 #[test]
 fn feature_identity_is_closed_over_the_frozen_catalogue() {

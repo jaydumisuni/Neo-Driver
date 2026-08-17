@@ -2,7 +2,9 @@ use crate::error::RepairError;
 use crate::host::RepairHost;
 use crate::model::{RepairInspectionReport, SupportedWindowsFeature};
 
-pub(crate) fn inspect_with_host<H: RepairHost>(host: &H) -> Result<RepairInspectionReport, RepairError> {
+pub(crate) fn inspect_with_host<H: RepairHost>(
+    host: &H,
+) -> Result<RepairInspectionReport, RepairError> {
     let component_store = host.observe_component_store()?;
     let system_files = host.observe_system_files()?;
     let mut features = Vec::with_capacity(SupportedWindowsFeature::all().len());

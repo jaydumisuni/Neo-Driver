@@ -6,8 +6,8 @@ use crate::model::{
 use crate::operation::{RepairBaseline, RepairOperation};
 use crate::plan::{feature_baseline_state, target_for, target_value, RepairExecutionPlan};
 use neo_transaction::{
-    ApplyOutcome, ApplyRecord, Observation, ObservedValue, RollbackRecord, TransactionAuthorization,
-    TransactionCheckpoint, TransactionStage,
+    ApplyOutcome, ApplyRecord, Observation, ObservedValue, RollbackRecord,
+    TransactionAuthorization, TransactionCheckpoint, TransactionStage,
 };
 use serde::{Deserialize, Serialize};
 
@@ -119,7 +119,8 @@ impl RepairExecutionSession {
         }
         self.assert_fresh_baseline(host)?;
         self.checkpoint.begin_apply()?;
-        self.checkpoint.assert_action_pending(&self.plan.action_id())?;
+        self.checkpoint
+            .assert_action_pending(&self.plan.action_id())?;
         Ok(())
     }
 
@@ -240,7 +241,8 @@ impl RepairExecutionSession {
                 }
             }
             TransactionStage::AwaitingRollbackReboot => {
-                self.checkpoint.resume_after_rollback_reboot(vec![observed])?;
+                self.checkpoint
+                    .resume_after_rollback_reboot(vec![observed])?;
             }
             other => {
                 return Err(RepairError::InvalidRequest(format!(
@@ -323,7 +325,10 @@ impl RepairExecutionSession {
         observation_from_host(self.plan.operation(), host)
     }
 
-    fn verify_current_with_observation(&mut self, observed: Observation) -> Result<(), RepairError> {
+    fn verify_current_with_observation(
+        &mut self,
+        observed: Observation,
+    ) -> Result<(), RepairError> {
         self.checkpoint.verify_postconditions(vec![observed])?;
         Ok(())
     }

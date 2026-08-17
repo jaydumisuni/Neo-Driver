@@ -105,9 +105,9 @@ impl RepairHost for WindowsRepairHost {
 
 #[cfg(windows)]
 fn path_text(path: &std::path::Path) -> Result<String, RepairError> {
-    path.to_str()
-        .map(ToOwned::to_owned)
-        .ok_or_else(|| RepairError::WindowsDirectory("System32 path is not valid UTF-8".to_string()))
+    path.to_str().map(ToOwned::to_owned).ok_or_else(|| {
+        RepairError::WindowsDirectory("System32 path is not valid UTF-8".to_string())
+    })
 }
 
 #[cfg(windows)]
@@ -152,10 +152,7 @@ pub(crate) mod testsupport {
     }
 
     impl FakeRepairHost {
-        pub(crate) fn new(
-            component: ComponentStoreState,
-            system_files: SystemFileState,
-        ) -> Self {
+        pub(crate) fn new(component: ComponentStoreState, system_files: SystemFileState) -> Self {
             let features = SupportedWindowsFeature::all()
                 .iter()
                 .copied()
@@ -184,10 +181,6 @@ pub(crate) mod testsupport {
             *self.component.borrow_mut() = state;
         }
 
-        pub(crate) fn set_system_files(&self, state: SystemFileState) {
-            *self.system_files.borrow_mut() = state;
-        }
-
         fn evidence(program: &str, args: Vec<String>) -> BoundedCommandEvidence {
             BoundedCommandEvidence {
                 program: program.to_string(),
@@ -204,7 +197,9 @@ pub(crate) mod testsupport {
 
     impl RepairHost for FakeRepairHost {
         fn observe_component_store(&self) -> Result<ComponentStoreObservation, RepairError> {
-            self.observed.borrow_mut().push("component_store".to_string());
+            self.observed
+                .borrow_mut()
+                .push("component_store".to_string());
             let state = *self.component.borrow();
             Ok(ComponentStoreObservation {
                 state,

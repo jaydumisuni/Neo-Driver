@@ -83,7 +83,9 @@ impl RepairExecutionPlan {
             )));
         }
         if observation.state == desired.target_state() {
-            return Err(RepairError::NothingToChange(observation.feature.id().to_string()));
+            return Err(RepairError::NothingToChange(
+                observation.feature.id().to_string(),
+            ));
         }
         Self::new(
             RepairOperation::SetWindowsFeature {
@@ -137,11 +139,8 @@ impl RepairExecutionPlan {
 
     pub fn validate(&self) -> Result<(), RepairError> {
         self.transaction.validate()?;
-        let expected = transaction_for(
-            self.operation,
-            self.baseline,
-            self.transaction.mission_id(),
-        )?;
+        let expected =
+            transaction_for(self.operation, self.baseline, self.transaction.mission_id())?;
         if expected.fingerprint()? != self.transaction.fingerprint()? {
             return Err(RepairError::InvalidRequest(
                 "Phase 21 transaction does not match operation/baseline authority".to_string(),
@@ -289,9 +288,7 @@ fn validate_operation_baseline(
                 feature: baseline_feature,
                 state,
             },
-        ) => {
-            feature == baseline_feature && state.is_stable() && state != desired.target_state()
-        }
+        ) => feature == baseline_feature && state.is_stable() && state != desired.target_state(),
         _ => false,
     };
     if valid {
@@ -401,7 +398,11 @@ mod tests {
             RollbackPlan::Reversible { .. }
         ));
         assert_eq!(
-            plan.checkpoint().unwrap().baseline().unwrap().get(&target_for(plan.operation())),
+            plan.checkpoint()
+                .unwrap()
+                .baseline()
+                .unwrap()
+                .get(&target_for(plan.operation())),
             Some(&CapturedValue::Present("disabled".to_string()))
         );
     }

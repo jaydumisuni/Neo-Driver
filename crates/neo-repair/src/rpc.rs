@@ -273,12 +273,12 @@ impl RepairRpcError {
             Self::Repair(RepairError::NothingToRepair(_) | RepairError::NothingToChange(_)) => {
                 "nothing_to_do"
             }
-            Self::Repair(RepairError::StateUnavailable(_) | RepairError::FeatureNotReversible(_)) => {
-                "state_unavailable"
-            }
-            Self::Repair(RepairError::SessionStore(_) | RepairError::InvalidPersistedSession(_)) => {
-                "session_store_failed"
-            }
+            Self::Repair(
+                RepairError::StateUnavailable(_) | RepairError::FeatureNotReversible(_),
+            ) => "state_unavailable",
+            Self::Repair(
+                RepairError::SessionStore(_) | RepairError::InvalidPersistedSession(_),
+            ) => "session_store_failed",
             Self::Repair(RepairError::BaselineDrift(_)) => "baseline_drift",
             Self::Repair(_) => "execution_failed",
         }
@@ -287,38 +287,52 @@ impl RepairRpcError {
     pub fn payload(&self) -> RepairRpcErrorPayload {
         let (message, retryable) = match self {
             Self::InvalidRequest(_) => ("The repair request is invalid.", false),
-            Self::UnauthorizedCaller => ("This caller is not authorized for repair service.", false),
+            Self::UnauthorizedCaller => {
+                ("This caller is not authorized for repair service.", false)
+            }
             Self::PermissionDenied(_) => ("The required repair permission is missing.", false),
             Self::ConfirmationRequired => ("Explicit repair confirmation is required.", false),
-            Self::IrreversibleAcknowledgementRequired => {
-                ("Explicit irreversible-repair acknowledgement is required.", false)
-            }
+            Self::IrreversibleAcknowledgementRequired => (
+                "Explicit irreversible-repair acknowledgement is required.",
+                false,
+            ),
             Self::SessionNotFound => ("The prepared repair session was not found.", false),
             Self::CallerMismatch => ("The repair session belongs to another caller.", false),
-            Self::AuthorityMismatch => ("The repair authority class does not match the session.", false),
+            Self::AuthorityMismatch => (
+                "The repair authority class does not match the session.",
+                false,
+            ),
             Self::PlanMismatch => ("The repair plan fingerprint does not match.", false),
             Self::ApprovalMismatch => ("The approved repair action does not match.", false),
             Self::VersionMismatch => ("A newer repair session state already exists.", false),
             Self::SessionNotResumable => ("The repair session is already terminal.", false),
             Self::SequenceExhausted => ("The repair service session sequence is exhausted.", false),
-            Self::Repair(RepairError::UnsupportedPlatform) => {
-                ("Windows repair authority is unavailable on this platform.", false)
-            }
+            Self::Repair(RepairError::UnsupportedPlatform) => (
+                "Windows repair authority is unavailable on this platform.",
+                false,
+            ),
             Self::Repair(RepairError::ElevationRequired) => {
                 ("Elevated Windows servicing authority is required.", true)
             }
             Self::Repair(RepairError::NothingToRepair(_) | RepairError::NothingToChange(_)) => {
                 ("The selected operation is already satisfied.", false)
             }
-            Self::Repair(RepairError::StateUnavailable(_) | RepairError::FeatureNotReversible(_)) => {
-                ("The required Windows state is unavailable for this operation.", true)
-            }
-            Self::Repair(RepairError::SessionStore(_) | RepairError::InvalidPersistedSession(_)) => {
-                ("The trusted repair session store is unavailable or invalid.", true)
-            }
-            Self::Repair(RepairError::BaselineDrift(_)) => {
-                ("Windows state changed after repair preparation; prepare again.", true)
-            }
+            Self::Repair(
+                RepairError::StateUnavailable(_) | RepairError::FeatureNotReversible(_),
+            ) => (
+                "The required Windows state is unavailable for this operation.",
+                true,
+            ),
+            Self::Repair(
+                RepairError::SessionStore(_) | RepairError::InvalidPersistedSession(_),
+            ) => (
+                "The trusted repair session store is unavailable or invalid.",
+                true,
+            ),
+            Self::Repair(RepairError::BaselineDrift(_)) => (
+                "Windows state changed after repair preparation; prepare again.",
+                true,
+            ),
             Self::Repair(_) => ("The repair operation could not be completed safely.", true),
         };
         RepairRpcErrorPayload {
@@ -430,13 +444,15 @@ impl RepairRpcService {
         self.policy.authorize(context, authority.prepare_scope())?;
         validate_text("request id", &request.request_id, 160)?;
         validate_text("mission id", &request.mission_id, 160)?;
-        let session = RepairExecutionSession::prepare_with_host(
-            request.operation,
-            request.mission_id,
-            host,
-        )?;
-        let plan_fingerprint = session.plan().transaction().fingerprint()?;
+        let session =
+            RepairExecutionSession::prepare_with_host(request.operation, request.mission_id, host)?;
+        let plan_fingerprint = session
+            .plan()
+            .transaction()
+            .fingerprint()
+            .map_err(RepairError::from)?;
         let action_id = session.plan().action_id();
+        let baseline = session.plan().baseline();
         let owner = context.owner()?;
         let session_id = self.next_session_id(&plan_fingerprint)?;
         self.pending.retain(|_, pending| pending.owner != owner);
@@ -458,14 +474,7 @@ impl RepairRpcService {
             session_id,
             authority,
             operation: request.operation,
-            baseline: self
-                .pending
-                .values()
-                .find(|pending| pending.plan_fingerprint == plan_fingerprint)
-                .expect("inserted pending session")
-                .session
-                .plan()
-                .baseline(),
+            baseline,
             action_id,
             plan_fingerprint,
             confirmation_required: true,
@@ -483,7 +492,8 @@ impl RepairRpcService {
         request: RepairRpcApplyRequest,
         host: &H,
     ) -> Result<RepairRpcExecutionReceipt, RepairRpcError> {
-        self.policy.authorize(context, request.authority.apply_scope())?;
+        self.policy
+            .authorize(context, request.authority.apply_scope())?;
         validate_text("request id", &request.request_id, 160)?;
         validate_text("session id", &request.session_id, 512)?;
         validate_text("plan fingerprint", &request.plan_fingerprint, 128)?;
@@ -543,20 +553,18 @@ impl RepairRpcService {
                 },
             },
         )?;
-        pending
-            .session
-            .begin_apply_with_host(&capability, host)?;
-        let write_ahead = self
-            .store
-            .persist(&request.session_id, &pending.owner, &pending.session)?;
+        pending.session.begin_apply_with_host(&capability, host)?;
+        let write_ahead =
+            self.store
+                .persist(&request.session_id, &pending.owner, &pending.session)?;
         let execution_result = pending
             .session
             .execute_applying_with_host(&capability, host);
-        let persisted = self
-            .store
-            .persist(&request.session_id, &pending.owner, &pending.session)?;
-        if execution_result.is_err() {
-            return Err(execution_result.err().expect("checked error").into());
+        let persisted =
+            self.store
+                .persist(&request.session_id, &pending.owner, &pending.session)?;
+        if let Err(error) = execution_result {
+            return Err(error.into());
         }
         if persisted.version < write_ahead.version {
             return Err(RepairRpcError::Repair(RepairError::SessionStore(
@@ -582,7 +590,8 @@ impl RepairRpcService {
         request: RepairRpcResumeRequest,
         host: &H,
     ) -> Result<RepairRpcExecutionReceipt, RepairRpcError> {
-        self.policy.authorize(context, request.authority.apply_scope())?;
+        self.policy
+            .authorize(context, request.authority.apply_scope())?;
         validate_text("request id", &request.request_id, 160)?;
         validate_text("session id", &request.session_id, 512)?;
         validate_text("plan fingerprint", &request.plan_fingerprint, 128)?;
@@ -596,6 +605,11 @@ impl RepairRpcService {
             .store
             .load_latest(&request.session_id)?
             .ok_or(RepairRpcError::SessionNotFound)?;
+        if stored.session_id != request.session_id {
+            return Err(RepairRpcError::InvalidRequest(
+                "persisted session identity differs from resume request".to_string(),
+            ));
+        }
         if stored.owner != owner {
             return Err(RepairRpcError::CallerMismatch);
         }
@@ -606,7 +620,12 @@ impl RepairRpcService {
         if authority != request.authority {
             return Err(RepairRpcError::AuthorityMismatch);
         }
-        let fingerprint = stored.session.plan().transaction().fingerprint()?;
+        let fingerprint = stored
+            .session
+            .plan()
+            .transaction()
+            .fingerprint()
+            .map_err(RepairError::from)?;
         if fingerprint != request.plan_fingerprint {
             return Err(RepairRpcError::PlanMismatch);
         }
@@ -654,6 +673,10 @@ impl RepairRpcService {
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "fixed Phase 21 RPC receipt mirrors the protocol envelope"
+)]
 fn execution_receipt(
     tool: &str,
     method: &str,
@@ -674,7 +697,7 @@ fn execution_receipt(
         authority,
         action_id,
         plan_fingerprint,
-        stage: format!("{:?}", session.stage()).to_ascii_lowercase(),
+        stage: stage_name(session.stage()).to_string(),
         persisted_version,
         resume_required: matches!(
             session.stage(),
@@ -687,6 +710,23 @@ fn execution_receipt(
     }
 }
 
+fn stage_name(stage: TransactionStage) -> &'static str {
+    match stage {
+        TransactionStage::Planned => "planned",
+        TransactionStage::BaselineCaptured => "baseline_captured",
+        TransactionStage::Authorized => "authorized",
+        TransactionStage::Applying => "applying",
+        TransactionStage::AwaitingReboot => "awaiting_reboot",
+        TransactionStage::Verifying => "verifying",
+        TransactionStage::RollingBack => "rolling_back",
+        TransactionStage::AwaitingRollbackReboot => "awaiting_rollback_reboot",
+        TransactionStage::Complete => "complete",
+        TransactionStage::RolledBack => "rolled_back",
+        TransactionStage::Failed => "failed",
+        TransactionStage::Blocked => "blocked",
+    }
+}
+
 fn is_terminal(stage: TransactionStage) -> bool {
     matches!(
         stage,
@@ -695,10 +735,7 @@ fn is_terminal(stage: TransactionStage) -> bool {
 }
 
 fn validate_text(label: &str, value: &str, max_len: usize) -> Result<(), RepairRpcError> {
-    if value.trim().is_empty()
-        || value.len() > max_len
-        || value.chars().any(char::is_control)
-    {
+    if value.trim().is_empty() || value.len() > max_len || value.chars().any(char::is_control) {
         return Err(RepairRpcError::InvalidRequest(format!(
             "{label} must be non-empty bounded text without control characters"
         )));
@@ -729,10 +766,8 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "neo-repair-rpc-{}-{nonce}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("neo-repair-rpc-{}-{nonce}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
         let layout = VaultLayout::new(VaultMode::Portable, &root).unwrap();
         let policy = RepairRpcPolicy::default().allow(
@@ -756,7 +791,10 @@ mod tests {
             ],
         )
         .unwrap();
-        let host = FakeRepairHost::new(ComponentStoreState::Repairable, SystemFileState::IntegrityViolations);
+        let host = FakeRepairHost::new(
+            ComponentStoreState::Repairable,
+            SystemFileState::IntegrityViolations,
+        );
         (root, service, caller, host)
     }
 
@@ -914,7 +952,7 @@ mod tests {
                 &host,
             )
             .unwrap();
-        assert_eq!(apply.stage, "awaitingreboot");
+        assert_eq!(apply.stage, "awaiting_reboot");
         assert!(apply.resume_required);
         *host.pending_feature_transition.borrow_mut() = false;
         host.set_feature(feature, WindowsFeatureState::Enabled);
