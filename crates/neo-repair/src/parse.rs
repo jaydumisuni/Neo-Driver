@@ -191,7 +191,10 @@ fn normalized_text(evidence: &BoundedCommandEvidence) -> String {
     // SFC emits UTF-16LE console text on supported Windows builds. The shared
     // command evidence boundary preserves those bytes as NUL-separated scalar
     // text, so remove NUL separators before deterministic English-token parsing.
-    evidence.combined_text().replace('\0', "").to_ascii_lowercase()
+    evidence
+        .combined_text()
+        .replace('\0', "")
+        .to_ascii_lowercase()
 }
 
 #[cfg(test)]
