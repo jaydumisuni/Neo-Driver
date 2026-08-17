@@ -23,6 +23,10 @@ pub enum RepairError {
     BaselineDrift(String),
     #[error("trusted Windows command failed: {0}")]
     CommandFailed(String),
+    #[error("trusted Phase 21 resume-session store failure: {0}")]
+    SessionStore(String),
+    #[error("persisted Phase 21 resume session is invalid: {0}")]
+    InvalidPersistedSession(String),
     #[error("Phase 21 transaction failure: {0}")]
     Transaction(#[from] TransactionError),
 }
