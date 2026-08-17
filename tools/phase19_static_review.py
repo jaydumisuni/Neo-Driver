@@ -18,7 +18,6 @@ WORKSPACE = tomllib.loads(WORKSPACE_TEXT)
 VAULT_LAYOUT = (ROOT / "crates" / "neo-vault" / "src" / "layout.rs").read_text(encoding="utf-8")
 HISTORY_MANIFEST = (ROOT / "crates" / "neo-debloat-history" / "Cargo.toml").read_text(encoding="utf-8")
 EXECUTOR_MANIFEST = (ROOT / "crates" / "neo-debloat-executor" / "Cargo.toml").read_text(encoding="utf-8")
-RESTORE_MANIFEST = (ROOT / "crates" / "neo-debloat-restore-executor" / "Cargo.toml").read_text(encoding="utf-8")
 DECISION = (ROOT / "docs" / "decisions" / "0019-PHASE19-DEBLOAT-HISTORY-STORE.md").read_text(encoding="utf-8")
 REVIEW = (ROOT / "docs" / "PHASE19_20_LANE_REVIEW.md").read_text(encoding="utf-8")
 CI = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
@@ -144,7 +143,7 @@ checks = [
         and 'neo-vault = { path = "../neo-vault" }' in MANIFEST
         and 'neo-debloat-history-store' not in HISTORY_MANIFEST
         and 'neo-debloat-history-store' not in EXECUTOR_MANIFEST
-        and 'neo-debloat-history-store' not in RESTORE_MANIFEST,
+        and 'neo-debloat-restore-executor' not in MANIFEST,
     ),
     (
         "installed-portable-parity",

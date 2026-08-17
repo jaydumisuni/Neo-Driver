@@ -420,8 +420,10 @@ version = "0.1.0"
 dependencies = [
  "neo-core",
  "neo-debloat-history",
+ "neo-debloat-history-store",
  "neo-debloat-plan",
  "neo-transaction",
+ "neo-vault",
  "serde",
  "serde_json",
  "thiserror",
