@@ -376,7 +376,14 @@ checks = [
         and "version_publication_never_replaces_an_existing_record" in STORE
         and "dir.hard_link(&temporary, dir, &final_name)" in STORE
         and "WindowsRepairExecutionMutex" in HOST
+        and 'const REPAIR_MUTEX_NAME: &str = "Global\\\\THETECHGUY.NeoDriver.RepairExecutor.v1"' in HOST
+        and 'const REPAIR_MUTEX_SDDL: &str = "D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;OW)"' in HOST
+        and "repair_mutex_owner_matches_current_token" in HOST
+        and "validate_repair_mutex_owner" in HOST
+        and "servicing_mutex_contract_is_machine_wide_and_privileged" in HOST
+        and "Win32_Security_Authorization" in WORKSPACE["workspace"]["dependencies"]["windows"]["features"]
         and RPC.count("WindowsRepairExecutionMutex::acquire()") >= 2
+        and "machine-wide across processes and Windows sessions" in DECISION
         and "directory-entry fsync" in DECISION
         and "sudden-power-loss" in DECISION
         and "#[serde(deny_unknown_fields)]" in PLAN

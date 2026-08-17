@@ -25,13 +25,27 @@ use std::time::{Duration, Instant};
 use windows::core::PCWSTR;
 #[cfg(windows)]
 use windows::Win32::Foundation::{
-    CloseHandle, HANDLE, WAIT_ABANDONED, WAIT_OBJECT_0, WAIT_TIMEOUT,
+    CloseHandle, LocalFree, HANDLE, HLOCAL, WAIT_ABANDONED, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
 #[cfg(windows)]
-use windows::Win32::System::Threading::{CreateMutexW, ReleaseMutex, WaitForSingleObject};
-
+use windows::Win32::Security::Authorization::{
+    ConvertStringSecurityDescriptorToSecurityDescriptorW, GetSecurityInfo, SE_KERNEL_OBJECT,
+};
 #[cfg(windows)]
-const REPAIR_MUTEX_NAME: &str = "Local\\THETECHGUY.NeoDriver.RepairExecutor.v1";
+use windows::Win32::Security::{
+    EqualSid, GetTokenInformation, IsWellKnownSid, TokenOwner, WinBuiltinAdministratorsSid,
+    WinLocalSystemSid, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES,
+    TOKEN_OWNER, TOKEN_QUERY,
+};
+#[cfg(windows)]
+use windows::Win32::System::Threading::{
+    CreateMutexW, GetCurrentProcess, OpenProcessToken, ReleaseMutex, WaitForSingleObject,
+};
+
+#[cfg(any(windows, test))]
+const REPAIR_MUTEX_NAME: &str = "Global\\THETECHGUY.NeoDriver.RepairExecutor.v1";
+#[cfg(any(windows, test))]
+const REPAIR_MUTEX_SDDL: &str = "D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;OW)";
 #[cfg(windows)]
 const REPAIR_MUTEX_TIMEOUT_MS: u32 = 300_000;
 #[cfg(windows)]
@@ -46,15 +60,159 @@ pub(crate) struct WindowsRepairExecutionMutex {
 }
 
 #[cfg(windows)]
+struct LocalSecurityDescriptor(PSECURITY_DESCRIPTOR);
+
+#[cfg(windows)]
+impl Drop for LocalSecurityDescriptor {
+    fn drop(&mut self) {
+        if !self.0.is_invalid() {
+            unsafe {
+                let _ = LocalFree(Some(HLOCAL(self.0 .0)));
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+fn repair_mutex_security_descriptor() -> Result<LocalSecurityDescriptor, RepairError> {
+    let sddl = wide(REPAIR_MUTEX_SDDL);
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            PCWSTR(sddl.as_ptr()),
+            1,
+            &mut descriptor,
+            None,
+        )
+    }
+    .map_err(|error| {
+        RepairError::CommandFailed(format!(
+            "repair execution mutex security descriptor creation failed: {error}"
+        ))
+    })?;
+    if descriptor.is_invalid() {
+        return Err(RepairError::CommandFailed(
+            "repair execution mutex security descriptor is invalid".to_string(),
+        ));
+    }
+    Ok(LocalSecurityDescriptor(descriptor))
+}
+
+#[cfg(windows)]
+fn repair_mutex_owner_matches_current_token(owner: PSID) -> Result<bool, RepairError> {
+    let mut token = HANDLE::default();
+    unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) }.map_err(|error| {
+        RepairError::CommandFailed(format!(
+            "repair execution mutex token-owner lookup failed to open process token: {error}"
+        ))
+    })?;
+
+    let result = (|| {
+        let mut required = 0_u32;
+        let _ = unsafe { GetTokenInformation(token, TokenOwner, None, 0, &mut required) };
+        if required < std::mem::size_of::<TOKEN_OWNER>() as u32 {
+            return Err(RepairError::CommandFailed(
+                "repair execution mutex token-owner lookup returned no owner buffer".to_string(),
+            ));
+        }
+
+        let word = std::mem::size_of::<usize>();
+        let words = (required as usize).div_ceil(word);
+        let mut buffer = vec![0_usize; words];
+        unsafe {
+            GetTokenInformation(
+                token,
+                TokenOwner,
+                Some(buffer.as_mut_ptr().cast()),
+                required,
+                &mut required,
+            )
+        }
+        .map_err(|error| {
+            RepairError::CommandFailed(format!(
+                "repair execution mutex token-owner lookup failed: {error}"
+            ))
+        })?;
+
+        let token_owner = unsafe { &*buffer.as_ptr().cast::<TOKEN_OWNER>() };
+        if token_owner.Owner.is_invalid() {
+            return Err(RepairError::CommandFailed(
+                "repair execution mutex current token has no default owner".to_string(),
+            ));
+        }
+        Ok(unsafe { EqualSid(owner, token_owner.Owner).is_ok() })
+    })();
+
+    unsafe {
+        let _ = CloseHandle(token);
+    }
+    result
+}
+
+#[cfg(windows)]
+fn validate_repair_mutex_owner(handle: HANDLE) -> Result<(), RepairError> {
+    let mut owner = PSID::default();
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    let status = unsafe {
+        GetSecurityInfo(
+            handle,
+            SE_KERNEL_OBJECT,
+            OWNER_SECURITY_INFORMATION,
+            Some(&mut owner),
+            None,
+            None,
+            None,
+            Some(&mut descriptor),
+        )
+    };
+    if status.0 != 0 {
+        return Err(RepairError::CommandFailed(format!(
+            "repair execution mutex owner validation failed with status {}",
+            status.0
+        )));
+    }
+    let _descriptor = LocalSecurityDescriptor(descriptor);
+    if owner.is_invalid() {
+        return Err(RepairError::CommandFailed(
+            "repair execution mutex has no trusted owner".to_string(),
+        ));
+    }
+    let trusted = repair_mutex_owner_matches_current_token(owner)?
+        || unsafe {
+            IsWellKnownSid(owner, WinBuiltinAdministratorsSid).as_bool()
+                || IsWellKnownSid(owner, WinLocalSystemSid).as_bool()
+        };
+    if !trusted {
+        return Err(RepairError::CommandFailed(
+            "repair execution mutex owner does not match the current token, SYSTEM, or built-in Administrators"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
 impl WindowsRepairExecutionMutex {
     pub(crate) fn acquire() -> Result<Self, RepairError> {
         let name = wide(REPAIR_MUTEX_NAME);
-        let handle =
-            unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }.map_err(|error| {
+        let descriptor = repair_mutex_security_descriptor()?;
+        let attributes = SECURITY_ATTRIBUTES {
+            nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+            lpSecurityDescriptor: descriptor.0 .0,
+            bInheritHandle: false.into(),
+        };
+        let handle = unsafe { CreateMutexW(Some(&attributes), false, PCWSTR(name.as_ptr())) }
+            .map_err(|error| {
                 RepairError::CommandFailed(format!(
                     "repair execution mutex creation failed: {error}"
                 ))
             })?;
+        if let Err(error) = validate_repair_mutex_owner(handle) {
+            unsafe {
+                let _ = CloseHandle(handle);
+            }
+            return Err(error);
+        }
         let wait = unsafe { WaitForSingleObject(handle, REPAIR_MUTEX_TIMEOUT_MS) };
         if wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED {
             return Ok(Self {
@@ -91,6 +249,28 @@ impl Drop for WindowsRepairExecutionMutex {
 #[cfg(windows)]
 fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(test)]
+mod mutex_contract_tests {
+    use super::{REPAIR_MUTEX_NAME, REPAIR_MUTEX_SDDL};
+
+    #[test]
+    fn servicing_mutex_contract_is_machine_wide_and_privileged() {
+        assert_eq!(
+            REPAIR_MUTEX_NAME,
+            "Global\\THETECHGUY.NeoDriver.RepairExecutor.v1"
+        );
+        assert_eq!(REPAIR_MUTEX_SDDL, "D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;OW)");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn servicing_mutex_security_descriptor_is_accepted_by_windows() {
+        let descriptor = super::repair_mutex_security_descriptor()
+            .expect("restricted global mutex security descriptor must be valid");
+        assert!(!descriptor.0.is_invalid());
+    }
 }
 
 pub(crate) trait RepairHost {

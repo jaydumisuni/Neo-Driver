@@ -142,7 +142,7 @@ The service must preserve the Phase 12/20 laws:
 - prepare is non-mutating;
 - plan fingerprint + exact action continuity bind prepare to apply;
 - sessions are caller-bound and single-use;
-- Windows apply/resume is serialized across processes by one bounded Neo-owned servicing mutex before durable-version read or mutation;
+- Windows apply/resume is serialized machine-wide across processes and Windows sessions by one bounded `Global\` Neo-owned servicing mutex before durable-version read or mutation; the mutex uses a protected DACL granting full access only to SYSTEM, built-in Administrators, and the object owner; an existing object is accepted only when owned by the current process token's default owner, SYSTEM, or built-in Administrators;
 - durable session versions publish with exclusive/no-replace semantics so a racing writer cannot overwrite an already-owned version;
 - each durable file is `sync_all`-ed before publication, but `cap-std`/`cap-fs-ext` 4.x exposes no portable directory-entry fsync; Phase 21 therefore does **not** claim sudden-power-loss directory-journal durability, and missing/corrupt restart evidence fails closed;
 - capability issuance is crate-private;
