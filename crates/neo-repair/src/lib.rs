@@ -5,17 +5,25 @@
 //! is intended to be issued only by the trusted MCP/RPC service path.
 
 mod error;
+#[cfg(any(windows, test))]
 mod executor;
+#[cfg(any(windows, test))]
 mod host;
+#[cfg(any(windows, test))]
 mod inspection;
 mod model;
 mod operation;
+#[cfg(any(windows, test))]
 mod parse;
+#[cfg(any(windows, test))]
 mod plan;
+#[cfg(any(windows, test))]
 pub mod rpc;
+#[cfg(any(windows, test))]
 mod session_store;
 
 pub use error::RepairError;
+#[cfg(any(windows, test))]
 pub use executor::{RepairExecutionSession, RepairExecutorCapability};
 pub use model::{
     BoundedCommandEvidence, ComponentStoreObservation, ComponentStoreState, FeatureDesiredState,
@@ -23,6 +31,7 @@ pub use model::{
     SystemFileState, WindowsFeatureObservation, WindowsFeatureState, MAX_REPAIR_EVIDENCE_BYTES,
 };
 pub use operation::{RepairBaseline, RepairOperation};
+#[cfg(any(windows, test))]
 pub use plan::RepairExecutionPlan;
 
 #[cfg(windows)]
@@ -43,14 +52,6 @@ pub fn prepare_windows_operation(
 ) -> Result<RepairExecutionSession, RepairError> {
     let host = host::WindowsRepairHost::new()?;
     RepairExecutionSession::prepare_with_host(operation, mission_id, &host)
-}
-
-#[cfg(not(windows))]
-pub fn prepare_windows_operation(
-    _operation: RepairOperation,
-    _mission_id: impl Into<String>,
-) -> Result<RepairExecutionSession, RepairError> {
-    Err(RepairError::UnsupportedPlatform)
 }
 
 #[cfg(test)]
