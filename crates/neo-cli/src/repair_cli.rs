@@ -1,5 +1,5 @@
 use clap::Subcommand;
-use neo_repair::inspect_windows;
+use neo_repair::{inspect_windows_features, inspect_windows_repair_health};
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum RepairCommand {
@@ -18,9 +18,9 @@ pub(crate) enum RepairCommand {
 }
 
 pub(crate) fn run(command: RepairCommand) -> Result<(), String> {
-    let report = inspect_windows().map_err(|error| error.to_string())?;
     match command {
         RepairCommand::Inspect { json } => {
+            let report = inspect_windows_repair_health().map_err(|error| error.to_string())?;
             if json {
                 println!(
                     "{}",
@@ -37,6 +37,7 @@ pub(crate) fn run(command: RepairCommand) -> Result<(), String> {
             }
         }
         RepairCommand::Features { json } => {
+            let report = inspect_windows_features().map_err(|error| error.to_string())?;
             if json {
                 println!(
                     "{}",

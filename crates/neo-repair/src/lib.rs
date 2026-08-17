@@ -27,12 +27,35 @@ pub use error::RepairError;
 pub use executor::{RepairExecutionSession, RepairExecutorCapability};
 pub use model::{
     BoundedCommandEvidence, ComponentStoreObservation, ComponentStoreState, FeatureDesiredState,
-    RepairInspectionReport, RepairTarget, SupportedWindowsFeature, SystemFileObservation,
-    SystemFileState, WindowsFeatureObservation, WindowsFeatureState, MAX_REPAIR_EVIDENCE_BYTES,
+    RepairHealthInspectionReport, RepairInspectionReport, RepairTarget, SupportedWindowsFeature,
+    SystemFileObservation, SystemFileState, WindowsFeatureObservation, WindowsFeatureState,
+    WindowsFeaturesInspectionReport, MAX_REPAIR_EVIDENCE_BYTES,
 };
 pub use operation::{RepairBaseline, RepairOperation};
 #[cfg(any(windows, test))]
 pub use plan::RepairExecutionPlan;
+
+#[cfg(windows)]
+pub fn inspect_windows_repair_health() -> Result<RepairHealthInspectionReport, RepairError> {
+    let host = host::WindowsRepairHost::new()?;
+    inspection::inspect_repair_health_with_host(&host)
+}
+
+#[cfg(not(windows))]
+pub fn inspect_windows_repair_health() -> Result<RepairHealthInspectionReport, RepairError> {
+    Err(RepairError::UnsupportedPlatform)
+}
+
+#[cfg(windows)]
+pub fn inspect_windows_features() -> Result<WindowsFeaturesInspectionReport, RepairError> {
+    let host = host::WindowsRepairHost::new()?;
+    inspection::inspect_features_with_host(&host)
+}
+
+#[cfg(not(windows))]
+pub fn inspect_windows_features() -> Result<WindowsFeaturesInspectionReport, RepairError> {
+    Err(RepairError::UnsupportedPlatform)
+}
 
 #[cfg(windows)]
 pub fn inspect_windows() -> Result<RepairInspectionReport, RepairError> {

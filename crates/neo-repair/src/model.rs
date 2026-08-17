@@ -235,6 +235,25 @@ pub struct WindowsFeatureObservation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepairHealthInspectionReport {
+    pub component_store: ComponentStoreObservation,
+    pub system_files: SystemFileObservation,
+    pub machine_changes: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowsFeaturesInspectionReport {
+    pub features: Vec<WindowsFeatureObservation>,
+    pub machine_changes: bool,
+}
+
+impl WindowsFeaturesInspectionReport {
+    pub fn feature(&self, feature: SupportedWindowsFeature) -> Option<&WindowsFeatureObservation> {
+        self.features.iter().find(|item| item.feature == feature)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RepairInspectionReport {
     pub component_store: ComponentStoreObservation,
     pub system_files: SystemFileObservation,
