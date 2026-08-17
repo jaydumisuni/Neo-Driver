@@ -16,6 +16,7 @@ neo-core = { path = "../neo-core" }
 neo-device = { path = "../neo-device" }
 neo-match = { path = "../neo-match" }
 neo-probe = { path = "../neo-probe" }
+neo-repair = { path = "../neo-repair" }
 neo-runtime = { path = "../neo-runtime" }
 neo-runtime-executor = { path = "../neo-runtime-executor" }
 neo-runtime-probe = { path = "../neo-runtime-probe" }

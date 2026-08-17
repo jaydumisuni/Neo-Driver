@@ -22,6 +22,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install stable Rust
         run: |
           rustup toolchain install stable --profile minimal
@@ -88,6 +93,9 @@ jobs:
       - name: Phase 20 twenty-lane static review
         run: python -W error tools/phase20_static_review.py
 
+      - name: Phase 21 twenty-lane static review
+        run: python -W error tools/phase21_static_review.py
+
       - name: Cargo lockfile proof
         run: |
           cargo generate-lockfile
@@ -104,6 +112,12 @@ jobs:
 
       - name: Rust unit proof
         run: cargo test --workspace --all-targets --locked
+
+      - name: Phase 21 Repair & Windows Features proof
+        run: cargo test --locked -p neo-repair
+
+      - name: Phase 21 trusted Windows command contract proof
+        run: cargo test --locked -p neo-repair command::tests::trusted_command_contract_is_exact
 
       - name: Phase 20 Debloat restore MCP/RPC authority proof
         run: cargo test --locked -p neo-debloat-restore-executor rpc::tests
@@ -138,6 +152,16 @@ jobs:
       - name: Runtime System X-Ray proof
         if: runner.os == 'Windows'
         run: cargo run --locked -p neo-cli -- runtime-scan --json
+
+      - name: Phase 21 read-only Windows repair source proof
+        if: runner.os == 'Windows'
+        timeout-minutes: 20
+        run: cargo run --locked -p neo-cli -- repair inspect --json
+
+      - name: Phase 21 read-only Windows feature source proof
+        if: runner.os == 'Windows'
+        timeout-minutes: 20
+        run: cargo run --locked -p neo-cli -- repair features --json
 
       - name: Catalogue CLI fixture proof
         run: cargo run --locked -p neo-cli -- catalogue validate fixtures/catalogue/sample_driver_catalogue.json

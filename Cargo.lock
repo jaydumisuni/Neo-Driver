@@ -317,6 +317,7 @@ dependencies = [
  "neo-device",
  "neo-match",
  "neo-probe",
+ "neo-repair",
  "neo-runtime",
  "neo-runtime-executor",
  "neo-runtime-probe",
@@ -484,6 +485,23 @@ dependencies = [
  "neo-core",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "neo-repair"
+version = "0.1.0"
+dependencies = [
+ "cap-fs-ext",
+ "cap-std",
+ "neo-core",
+ "neo-probe",
+ "neo-transaction",
+ "neo-vault",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "windows",
 ]
 
 [[package]]
