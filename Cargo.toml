@@ -22,6 +22,7 @@ members = [
     "crates/neo-debloat-history",
     "crates/neo-debloat-restore-executor",
     "crates/neo-debloat-history-store",
+    "crates/neo-repair",
     "crates/neo-cli",
 ]
 
