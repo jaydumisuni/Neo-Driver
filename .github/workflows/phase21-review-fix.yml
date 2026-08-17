@@ -48,8 +48,9 @@ jobs:
           cargo clippy --workspace --all-targets --locked -- -D warnings
           git diff --check
 
-      - name: Commit corrected Phase 21 head
+      - name: Commit corrected Phase 21 source
         run: |
+          git checkout HEAD -- .github/workflows/ci.yml
           git config user.name "THE TECH GUY"
           git config user.email "65334711+jaydumisuni@users.noreply.github.com"
           git add -A
