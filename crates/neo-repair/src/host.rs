@@ -150,6 +150,7 @@ pub(crate) mod testsupport {
         pub(crate) observed: RefCell<Vec<String>>,
         pub(crate) executed: RefCell<Vec<RepairOperation>>,
         pub(crate) fail_execution: RefCell<Option<String>>,
+        pub(crate) execution_exit_code: RefCell<i32>,
         pub(crate) pending_feature_transition: RefCell<bool>,
     }
 
@@ -167,6 +168,7 @@ pub(crate) mod testsupport {
                 observed: RefCell::new(Vec::new()),
                 executed: RefCell::new(Vec::new()),
                 fail_execution: RefCell::new(None),
+                execution_exit_code: RefCell::new(0),
                 pending_feature_transition: RefCell::new(false),
             }
         }
@@ -268,7 +270,9 @@ pub(crate) mod testsupport {
                     self.features.borrow_mut().insert(feature, state);
                 }
             }
-            Ok(Self::evidence("trusted.exe", vec![operation.action_id()]))
+            let mut evidence = Self::evidence("trusted.exe", vec![operation.action_id()]);
+            evidence.exit_code = Some(*self.execution_exit_code.borrow());
+            Ok(evidence)
         }
     }
 }

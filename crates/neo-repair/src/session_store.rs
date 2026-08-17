@@ -20,6 +20,7 @@ const MAX_SESSION_VERSIONS: u64 = 64;
 static NEXT_TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct RepairSessionOwner {
     pub(crate) kind: String,
     pub(crate) principal: String,
@@ -171,6 +172,7 @@ impl RepairResumeSessionStore {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SessionMarker {
     schema_version: u32,
     session_key: String,
@@ -179,6 +181,7 @@ struct SessionMarker {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SessionEnvelope {
     schema_version: u32,
     session_id: String,
@@ -506,15 +509,15 @@ fn open_or_create_session_dir(
     match root.open_dir_nofollow(key) {
         Ok(dir) => Ok((dir, false)),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            match root.create_dir(key) {
-                Ok(()) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            let newly_created = match root.create_dir(key) {
+                Ok(()) => true,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => false,
                 Err(error) => return Err(classify_io(display, error)),
-            }
+            };
             let dir = root
                 .open_dir_nofollow(key)
                 .map_err(|error| classify_io(display, error))?;
-            Ok((dir, true))
+            Ok((dir, newly_created))
         }
         Err(error) => Err(classify_io(display, error)),
     }
@@ -745,6 +748,29 @@ mod tests {
             "identical persistence must be idempotent"
         );
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn persisted_owner_rejects_unknown_fields() {
+        let value = r#"{"kind":"oracle","principal":"owner","extra":"injected"}"#;
+        assert!(serde_json::from_str::<RepairSessionOwner>(value).is_err());
+    }
+
+    #[test]
+    fn existing_session_directory_is_never_reported_as_newly_created() {
+        let (root_path, layout) = temp_layout();
+        let store = RepairResumeSessionStore::new(layout);
+        let root = store.open_or_create_store().unwrap();
+        let key = session_key("phase21:test:creation-race");
+        let display = store.store_root().join(&key);
+
+        let (_first, first_created) = open_or_create_session_dir(&root, &key, &display).unwrap();
+        let (_second, second_created) = open_or_create_session_dir(&root, &key, &display).unwrap();
+
+        assert!(first_created);
+        assert!(!second_created);
+        assert!(display.exists());
+        let _ = fs::remove_dir_all(root_path);
     }
 
     #[test]

@@ -23,6 +23,7 @@ impl RepairExecutorCapability {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RepairExecutionSession {
     plan: RepairExecutionPlan,
     checkpoint: TransactionCheckpoint,
@@ -170,7 +171,8 @@ impl RepairExecutionSession {
         }
 
         let post = self.observe_current(host)?;
-        let reboot_required = operation_pending(self.plan.operation(), &post);
+        let reboot_required =
+            execution.exit_code == Some(3010) || operation_pending(self.plan.operation(), &post);
         self.checkpoint.record_apply_result(ApplyRecord {
             action_id,
             outcome: ApplyOutcome::Success,
@@ -616,6 +618,17 @@ mod tests {
         host.set_feature(feature, WindowsFeatureState::Enabled);
         session.resume_with_host(&capability, &host).unwrap();
         assert_eq!(session.stage(), TransactionStage::Complete);
+    }
+
+    #[test]
+    fn servicing_3010_success_requires_reboot_even_when_feature_state_is_stable() {
+        let feature = SupportedWindowsFeature::VirtualMachinePlatform;
+        let host = FakeRepairHost::new(ComponentStoreState::Healthy, SystemFileState::Healthy);
+        let (mut session, capability) = authorized_feature_session(&host, feature);
+        *host.execution_exit_code.borrow_mut() = 3010;
+        session.apply_with_host(&capability, &host).unwrap();
+        assert_eq!(session.stage(), TransactionStage::AwaitingReboot);
+        assert_eq!(host.executed.borrow().len(), 1);
     }
 
     #[test]

@@ -183,7 +183,7 @@ impl BoundedCommandEvidence {
     }
 
     pub fn succeeded(&self) -> bool {
-        self.start_error.is_none() && self.exit_code == Some(0)
+        self.start_error.is_none() && matches!(self.exit_code, Some(0) | Some(3010))
     }
 
     pub fn truncated(&self) -> bool {
@@ -280,6 +280,21 @@ mod tests {
                 Some(*feature)
             );
         }
+    }
+
+    #[test]
+    fn servicing_reboot_exit_is_successful() {
+        let evidence = BoundedCommandEvidence {
+            program: "dism.exe".to_string(),
+            args: vec!["/Online".to_string()],
+            exit_code: Some(3010),
+            stdout: String::new(),
+            stderr: String::new(),
+            start_error: None,
+            stdout_truncated: false,
+            stderr_truncated: false,
+        };
+        assert!(evidence.succeeded());
     }
 
     #[test]
