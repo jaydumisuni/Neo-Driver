@@ -187,10 +187,11 @@ impl RepairExecutionSession {
         if self.stage() == TransactionStage::Verifying {
             self.verify_current_with_observation(post)?;
             if self.stage() == TransactionStage::RollingBack {
-                self.rollback_feature_with_host(host)?;
-                return Err(RepairError::CommandFailed(
-                    "Windows feature postcondition failed and the captured baseline was restored"
-                        .to_string(),
+                let rollback = self.rollback_feature_with_host(host);
+                return Err(rollback_context_error(
+                    rollback,
+                    "Windows feature postcondition failed and the captured baseline was restored",
+                    "Windows feature postcondition failed",
                 ));
             }
         }
@@ -225,10 +226,11 @@ impl RepairExecutionSession {
                     self.verify_current_with_observation(observed)?;
                 }
                 if self.stage() == TransactionStage::RollingBack {
-                    self.rollback_feature_with_host(host)?;
-                    return Err(RepairError::CommandFailed(
-                        "post-reboot feature verification failed and rollback was required"
-                            .to_string(),
+                    let rollback = self.rollback_feature_with_host(host);
+                    return Err(rollback_context_error(
+                        rollback,
+                        "post-reboot feature verification failed and rollback was required",
+                        "post-reboot feature verification failed",
                     ));
                 }
             }
@@ -239,10 +241,11 @@ impl RepairExecutionSession {
                     self.verify_current_with_observation(observed)?;
                 }
                 if self.stage() == TransactionStage::RollingBack {
-                    self.rollback_feature_with_host(host)?;
-                    return Err(RepairError::CommandFailed(
-                        "blocked feature verification remained unproven and rollback was required"
-                            .to_string(),
+                    let rollback = self.rollback_feature_with_host(host);
+                    return Err(rollback_context_error(
+                        rollback,
+                        "blocked feature verification remained unproven and rollback was required",
+                        "blocked feature verification remained unproven",
                     ));
                 }
             }
@@ -307,7 +310,12 @@ impl RepairExecutionSession {
             reboot_required: false,
         })?;
         if self.stage() == TransactionStage::RollingBack {
-            self.rollback_feature_with_host(host)?;
+            let rollback = self.rollback_feature_with_host(host);
+            return Err(rollback_context_error(
+                rollback,
+                "interrupted Phase 21 apply could not be proven successful from fresh state",
+                "interrupted Phase 21 apply could not be proven successful from fresh state",
+            ));
         }
         Err(RepairError::CommandFailed(
             "interrupted Phase 21 apply could not be proven successful from fresh state"
@@ -519,6 +527,19 @@ fn unavailable_feature(
     }
 }
 
+fn rollback_context_error(
+    rollback: Result<(), RepairError>,
+    restored_detail: &str,
+    failure_detail: &str,
+) -> RepairError {
+    match rollback {
+        Ok(()) => RepairError::CommandFailed(restored_detail.to_string()),
+        Err(error) => {
+            RepairError::CommandFailed(format!("{failure_detail}; rollback also failed: {error}"))
+        }
+    }
+}
+
 fn command_detail(evidence: &crate::model::BoundedCommandEvidence) -> String {
     match (&evidence.start_error, evidence.exit_code) {
         (Some(error), _) => format!("command start failed: {error}"),
@@ -683,6 +704,21 @@ mod tests {
         assert!(session.resume_with_host(&capability, &host).is_err());
         assert_eq!(session.stage(), TransactionStage::Failed);
         assert!(host.executed.borrow().is_empty());
+    }
+
+    #[test]
+    fn rollback_context_keeps_primary_and_secondary_failure_truth() {
+        let error = rollback_context_error(
+            Err(RepairError::CommandFailed(
+                "secondary rollback failure".to_string(),
+            )),
+            "baseline restored",
+            "primary verification failure",
+        );
+        let detail = error.to_string();
+        assert!(detail.contains("primary verification failure"));
+        assert!(detail.contains("secondary rollback failure"));
+        assert!(!detail.contains("baseline restored"));
     }
 
     #[test]
