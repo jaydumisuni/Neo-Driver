@@ -201,6 +201,10 @@ checks = [
         )
         and "persisted_owner_rejects_unknown_fields" in STORE
         and "existing_session_directory_is_never_reported_as_newly_created" in STORE
+        and "version_publication_never_replaces_an_existing_record" in STORE
+        and "dir.hard_link(&temporary, dir, &final_name)" in STORE
+        and "WindowsRepairExecutionMutex" in HOST
+        and RPC.count("WindowsRepairExecutionMutex::acquire()") >= 2
         and "#[serde(deny_unknown_fields)]" in PLAN
         and "#[serde(deny_unknown_fields)]" in EXECUTOR,
     ),
@@ -256,6 +260,7 @@ checks = [
                 "servicing_3010_success_requires_reboot_even_when_feature_state_is_stable",
                 "persisted_owner_rejects_unknown_fields",
                 "existing_session_directory_is_never_reported_as_newly_created",
+                "version_publication_never_replaces_an_existing_record",
                 "malformed_confirmation_does_not_consume_prepared_session",
                 "caller_safe_error_payload_does_not_leak_internal_session_path",
                 "feature_inspection_does_not_probe_component_store_or_sfc",

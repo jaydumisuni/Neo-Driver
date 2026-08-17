@@ -448,9 +448,21 @@ fn write_version(
                 "staged session record changed before publication".to_string(),
             ));
         }
-        dir.rename(&temporary, dir, &final_name)
-            .map_err(|error| classify_io(&display.join(&final_name), error))?;
-        Ok(())
+        match dir.hard_link(&temporary, dir, &final_name) {
+            Ok(()) => {
+                // Publication already succeeded. Temporary cleanup is best-effort so a cleanup
+                // failure cannot turn a durable successful version into a false API failure.
+                let _ = dir.remove_file(&temporary);
+                Ok(())
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                Err(RepairError::InvalidPersistedSession(format!(
+                    "session version publication collided at {}",
+                    display.join(&final_name).display()
+                )))
+            }
+            Err(error) => Err(classify_io(&display.join(&final_name), error)),
+        }
     })();
     if write_result.is_err() {
         let _ = dir.remove_file(&temporary);
@@ -793,5 +805,51 @@ mod tests {
             )
             .is_err());
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn version_publication_never_replaces_an_existing_record() {
+        let (root_path, layout) = temp_layout();
+        let store = RepairResumeSessionStore::new(layout);
+        let root = store.open_or_create_store().unwrap();
+        let owner = RepairSessionOwner::new("oracle", "owner").unwrap();
+        let session = pending_session();
+        let plan_fingerprint = session.plan().transaction().fingerprint().unwrap();
+
+        let first_id = "phase21:test:no-replace";
+        let key = session_key(first_id);
+        let display = store.store_root().join(&key);
+        let (dir, newly_created) = open_or_create_session_dir(&root, &key, &display).unwrap();
+        assert!(newly_created);
+        write_marker(&dir, &key, first_id, &owner).unwrap();
+
+        let first = SessionEnvelope::new(
+            first_id.to_string(),
+            owner.clone(),
+            plan_fingerprint.clone(),
+            session.clone(),
+        )
+        .unwrap();
+        write_version(&dir, &display, 1, &first).unwrap();
+        let final_path = display.join(version_name(1));
+        let original = fs::read(&final_path).unwrap();
+
+        let competitor = SessionEnvelope::new(
+            "phase21:test:competing-writer".to_string(),
+            owner,
+            plan_fingerprint,
+            session,
+        )
+        .unwrap();
+        assert!(matches!(
+            write_version(&dir, &display, 1, &competitor),
+            Err(RepairError::InvalidPersistedSession(_))
+        ));
+        assert_eq!(
+            fs::read(&final_path).unwrap(),
+            original,
+            "a racing writer must never replace an already-published version"
+        );
+        let _ = fs::remove_dir_all(root_path);
     }
 }

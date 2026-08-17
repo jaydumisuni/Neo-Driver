@@ -531,6 +531,9 @@ impl RepairRpcService {
             ));
         }
 
+        #[cfg(windows)]
+        let _execution_lock = crate::host::WindowsRepairExecutionMutex::acquire()?;
+
         let mut pending = self
             .pending
             .remove(&request.session_id)
@@ -601,6 +604,8 @@ impl RepairRpcService {
             ));
         }
         let owner = context.owner()?;
+        #[cfg(windows)]
+        let _execution_lock = crate::host::WindowsRepairExecutionMutex::acquire()?;
         let mut stored = self
             .store
             .load_latest(&request.session_id)?

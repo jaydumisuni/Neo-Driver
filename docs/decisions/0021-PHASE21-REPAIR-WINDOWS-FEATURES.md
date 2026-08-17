@@ -141,6 +141,8 @@ The service must preserve the Phase 12/20 laws:
 - prepare is non-mutating;
 - plan fingerprint + exact action continuity bind prepare to apply;
 - sessions are caller-bound and single-use;
+- Windows apply/resume is serialized across processes by one bounded Neo-owned servicing mutex before durable-version read or mutation;
+- durable session versions publish with exclusive/no-replace semantics so a racing writer cannot overwrite an already-owned version;
 - capability issuance is crate-private;
 - replay, stale/mismatched confirmation, and action drift fail closed;
 - client-visible errors use stable codes/messages; internal OS output/details remain operator evidence.

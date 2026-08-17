@@ -8,6 +8,73 @@ use crate::operation::RepairOperation;
 use crate::parse::{component_store_observation, feature_observation, system_file_observation};
 #[cfg(windows)]
 use neo_probe::{CommandEvidence, CommandRunner, SystemCommandRunner};
+#[cfg(windows)]
+use windows::core::PCWSTR;
+#[cfg(windows)]
+use windows::Win32::Foundation::{
+    CloseHandle, HANDLE, WAIT_ABANDONED, WAIT_OBJECT_0, WAIT_TIMEOUT,
+};
+#[cfg(windows)]
+use windows::Win32::System::Threading::{CreateMutexW, ReleaseMutex, WaitForSingleObject};
+
+#[cfg(windows)]
+const REPAIR_MUTEX_NAME: &str = "Local\\THETECHGUY.NeoDriver.RepairExecutor.v1";
+#[cfg(windows)]
+const REPAIR_MUTEX_TIMEOUT_MS: u32 = 300_000;
+
+#[cfg(windows)]
+pub(crate) struct WindowsRepairExecutionMutex {
+    handle: HANDLE,
+    acquired: bool,
+}
+
+#[cfg(windows)]
+impl WindowsRepairExecutionMutex {
+    pub(crate) fn acquire() -> Result<Self, RepairError> {
+        let name = wide(REPAIR_MUTEX_NAME);
+        let handle =
+            unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }.map_err(|error| {
+                RepairError::CommandFailed(format!(
+                    "repair execution mutex creation failed: {error}"
+                ))
+            })?;
+        let wait = unsafe { WaitForSingleObject(handle, REPAIR_MUTEX_TIMEOUT_MS) };
+        if wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED {
+            return Ok(Self {
+                handle,
+                acquired: true,
+            });
+        }
+        unsafe {
+            let _ = CloseHandle(handle);
+        }
+        if wait == WAIT_TIMEOUT {
+            return Err(RepairError::CommandFailed(format!(
+                "repair execution mutex wait timed out after {REPAIR_MUTEX_TIMEOUT_MS} ms"
+            )));
+        }
+        Err(RepairError::CommandFailed(format!(
+            "repair execution mutex wait failed with status {wait:?}"
+        )))
+    }
+}
+
+#[cfg(windows)]
+impl Drop for WindowsRepairExecutionMutex {
+    fn drop(&mut self) {
+        unsafe {
+            if self.acquired {
+                let _ = ReleaseMutex(self.handle);
+            }
+            let _ = CloseHandle(self.handle);
+        }
+    }
+}
+
+#[cfg(windows)]
+fn wide(value: &str) -> Vec<u16> {
+    value.encode_utf16().chain(std::iter::once(0)).collect()
+}
 
 pub(crate) trait RepairHost {
     fn observe_component_store(&self) -> Result<ComponentStoreObservation, RepairError>;
