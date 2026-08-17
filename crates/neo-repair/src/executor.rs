@@ -541,6 +541,9 @@ fn rollback_context_error(
 }
 
 fn command_detail(evidence: &crate::model::BoundedCommandEvidence) -> String {
+    if evidence.timed_out {
+        return "trusted Windows command exceeded the bounded servicing deadline".to_string();
+    }
     match (&evidence.start_error, evidence.exit_code) {
         (Some(error), _) => format!("command start failed: {error}"),
         (None, Some(code)) => format!("trusted Windows command exited with code {code}"),

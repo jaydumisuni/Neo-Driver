@@ -162,6 +162,8 @@ pub struct BoundedCommandEvidence {
     pub stdout: String,
     pub stderr: String,
     pub start_error: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub timed_out: bool,
     pub stdout_truncated: bool,
     pub stderr_truncated: bool,
 }
@@ -177,13 +179,16 @@ impl BoundedCommandEvidence {
             stdout,
             stderr,
             start_error: value.start_error,
+            timed_out: false,
             stdout_truncated,
             stderr_truncated,
         }
     }
 
     pub fn succeeded(&self) -> bool {
-        self.start_error.is_none() && matches!(self.exit_code, Some(0) | Some(3010))
+        self.start_error.is_none()
+            && !self.timed_out
+            && matches!(self.exit_code, Some(0) | Some(3010))
     }
 
     pub fn truncated(&self) -> bool {
@@ -199,6 +204,10 @@ impl BoundedCommandEvidence {
             format!("{}\n{}", self.stdout, self.stderr)
         }
     }
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 fn truncate_utf8(value: &str, maximum_bytes: usize) -> (String, bool) {
@@ -313,10 +322,25 @@ mod tests {
             stdout: String::new(),
             stderr: String::new(),
             start_error: None,
+            timed_out: false,
             stdout_truncated: false,
             stderr_truncated: false,
         };
         assert!(evidence.succeeded());
+    }
+
+    #[test]
+    fn timed_out_command_is_never_successful() {
+        let mut evidence = BoundedCommandEvidence::from_command(CommandEvidence {
+            program: "dism.exe".to_string(),
+            args: vec!["/Online".to_string()],
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+            start_error: None,
+        });
+        evidence.timed_out = true;
+        assert!(!evidence.succeeded());
     }
 
     #[test]

@@ -371,6 +371,7 @@ mod tests {
             stdout: String::new(),
             stderr: String::new(),
             start_error: None,
+            timed_out: false,
             stdout_truncated: false,
             stderr_truncated: false,
         }

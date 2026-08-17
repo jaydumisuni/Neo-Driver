@@ -592,8 +592,12 @@ impl RepairRpcService {
         let persist_result =
             self.store
                 .persist(&request.session_id, &pending.owner, &pending.session);
-        let persisted =
-            resolve_post_mutation_persist(execution_result, persist_result, write_ahead.version)?;
+        let persisted = resolve_post_mutation_persist(
+            execution_result,
+            persist_result,
+            write_ahead.version,
+            |persisted| is_resumable(persisted.session.stage()).then_some(persisted.version),
+        )?;
         if persisted.version < write_ahead.version {
             return Err(RepairRpcError::Repair(RepairError::SessionStore(
                 "persisted repair version regressed".to_string(),
@@ -669,8 +673,12 @@ impl RepairRpcService {
         let persist_result =
             self.store
                 .persist(&request.session_id, &stored.owner, &stored.session);
-        let persisted =
-            resolve_post_mutation_persist(resume_result, persist_result, last_known_version)?;
+        let persisted = resolve_post_mutation_persist(
+            resume_result,
+            persist_result,
+            last_known_version,
+            |persisted| is_resumable(persisted.session.stage()).then_some(persisted.version),
+        )?;
         Ok(execution_receipt(
             REPAIR_RPC_RESUME_TOOL,
             REPAIR_RPC_RESUME_METHOD,
@@ -707,9 +715,20 @@ fn resolve_post_mutation_persist<T>(
     operation_result: Result<(), RepairError>,
     persist_result: Result<T, RepairError>,
     last_known_version: u64,
+    persisted_resume_version: impl FnOnce(&T) -> Option<u64>,
 ) -> Result<T, RepairRpcError> {
     match (operation_result, persist_result) {
-        (Err(operation_error), Ok(_)) => Err(operation_error.into()),
+        (Err(operation_error), Ok(persisted)) => {
+            if let Some(persisted_version) = persisted_resume_version(&persisted) {
+                Err(RepairRpcError::RepairWithResume {
+                    source: operation_error,
+                    persistence: None,
+                    persisted_version,
+                })
+            } else {
+                Err(operation_error.into())
+            }
+        }
         (Err(operation_error), Err(persist_error)) => Err(RepairRpcError::RepairWithResume {
             source: operation_error,
             persistence: Some(persist_error),
@@ -750,13 +769,7 @@ fn execution_receipt(
         plan_fingerprint,
         stage: stage_name(session.stage()).to_string(),
         persisted_version,
-        resume_required: matches!(
-            session.stage(),
-            TransactionStage::Applying
-                | TransactionStage::AwaitingReboot
-                | TransactionStage::Blocked
-                | TransactionStage::AwaitingRollbackReboot
-        ),
+        resume_required: is_resumable(session.stage()),
         machine_changes: true,
     }
 }
@@ -776,6 +789,16 @@ fn stage_name(stage: TransactionStage) -> &'static str {
         TransactionStage::Failed => "failed",
         TransactionStage::Blocked => "blocked",
     }
+}
+
+fn is_resumable(stage: TransactionStage) -> bool {
+    matches!(
+        stage,
+        TransactionStage::Applying
+            | TransactionStage::AwaitingReboot
+            | TransactionStage::Blocked
+            | TransactionStage::AwaitingRollbackReboot
+    )
 }
 
 fn is_terminal(stage: TransactionStage) -> bool {
@@ -1047,6 +1070,7 @@ mod tests {
                 "secondary persistence failure".to_string(),
             )),
             7,
+            |_| None,
         )
         .unwrap_err();
         assert_eq!(error.code(), "execution_failed");
@@ -1070,10 +1094,34 @@ mod tests {
             Ok(()),
             Err(RepairError::SessionStore("persistence failure".to_string())),
             11,
+            |_| None,
         )
         .unwrap_err();
         assert_eq!(error.code(), "session_store_failed");
         assert_eq!(error.payload().resume_version, Some(11));
+    }
+
+    #[test]
+    fn failed_operation_with_new_resumable_persist_exposes_new_version() {
+        let error = resolve_post_mutation_persist(
+            Err(RepairError::CommandFailed(
+                "post-mutation verification failure".to_string(),
+            )),
+            Ok(13_u64),
+            12,
+            |persisted| Some(*persisted),
+        )
+        .unwrap_err();
+        assert_eq!(error.code(), "execution_failed");
+        assert_eq!(error.payload().resume_version, Some(13));
+        assert!(matches!(
+            error,
+            RepairRpcError::RepairWithResume {
+                persistence: None,
+                persisted_version: 13,
+                ..
+            }
+        ));
     }
 
     #[test]

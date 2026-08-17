@@ -51,7 +51,7 @@ pub(crate) fn component_store_observation(
 }
 
 pub(crate) fn system_file_observation(evidence: BoundedCommandEvidence) -> SystemFileObservation {
-    if let Some((detail, elevation_required)) = unavailable_reason(&evidence) {
+    if let Some((detail, elevation_required)) = unavailable_before_semantic_parse(&evidence) {
         return SystemFileObservation {
             state: SystemFileState::Unavailable,
             elevation_required,
@@ -60,19 +60,30 @@ pub(crate) fn system_file_observation(evidence: BoundedCommandEvidence) -> Syste
         };
     }
     let text = normalized_text(&evidence);
+    if text.contains("windows resource protection found integrity violations")
+        || text.contains("windows resource protection found corrupt files")
+    {
+        return SystemFileObservation {
+            state: SystemFileState::IntegrityViolations,
+            elevation_required: false,
+            detail: "SFC reports protected-system-file integrity violations.".to_string(),
+            evidence,
+        };
+    }
+    if let Some((detail, elevation_required)) = failed_exit_reason(&evidence) {
+        return SystemFileObservation {
+            state: SystemFileState::Unavailable,
+            elevation_required,
+            detail,
+            evidence,
+        };
+    }
     let (state, detail) = if text
         .contains("windows resource protection did not find any integrity violations")
     {
         (
             SystemFileState::Healthy,
             "SFC reports no protected-system-file integrity violations.".to_string(),
-        )
-    } else if text.contains("windows resource protection found integrity violations")
-        || text.contains("windows resource protection found corrupt files")
-    {
-        (
-            SystemFileState::IntegrityViolations,
-            "SFC reports protected-system-file integrity violations.".to_string(),
         )
     } else if text.contains("windows resource protection could not perform the requested operation")
     {
@@ -168,7 +179,7 @@ fn contains_state(text: &str, expected: &str) -> bool {
     })
 }
 
-fn unavailable_reason(evidence: &BoundedCommandEvidence) -> Option<(String, bool)> {
+fn unavailable_before_semantic_parse(evidence: &BoundedCommandEvidence) -> Option<(String, bool)> {
     if evidence.truncated() {
         return Some((
             "Windows command output exceeded the Phase 21 evidence bound.".to_string(),
@@ -177,6 +188,13 @@ fn unavailable_reason(evidence: &BoundedCommandEvidence) -> Option<(String, bool
     }
     if let Some(error) = &evidence.start_error {
         return Some((format!("Windows command could not start: {error}"), false));
+    }
+    if evidence.timed_out {
+        return Some((
+            "Windows servicing command exceeded the Phase 21 bounded execution deadline."
+                .to_string(),
+            false,
+        ));
     }
     let text = normalized_text(evidence);
     if evidence.exit_code == Some(ELEVATION_EXIT_CODE)
@@ -194,6 +212,10 @@ fn unavailable_reason(evidence: &BoundedCommandEvidence) -> Option<(String, bool
             false,
         ));
     }
+    None
+}
+
+fn failed_exit_reason(evidence: &BoundedCommandEvidence) -> Option<(String, bool)> {
     if evidence.exit_code != Some(0) {
         return Some((
             format!(
@@ -204,6 +226,10 @@ fn unavailable_reason(evidence: &BoundedCommandEvidence) -> Option<(String, bool
         ));
     }
     None
+}
+
+fn unavailable_reason(evidence: &BoundedCommandEvidence) -> Option<(String, bool)> {
+    unavailable_before_semantic_parse(evidence).or_else(|| failed_exit_reason(evidence))
 }
 
 fn normalized_text(evidence: &BoundedCommandEvidence) -> String {
@@ -267,6 +293,28 @@ mod tests {
         assert_eq!(observed.state, SystemFileState::Unavailable);
         assert!(observed.elevation_required);
         assert!(observed.detail.to_ascii_lowercase().contains("elevated"));
+    }
+
+    #[test]
+    fn sfc_integrity_text_is_not_hidden_by_nonzero_exit() {
+        let observed = system_file_observation(evidence(
+            1,
+            "Windows Resource Protection found integrity violations.",
+        ));
+        assert_eq!(observed.state, SystemFileState::IntegrityViolations);
+        assert!(!observed.elevation_required);
+    }
+
+    #[test]
+    fn timed_out_sfc_evidence_is_unavailable_even_with_partial_success_text() {
+        let mut timed_out = evidence(
+            0,
+            "Windows Resource Protection did not find any integrity violations.",
+        );
+        timed_out.timed_out = true;
+        let observed = system_file_observation(timed_out);
+        assert_eq!(observed.state, SystemFileState::Unavailable);
+        assert!(observed.detail.to_ascii_lowercase().contains("deadline"));
     }
 
     #[test]

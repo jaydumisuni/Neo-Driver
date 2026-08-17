@@ -44,6 +44,66 @@ def _unquote(value: str) -> str:
     return value
 
 
+def _inline_list(value: str) -> tuple[str, ...]:
+    value = value.strip()
+    if not (value.startswith("[") and value.endswith("]")):
+        return ()
+    return tuple(
+        _unquote(item)
+        for item in value[1:-1].split(",")
+        if item.strip()
+    )
+
+
+def parse_ci_strategy(text: str, job_name: str) -> dict[str, object]:
+    strategy: dict[str, object] = {}
+    in_jobs = False
+    in_job = False
+    in_strategy = False
+    in_matrix = False
+
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        if indent == 0:
+            in_jobs = stripped == "jobs:"
+            in_job = False
+            in_strategy = False
+            in_matrix = False
+            continue
+        if not in_jobs:
+            continue
+        if indent == 2 and stripped.endswith(":"):
+            in_job = stripped[:-1] == job_name
+            in_strategy = False
+            in_matrix = False
+            continue
+        if not in_job:
+            continue
+        if indent == 4:
+            in_strategy = stripped == "strategy:"
+            in_matrix = False
+            continue
+        if not in_strategy:
+            continue
+        if indent == 6:
+            if stripped == "matrix:":
+                in_matrix = True
+                continue
+            key, sep, value = stripped.partition(":")
+            if sep:
+                strategy[key] = _unquote(value)
+            continue
+        if in_matrix and indent == 8:
+            key, sep, value = stripped.partition(":")
+            if sep:
+                strategy[f"matrix.{key}"] = _inline_list(value)
+
+    return strategy
+
+
 def parse_ci_job(text: str, job_name: str) -> tuple[dict[str, str], list[dict[str, str]]]:
     job: dict[str, str] = {}
     steps: list[dict[str, str]] = []
@@ -115,10 +175,18 @@ def parse_ci_job(text: str, job_name: str) -> tuple[dict[str, str], list[dict[st
 
 def ci_step_matches(name: str, **expected: str) -> bool:
     matches = [step for step in CI_STEPS if step.get("name") == name]
-    return len(matches) == 1 and all(matches[0].get(key) == value for key, value in expected.items())
+    if len(matches) != 1:
+        return False
+    step = matches[0]
+    if step.get("continue-on-error", "").lower() in {"true", "1", "yes"}:
+        return False
+    if "if" not in expected and "if" in step:
+        return False
+    return all(step.get(key) == value for key, value in expected.items())
 
 
 CI_JOB, CI_STEPS = parse_ci_job(CI, "engineering-proof")
+CI_STRATEGY = parse_ci_strategy(CI, "engineering-proof")
 members = set(WORKSPACE["workspace"]["members"])
 fixed_features = (
     '"NetFx3"',
@@ -204,6 +272,11 @@ checks = [
                 "exit_code",
             ),
         )
+        and "pub timed_out: bool" in MODEL
+        and "timed_out_command_is_never_successful" in MODEL
+        and "REPAIR_COMMAND_TIMEOUT_SECONDS" in HOST
+        and "run_bounded_command" in HOST
+        and "servicing_process_is_killed_at_the_bounded_deadline" in HOST
         and "command_evidence_is_bounded_at_utf8_boundary" in MODEL,
     ),
     (
@@ -214,6 +287,8 @@ checks = [
     (
         "system-file-parsing",
         has_all(MODEL, ("SystemFileState", "IntegrityViolations", "Unavailable"))
+        and "sfc_integrity_text_is_not_hidden_by_nonzero_exit" in PARSE
+        and "timed_out_sfc_evidence_is_unavailable_even_with_partial_success_text" in PARSE
         and "sfc_verifyonly_states_are_distinct" in PARSE,
     ),
     (
@@ -345,6 +420,10 @@ checks = [
     (
         "regression-and-ci-continuity",
         CI_JOB.get("runs-on") == "${{ matrix.os }}"
+        and CI_JOB.get("if", "") == ""
+        and CI_JOB.get("continue-on-error", "").lower() not in {"true", "1", "yes"}
+        and CI_STRATEGY.get("fail-fast") == "false"
+        and CI_STRATEGY.get("matrix.os") == ("ubuntu-latest", "windows-latest")
         and ci_step_matches(
             "Set up Python 3.11",
             uses="actions/setup-python@v5",
