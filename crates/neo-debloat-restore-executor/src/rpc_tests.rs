@@ -238,12 +238,13 @@ fn policy_and_prepare_scope_fail_before_history_selection() {
     let root = TempRoot::new("policy");
     let owner = caller(DebloatRestoreRpcCallerKind::Hunter, "owner:john");
     let outsider = caller(DebloatRestoreRpcCallerKind::Hunter, "user:outsider");
-    let (mut service, record_id, inventory) = service(&root, std::slice::from_ref(&owner));
+    let (mut service, _record_id, inventory) = service(&root, std::slice::from_ref(&owner));
+    let missing = DebloatHistoryRecordId::new("0".repeat(64)).expect("canonical record id");
 
     let unauthorized = service
         .prepare_with_inventory(
             &context(outsider, &[DEBLOAT_RESTORE_PREPARE_PERMISSION_SCOPE]),
-            prepare_request(&record_id, "unauthorized"),
+            prepare_request(&missing, "unauthorized"),
             &inventory,
         )
         .expect_err("unapproved caller must fail");
@@ -255,7 +256,7 @@ fn policy_and_prepare_scope_fail_before_history_selection() {
     let denied = service
         .prepare_with_inventory(
             &context(owner, &[]),
-            prepare_request(&record_id, "missing-scope"),
+            prepare_request(&missing, "missing-scope"),
             &inventory,
         )
         .expect_err("missing prepare scope must fail");

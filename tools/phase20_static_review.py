@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +39,44 @@ def appears_before(text: str, first: str, second: str) -> bool:
     return left >= 0 and right >= 0 and left < right
 
 
+def rust_struct_item(text: str, name: str) -> str:
+    marker = f"pub struct {name}"
+    marker_pos = text.find(marker)
+    if marker_pos < 0:
+        return ""
+    start = text.rfind("\n\n", 0, marker_pos) + 2
+    brace_start = text.find("{", marker_pos)
+    if brace_start < 0:
+        return ""
+    depth = 0
+    for index in range(brace_start, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return ""
+
+
+def has_deserialize_impl(text: str, name: str) -> bool:
+    for match in re.finditer(r"\bimpl\b", text):
+        brace = text.find("{", match.start())
+        if brace < 0:
+            continue
+        header = text[match.start() : brace]
+        if "Deserialize" in header and re.search(rf"\bfor\s+{re.escape(name)}\b", header):
+            return True
+    return False
+
+
+TRUSTED_CONTEXT = rust_struct_item(RPC, "DebloatRestoreRpcContext")
+TRUSTED_CALLER = rust_struct_item(RPC, "DebloatRestoreRpcCaller")
+PREPARE_REQUEST = rust_struct_item(RPC, "DebloatRestoreRpcPrepareRequest")
+APPLY_REQUEST = rust_struct_item(RPC, "DebloatRestoreRpcApplyRequest")
+
+
 required_errors = (
     "InvalidRequest",
     "UnauthorizedCaller",
@@ -69,20 +108,27 @@ checks = [
     ),
     (
         "trusted-transport-context",
-        "#[derive(Debug, Clone, PartialEq, Eq, Serialize)]\npub struct DebloatRestoreRpcContext"
-        in RPC
-        and "#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]\npub struct DebloatRestoreRpcCaller"
-        in RPC
-        and "Deserialize)]\npub struct DebloatRestoreRpcContext" not in RPC
-        and "Deserialize)]\npub struct DebloatRestoreRpcCaller" not in RPC,
+        "pub struct DebloatRestoreRpcContext" in TRUSTED_CONTEXT
+        and "Serialize" in TRUSTED_CONTEXT
+        and "Deserialize" not in TRUSTED_CONTEXT
+        and not has_deserialize_impl(RPC, "DebloatRestoreRpcContext")
+        and "pub struct DebloatRestoreRpcCaller" in TRUSTED_CALLER
+        and "Serialize" in TRUSTED_CALLER
+        and "Deserialize" not in TRUSTED_CALLER
+        and not has_deserialize_impl(RPC, "DebloatRestoreRpcCaller"),
     ),
     (
         "untrusted-request-shape",
-        RPC.count("#[serde(deny_unknown_fields)]") == 2
-        and "pub struct DebloatRestoreRpcPrepareRequest" in RPC
-        and "pub struct DebloatRestoreRpcApplyRequest" in RPC
-        and "caller:" not in RPC.split("pub struct DebloatRestoreRpcPrepareRequest", 1)[1].split("}", 1)[0]
-        and "granted_scopes:" not in RPC.split("pub struct DebloatRestoreRpcApplyRequest", 1)[1].split("}", 1)[0]
+        "pub struct DebloatRestoreRpcPrepareRequest" in PREPARE_REQUEST
+        and "#[serde(deny_unknown_fields)]" in PREPARE_REQUEST
+        and "Deserialize" in PREPARE_REQUEST
+        and "caller:" not in PREPARE_REQUEST
+        and "granted_scopes:" not in PREPARE_REQUEST
+        and "pub struct DebloatRestoreRpcApplyRequest" in APPLY_REQUEST
+        and "#[serde(deny_unknown_fields)]" in APPLY_REQUEST
+        and "Deserialize" in APPLY_REQUEST
+        and "caller:" not in APPLY_REQUEST
+        and "granted_scopes:" not in APPLY_REQUEST
         and "request_json_cannot_deserialize_trusted_caller_or_scope_context" in RPC_TESTS,
     ),
     (
@@ -95,8 +141,11 @@ checks = [
                 "UnauthorizedCaller",
             ),
         )
-        and "policy_and_prepare_scope_fail_before_history_selection" in RPC_TESTS,
-    ),
+        and "policy_and_prepare_scope_fail_before_history_selection" in RPC_TESTS
+        and 'DebloatHistoryRecordId::new("0".repeat(64))' in RPC_TESTS
+        and 'prepare_request(&missing, "unauthorized")' in RPC_TESTS
+        and 'prepare_request(&missing, "missing-scope")' in RPC_TESTS,
+     ),
     (
         "scoped-permissions",
         has_all(
