@@ -171,6 +171,7 @@ fn unavailable_reason(evidence: &BoundedCommandEvidence) -> Option<String> {
     let text = normalized_text(evidence);
     if evidence.exit_code == Some(ELEVATION_EXIT_CODE)
         || text.contains("elevated permissions are required")
+        || text.contains("you must be an administrator running a console session")
     {
         return Some("Elevated Windows servicing read authority is required.".to_string());
     }
@@ -187,7 +188,10 @@ fn unavailable_reason(evidence: &BoundedCommandEvidence) -> Option<String> {
 }
 
 fn normalized_text(evidence: &BoundedCommandEvidence) -> String {
-    evidence.combined_text().to_ascii_lowercase()
+    // SFC emits UTF-16LE console text on supported Windows builds. The shared
+    // command evidence boundary preserves those bytes as NUL-separated scalar
+    // text, so remove NUL separators before deterministic English-token parsing.
+    evidence.combined_text().replace('\0', "").to_ascii_lowercase()
 }
 
 #[cfg(test)]
@@ -230,6 +234,14 @@ mod tests {
             "Elevated permissions are required to run DISM.",
         ));
         assert_eq!(observed.state, ComponentStoreState::Unavailable);
+        assert!(observed.detail.to_ascii_lowercase().contains("elevated"));
+    }
+
+    #[test]
+    fn nul_separated_sfc_admin_failure_is_elevation_required() {
+        let text = "Y\0o\0u\0 \0m\0u\0s\0t\0 \0b\0e\0 \0a\0n\0 \0a\0d\0m\0i\0n\0i\0s\0t\0r\0a\0t\0o\0r\0 \0r\0u\0n\0n\0i\0n\0g\0 \0a\0 \0c\0o\0n\0s\0o\0l\0e\0 \0s\0e\0s\0s\0i\0o\0n\0 \0i\0n\0 \0o\0r\0d\0e\0r\0 \0t\0o\0 \0u\0s\0e\0 \0t\0h\0e\0 \0S\0F\0C\0 \0u\0t\0i\0l\0i\0t\0y\0.\0";
+        let observed = system_file_observation(evidence(1, text));
+        assert_eq!(observed.state, SystemFileState::Unavailable);
         assert!(observed.detail.to_ascii_lowercase().contains("elevated"));
     }
 
