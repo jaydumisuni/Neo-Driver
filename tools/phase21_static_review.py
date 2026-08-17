@@ -93,6 +93,10 @@ checks = [
     (
         "elevation-truth",
         "ELEVATION_EXIT_CODE: i32 = 740" in PARSE
+        and MODEL.count("pub elevation_required: bool") == 3
+        and "from_unavailable_observation" in (PLAN + EXECUTOR)
+        and '.contains("elevated")' not in PLAN
+        and '.contains("elevated")' not in EXECUTOR
         and "elevation_failure_never_becomes_a_state_claim" in PARSE
         and "nul_separated_sfc_admin_failure_is_elevation_required" in PARSE,
     ),
@@ -126,6 +130,8 @@ checks = [
         all(value in MODEL for value in fixed_features)
         and "fixed_feature_catalogue_is_unique" in MODEL
         and "feature_identity_is_closed_over_the_frozen_catalogue" in REVIEW_TESTS
+        and "SupportedWindowsFeature::WindowsSandbox" in REVIEW_TESTS
+        and "assert_eq!(" in REVIEW_TESTS
         and has_all(MODEL, ("EnablePending", "DisablePending", "Removed", "Unavailable"))
         and "feature_states_require_explicit_state_line" in PARSE,
     ),
@@ -205,6 +211,8 @@ checks = [
         and "dir.hard_link(&temporary, dir, &final_name)" in STORE
         and "WindowsRepairExecutionMutex" in HOST
         and RPC.count("WindowsRepairExecutionMutex::acquire()") >= 2
+        and "directory-entry fsync" in DECISION
+        and "sudden-power-loss" in DECISION
         and "#[serde(deny_unknown_fields)]" in PLAN
         and "#[serde(deny_unknown_fields)]" in EXECUTOR,
     ),
@@ -214,6 +222,8 @@ checks = [
         and "self.policy.authorize(context" in RPC
         and "authorization_happens_before_machine_evidence_lookup" in RPC
         and "raw_requests_reject_trusted_context_injection" in RPC
+        and "caller_safe_error_payload_does_not_leak_internal_session_path" in RPC
+        and '#[error("Phase 21 repair service failure")]' in RPC
         and has_all(
             RPC,
             (
@@ -249,6 +259,9 @@ checks = [
         and "cargo test --locked -p neo-repair" in CI
         and "Phase 21 read-only Windows repair source proof" in CI
         and "Phase 21 read-only Windows feature source proof" in CI
+        and "actions/setup-python@v5" in CI
+        and 'python-version: "3.11"' in CI
+        and CI.count("timeout-minutes: 20") >= 2
         and "Phase 20 twenty-lane static review" in CI,
     ),
     (
@@ -261,6 +274,7 @@ checks = [
                 "persisted_owner_rejects_unknown_fields",
                 "existing_session_directory_is_never_reported_as_newly_created",
                 "version_publication_never_replaces_an_existing_record",
+                "rollback_command_start_failure_is_recorded_and_terminal",
                 "malformed_confirmation_does_not_consume_prepared_session",
                 "caller_safe_error_payload_does_not_leak_internal_session_path",
                 "feature_inspection_does_not_probe_component_store_or_sfc",

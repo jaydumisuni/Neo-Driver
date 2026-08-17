@@ -15,7 +15,8 @@ Phase 21 supports exactly these first-class repair/feature capabilities:
 1. **Component Store**
    - inspect with fixed `dism.exe /Online /Cleanup-Image /CheckHealth /English`;
    - repair with fixed `dism.exe /Online /NoRestart /Cleanup-Image /RestoreHealth /English`;
-   - no caller-supplied DISM source path, `/LimitAccess`, cleanup/reset-base, offline image, mount, package, or arbitrary arguments in this phase.
+   - no caller-supplied DISM source path, `/LimitAccess`, cleanup/reset-base, offline image, mount, package, or arbitrary arguments in this phase;
+   - the fixed RestoreHealth route intentionally retains DISM's default repair-source resolution, which may consult Windows Update after configured sources; this is Microsoft servicing-source behavior, **not** Neo authority to reset, configure, purge, or otherwise control Windows Update.
 2. **Protected System Files**
    - inspect with fixed `sfc.exe /verifyonly`;
    - repair with fixed `sfc.exe /scannow`;
@@ -143,6 +144,7 @@ The service must preserve the Phase 12/20 laws:
 - sessions are caller-bound and single-use;
 - Windows apply/resume is serialized across processes by one bounded Neo-owned servicing mutex before durable-version read or mutation;
 - durable session versions publish with exclusive/no-replace semantics so a racing writer cannot overwrite an already-owned version;
+- each durable file is `sync_all`-ed before publication, but `cap-std`/`cap-fs-ext` 4.x exposes no portable directory-entry fsync; Phase 21 therefore does **not** claim sudden-power-loss directory-journal durability, and missing/corrupt restart evidence fails closed;
 - capability issuance is crate-private;
 - replay, stale/mismatched confirmation, and action drift fail closed;
 - client-visible errors use stable codes/messages; internal OS output/details remain operator evidence.

@@ -235,6 +235,7 @@ pub(crate) mod testsupport {
         pub(crate) observed: RefCell<Vec<String>>,
         pub(crate) executed: RefCell<Vec<RepairOperation>>,
         pub(crate) fail_execution: RefCell<Option<String>>,
+        pub(crate) fail_operation: RefCell<Option<RepairOperation>>,
         pub(crate) execution_exit_code: RefCell<i32>,
         pub(crate) pending_feature_transition: RefCell<bool>,
     }
@@ -253,6 +254,7 @@ pub(crate) mod testsupport {
                 observed: RefCell::new(Vec::new()),
                 executed: RefCell::new(Vec::new()),
                 fail_execution: RefCell::new(None),
+                fail_operation: RefCell::new(None),
                 execution_exit_code: RefCell::new(0),
                 pending_feature_transition: RefCell::new(false),
             }
@@ -292,6 +294,7 @@ pub(crate) mod testsupport {
             let state = *self.component.borrow();
             Ok(ComponentStoreObservation {
                 state,
+                elevation_required: false,
                 detail: format!("fake component store state: {state:?}"),
                 evidence: Self::evidence("dism.exe", vec!["/CheckHealth".to_string()]),
             })
@@ -302,6 +305,7 @@ pub(crate) mod testsupport {
             let state = *self.system_files.borrow();
             Ok(SystemFileObservation {
                 state,
+                elevation_required: false,
                 detail: format!("fake system file state: {state:?}"),
                 evidence: Self::evidence("sfc.exe", vec!["/verifyonly".to_string()]),
             })
@@ -323,6 +327,7 @@ pub(crate) mod testsupport {
             Ok(WindowsFeatureObservation {
                 feature,
                 state,
+                elevation_required: false,
                 detail: format!("fake feature state: {state:?}"),
                 evidence: Self::evidence("dism.exe", vec![feature.dism_name().to_string()]),
             })
@@ -332,6 +337,13 @@ pub(crate) mod testsupport {
             &self,
             operation: RepairOperation,
         ) -> Result<BoundedCommandEvidence, RepairError> {
+            if self.fail_operation.borrow().as_ref() == Some(&operation) {
+                self.fail_operation.borrow_mut().take();
+                return Err(RepairError::CommandFailed(format!(
+                    "configured command-start failure for {}",
+                    operation.action_id()
+                )));
+            }
             if let Some(error) = self.fail_execution.borrow_mut().take() {
                 return Err(RepairError::CommandFailed(error));
             }

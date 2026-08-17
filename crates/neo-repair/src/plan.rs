@@ -39,7 +39,12 @@ impl RepairExecutionPlan {
                     "component store is not repairable by DISM RestoreHealth".to_string(),
                 ))
             }
-            ComponentStoreState::Unavailable => return unavailable(&observation.detail),
+            ComponentStoreState::Unavailable => {
+                return Err(RepairError::from_unavailable_observation(
+                    observation.elevation_required,
+                    observation.detail.clone(),
+                ))
+            }
         }
         Self::new(
             RepairOperation::RestoreComponentStore,
@@ -59,7 +64,12 @@ impl RepairExecutionPlan {
                 ))
             }
             SystemFileState::IntegrityViolations => {}
-            SystemFileState::Unavailable => return unavailable(&observation.detail),
+            SystemFileState::Unavailable => {
+                return Err(RepairError::from_unavailable_observation(
+                    observation.elevation_required,
+                    observation.detail.clone(),
+                ))
+            }
         }
         Self::new(
             RepairOperation::RepairSystemFiles,
@@ -74,7 +84,10 @@ impl RepairExecutionPlan {
         mission_id: impl Into<String>,
     ) -> Result<Self, RepairError> {
         if observation.state == WindowsFeatureState::Unavailable {
-            return unavailable(&observation.detail);
+            return Err(RepairError::from_unavailable_observation(
+                observation.elevation_required,
+                observation.detail.clone(),
+            ));
         }
         if !observation.state.is_stable() {
             return Err(RepairError::FeatureNotReversible(format!(
@@ -199,7 +212,15 @@ fn transaction_for(
                 },
                 RecommendationState::Repair,
             ),
-            RepairOperation::SetWindowsFeature { feature, desired } => (
+            RepairOperation::SetWindowsFeature { feature, desired } => {
+                let captured_state = feature_baseline_state(baseline)
+                    .map(|(_, state)| state)
+                    .ok_or_else(|| {
+                        RepairError::InvalidRequest(
+                            "feature operation requires a Windows feature baseline".to_string(),
+                        )
+                    })?;
+                (
                 ActionKind::WindowsFeature,
                 feature.risk(),
                 format!(
@@ -213,7 +234,7 @@ fn transaction_for(
                 format!(
                     "Change the fixed Windows feature {} from captured {:?} to {:?}; no feature payload removal is permitted.",
                     feature.dism_name(),
-                    baseline,
+                    captured_state,
                     desired.target_state()
                 ),
                 true,
@@ -227,7 +248,8 @@ fn transaction_for(
                     }],
                 },
                 RecommendationState::OptionalComponent,
-            ),
+                )
+            }
         };
 
     let planned = PlannedAction {
@@ -327,14 +349,6 @@ pub(crate) fn target_value(operation: RepairOperation) -> &'static str {
     }
 }
 
-fn unavailable<T>(detail: &str) -> Result<T, RepairError> {
-    if detail.to_ascii_lowercase().contains("elevated") {
-        Err(RepairError::ElevationRequired)
-    } else {
-        Err(RepairError::StateUnavailable(detail.to_string()))
-    }
-}
-
 pub(crate) fn feature_baseline_state(
     baseline: RepairBaseline,
 ) -> Option<(SupportedWindowsFeature, WindowsFeatureState)> {
@@ -367,6 +381,7 @@ mod tests {
         let plan = RepairExecutionPlan::from_component_store(
             &ComponentStoreObservation {
                 state: ComponentStoreState::Repairable,
+                elevation_required: false,
                 detail: "repairable".to_string(),
                 evidence: empty_evidence(),
             },
@@ -387,6 +402,7 @@ mod tests {
             &WindowsFeatureObservation {
                 feature,
                 state: WindowsFeatureState::Disabled,
+                elevation_required: false,
                 detail: "disabled".to_string(),
                 evidence: empty_evidence(),
             },
@@ -414,6 +430,7 @@ mod tests {
             &WindowsFeatureObservation {
                 feature: SupportedWindowsFeature::NetFx3,
                 state: WindowsFeatureState::Removed,
+                elevation_required: false,
                 detail: "removed".to_string(),
                 evidence: empty_evidence(),
             },

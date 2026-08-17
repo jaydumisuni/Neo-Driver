@@ -165,7 +165,11 @@ impl RepairExecutionSession {
                 reboot_required: false,
             })?;
             if self.stage() == TransactionStage::RollingBack {
-                self.rollback_feature_with_host(host)?;
+                if let Err(rollback_error) = self.rollback_feature_with_host(host) {
+                    return Err(RepairError::CommandFailed(format!(
+                        "{detail}; rollback also failed: {rollback_error}"
+                    )));
+                }
             }
             return Err(RepairError::CommandFailed(detail));
         }
@@ -351,7 +355,19 @@ impl RepairExecutionSession {
             }
         };
         let rollback_operation = RepairOperation::SetWindowsFeature { feature, desired };
-        let execution = host.execute(rollback_operation)?;
+        let execution = match host.execute(rollback_operation) {
+            Ok(value) => value,
+            Err(error) => {
+                let detail = format!("rollback command could not be executed: {error}");
+                self.checkpoint.record_rollback_result(RollbackRecord {
+                    action_id: self.plan.action_id(),
+                    outcome: ApplyOutcome::Failure,
+                    detail: detail.clone(),
+                    reboot_required: false,
+                })?;
+                return Err(RepairError::CommandFailed(detail));
+            }
+        };
         let observed = observation_from_host(rollback_operation, host)?;
         let reboot_required = operation_pending(rollback_operation, &observed);
         self.checkpoint.record_rollback_result(RollbackRecord {
@@ -383,17 +399,17 @@ fn baseline_from_host<H: RepairHost>(
     match operation {
         RepairOperation::RestoreComponentStore => {
             let observed = host.observe_component_store()?;
-            unavailable_component(observed.state, &observed.detail)?;
+            unavailable_component(&observed)?;
             Ok(RepairBaseline::ComponentStore(observed.state))
         }
         RepairOperation::RepairSystemFiles => {
             let observed = host.observe_system_files()?;
-            unavailable_system_files(observed.state, &observed.detail)?;
+            unavailable_system_files(&observed)?;
             Ok(RepairBaseline::SystemFiles(observed.state))
         }
         RepairOperation::SetWindowsFeature { feature, .. } => {
             let observed = host.observe_feature(feature)?;
-            unavailable_feature(observed.state, &observed.detail)?;
+            unavailable_feature(&observed)?;
             Ok(RepairBaseline::WindowsFeature {
                 feature,
                 state: observed.state,
@@ -464,35 +480,42 @@ fn operation_pending(operation: RepairOperation, observed: &Observation) -> bool
         )
 }
 
-fn unavailable_component(state: ComponentStoreState, detail: &str) -> Result<(), RepairError> {
-    if state == ComponentStoreState::Unavailable {
-        unavailable_detail(detail)
+fn unavailable_component(
+    observation: &crate::model::ComponentStoreObservation,
+) -> Result<(), RepairError> {
+    if observation.state == ComponentStoreState::Unavailable {
+        Err(RepairError::from_unavailable_observation(
+            observation.elevation_required,
+            observation.detail.clone(),
+        ))
     } else {
         Ok(())
     }
 }
 
-fn unavailable_system_files(state: SystemFileState, detail: &str) -> Result<(), RepairError> {
-    if state == SystemFileState::Unavailable {
-        unavailable_detail(detail)
+fn unavailable_system_files(
+    observation: &crate::model::SystemFileObservation,
+) -> Result<(), RepairError> {
+    if observation.state == SystemFileState::Unavailable {
+        Err(RepairError::from_unavailable_observation(
+            observation.elevation_required,
+            observation.detail.clone(),
+        ))
     } else {
         Ok(())
     }
 }
 
-fn unavailable_feature(state: WindowsFeatureState, detail: &str) -> Result<(), RepairError> {
-    if state == WindowsFeatureState::Unavailable {
-        unavailable_detail(detail)
+fn unavailable_feature(
+    observation: &crate::model::WindowsFeatureObservation,
+) -> Result<(), RepairError> {
+    if observation.state == WindowsFeatureState::Unavailable {
+        Err(RepairError::from_unavailable_observation(
+            observation.elevation_required,
+            observation.detail.clone(),
+        ))
     } else {
         Ok(())
-    }
-}
-
-fn unavailable_detail(detail: &str) -> Result<(), RepairError> {
-    if detail.to_ascii_lowercase().contains("elevated") {
-        Err(RepairError::ElevationRequired)
-    } else {
-        Err(RepairError::StateUnavailable(detail.to_string()))
     }
 }
 
@@ -660,5 +683,30 @@ mod tests {
         assert!(session.resume_with_host(&capability, &host).is_err());
         assert_eq!(session.stage(), TransactionStage::Failed);
         assert!(host.executed.borrow().is_empty());
+    }
+
+    #[test]
+    fn rollback_command_start_failure_is_recorded_and_terminal() {
+        let feature = SupportedWindowsFeature::DirectPlay;
+        let host = FakeRepairHost::new(ComponentStoreState::Healthy, SystemFileState::Healthy);
+        let (mut session, capability) = authorized_feature_session(&host, feature);
+        *host.execution_exit_code.borrow_mut() = 1;
+        *host.fail_operation.borrow_mut() = Some(RepairOperation::SetWindowsFeature {
+            feature,
+            desired: FeatureDesiredState::Disabled,
+        });
+
+        let error = session.apply_with_host(&capability, &host).unwrap_err();
+        assert_eq!(session.stage(), TransactionStage::Failed);
+        let detail = error.to_string();
+        assert!(detail.contains("code 1"));
+        assert!(detail.contains("rollback"));
+        assert_eq!(
+            host.executed.borrow().as_slice(),
+            &[RepairOperation::SetWindowsFeature {
+                feature,
+                desired: FeatureDesiredState::Enabled,
+            }]
+        );
     }
 }

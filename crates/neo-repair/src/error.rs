@@ -30,3 +30,16 @@ pub enum RepairError {
     #[error("Phase 21 transaction failure: {0}")]
     Transaction(#[from] TransactionError),
 }
+
+impl RepairError {
+    pub(crate) fn from_unavailable_observation(
+        elevation_required: bool,
+        detail: impl Into<String>,
+    ) -> Self {
+        if elevation_required {
+            Self::ElevationRequired
+        } else {
+            Self::StateUnavailable(detail.into())
+        }
+    }
+}

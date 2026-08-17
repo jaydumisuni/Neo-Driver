@@ -222,11 +222,11 @@ pub struct RepairRpcErrorPayload {
 
 #[derive(Debug, Error)]
 pub enum RepairRpcError {
-    #[error("invalid request: {0}")]
+    #[error("invalid Phase 21 repair request")]
     InvalidRequest(String),
     #[error("caller is not permitted to use Phase 21 repair RPC")]
     UnauthorizedCaller,
-    #[error("required scope is missing: {0}")]
+    #[error("required Phase 21 repair permission is missing")]
     PermissionDenied(String),
     #[error("explicit confirmation is required")]
     ConfirmationRequired,
@@ -248,7 +248,7 @@ pub enum RepairRpcError {
     SessionNotResumable,
     #[error("repair RPC service sequence exhausted")]
     SequenceExhausted,
-    #[error("Phase 21 repair service failure: {0}")]
+    #[error("Phase 21 repair service failure")]
     Repair(#[from] RepairError),
 }
 
@@ -1000,5 +1000,8 @@ mod tests {
         assert_eq!(payload.code, "session_store_failed");
         assert!(!payload.message.contains("secret"));
         assert!(!payload.message.contains("NeoData"));
+        let display = error.to_string();
+        assert!(!display.contains("secret"));
+        assert!(!display.contains("NeoData"));
     }
 }

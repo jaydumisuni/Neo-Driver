@@ -215,6 +215,7 @@ fn truncate_utf8(value: &str, maximum_bytes: usize) -> (String, bool) {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ComponentStoreObservation {
     pub state: ComponentStoreState,
+    pub elevation_required: bool,
     pub detail: String,
     pub evidence: BoundedCommandEvidence,
 }
@@ -222,6 +223,7 @@ pub struct ComponentStoreObservation {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SystemFileObservation {
     pub state: SystemFileState,
+    pub elevation_required: bool,
     pub detail: String,
     pub evidence: BoundedCommandEvidence,
 }
@@ -230,6 +232,7 @@ pub struct SystemFileObservation {
 pub struct WindowsFeatureObservation {
     pub feature: SupportedWindowsFeature,
     pub state: WindowsFeatureState,
+    pub elevation_required: bool,
     pub detail: String,
     pub evidence: BoundedCommandEvidence,
 }

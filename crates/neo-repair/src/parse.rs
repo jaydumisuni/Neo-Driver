@@ -9,10 +9,11 @@ const ELEVATION_EXIT_CODE: i32 = 740;
 pub(crate) fn component_store_observation(
     evidence: BoundedCommandEvidence,
 ) -> ComponentStoreObservation {
-    if let Some(reason) = unavailable_reason(&evidence) {
+    if let Some((detail, elevation_required)) = unavailable_reason(&evidence) {
         return ComponentStoreObservation {
             state: ComponentStoreState::Unavailable,
-            detail: reason,
+            elevation_required,
+            detail,
             evidence,
         };
     }
@@ -43,16 +44,18 @@ pub(crate) fn component_store_observation(
     };
     ComponentStoreObservation {
         state,
+        elevation_required: false,
         detail,
         evidence,
     }
 }
 
 pub(crate) fn system_file_observation(evidence: BoundedCommandEvidence) -> SystemFileObservation {
-    if let Some(reason) = unavailable_reason(&evidence) {
+    if let Some((detail, elevation_required)) = unavailable_reason(&evidence) {
         return SystemFileObservation {
             state: SystemFileState::Unavailable,
-            detail: reason,
+            elevation_required,
+            detail,
             evidence,
         };
     }
@@ -85,6 +88,7 @@ pub(crate) fn system_file_observation(evidence: BoundedCommandEvidence) -> Syste
     };
     SystemFileObservation {
         state,
+        elevation_required: false,
         detail,
         evidence,
     }
@@ -94,11 +98,12 @@ pub(crate) fn feature_observation(
     feature: SupportedWindowsFeature,
     evidence: BoundedCommandEvidence,
 ) -> WindowsFeatureObservation {
-    if let Some(reason) = unavailable_reason(&evidence) {
+    if let Some((detail, elevation_required)) = unavailable_reason(&evidence) {
         return WindowsFeatureObservation {
             feature,
             state: WindowsFeatureState::Unavailable,
-            detail: reason,
+            elevation_required,
+            detail,
             evidence,
         };
     }
@@ -107,6 +112,7 @@ pub(crate) fn feature_observation(
         return WindowsFeatureObservation {
             feature,
             state: WindowsFeatureState::Unavailable,
+            elevation_required: false,
             detail: "The feature is not available on this Windows edition/build.".to_string(),
             evidence,
         };
@@ -131,6 +137,7 @@ pub(crate) fn feature_observation(
     WindowsFeatureObservation {
         feature,
         state,
+        elevation_required: false,
         detail: detail.to_string(),
         evidence,
     }
@@ -161,27 +168,39 @@ fn contains_state(text: &str, expected: &str) -> bool {
     })
 }
 
-fn unavailable_reason(evidence: &BoundedCommandEvidence) -> Option<String> {
+fn unavailable_reason(evidence: &BoundedCommandEvidence) -> Option<(String, bool)> {
     if evidence.truncated() {
-        return Some("Windows command output exceeded the Phase 21 evidence bound.".to_string());
+        return Some((
+            "Windows command output exceeded the Phase 21 evidence bound.".to_string(),
+            false,
+        ));
     }
     if let Some(error) = &evidence.start_error {
-        return Some(format!("Windows command could not start: {error}"));
+        return Some((format!("Windows command could not start: {error}"), false));
     }
     let text = normalized_text(evidence);
     if evidence.exit_code == Some(ELEVATION_EXIT_CODE)
         || text.contains("elevated permissions are required")
         || text.contains("you must be an administrator running a console session")
     {
-        return Some("Elevated Windows servicing read authority is required.".to_string());
+        return Some((
+            "Elevated Windows servicing read authority is required.".to_string(),
+            true,
+        ));
     }
     if evidence.exit_code.is_none() {
-        return Some("Windows command exit status is unavailable.".to_string());
+        return Some((
+            "Windows command exit status is unavailable.".to_string(),
+            false,
+        ));
     }
     if evidence.exit_code != Some(0) {
-        return Some(format!(
-            "Windows command failed with exit code {}.",
-            evidence.exit_code.unwrap_or_default()
+        return Some((
+            format!(
+                "Windows command failed with exit code {}.",
+                evidence.exit_code.unwrap_or_default()
+            ),
+            false,
         ));
     }
     None
@@ -237,6 +256,7 @@ mod tests {
             "Elevated permissions are required to run DISM.",
         ));
         assert_eq!(observed.state, ComponentStoreState::Unavailable);
+        assert!(observed.elevation_required);
         assert!(observed.detail.to_ascii_lowercase().contains("elevated"));
     }
 
@@ -245,6 +265,7 @@ mod tests {
         let text = "Y\0o\0u\0 \0m\0u\0s\0t\0 \0b\0e\0 \0a\0n\0 \0a\0d\0m\0i\0n\0i\0s\0t\0r\0a\0t\0o\0r\0 \0r\0u\0n\0n\0i\0n\0g\0 \0a\0 \0c\0o\0n\0s\0o\0l\0e\0 \0s\0e\0s\0s\0i\0o\0n\0 \0i\0n\0 \0o\0r\0d\0e\0r\0 \0t\0o\0 \0u\0s\0e\0 \0t\0h\0e\0 \0S\0F\0C\0 \0u\0t\0i\0l\0i\0t\0y\0.\0";
         let observed = system_file_observation(evidence(1, text));
         assert_eq!(observed.state, SystemFileState::Unavailable);
+        assert!(observed.elevation_required);
         assert!(observed.detail.to_ascii_lowercase().contains("elevated"));
     }
 

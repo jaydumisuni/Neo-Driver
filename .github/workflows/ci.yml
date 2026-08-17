@@ -22,6 +22,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install stable Rust
         run: |
           rustup toolchain install stable --profile minimal
@@ -147,10 +152,12 @@ jobs:
 
       - name: Phase 21 read-only Windows repair source proof
         if: runner.os == 'Windows'
+        timeout-minutes: 20
         run: cargo run --locked -p neo-cli -- repair inspect --json
 
       - name: Phase 21 read-only Windows feature source proof
         if: runner.os == 'Windows'
+        timeout-minutes: 20
         run: cargo run --locked -p neo-cli -- repair features --json
 
       - name: Catalogue CLI fixture proof
