@@ -86,7 +86,6 @@ jobs:
 
       - name: Phase 18 twenty-lane static review
         run: python -W error tools/phase18_static_review.py
-
       - name: Phase 19 twenty-lane static review
         run: python -W error tools/phase19_static_review.py
 
@@ -116,6 +115,9 @@ jobs:
       - name: Phase 21 Repair & Windows Features proof
         run: cargo test --locked -p neo-repair
 
+      - name: Phase 21 trusted Windows command contract proof
+        run: cargo test --locked -p neo-repair command::tests::trusted_command_contract_is_exact
+
       - name: Phase 20 Debloat restore MCP/RPC authority proof
         run: cargo test --locked -p neo-debloat-restore-executor rpc::tests
 
@@ -133,7 +135,6 @@ jobs:
 
       - name: Phase 13 behavioral read-only proof
         run: cargo test --locked -p neo-debloat --test read_only
-
       - name: Phase 14 live Windows debloat inventory proof
         if: runner.os == 'Windows'
         run: cargo test --locked -p neo-debloat-probe --test live_read_only
@@ -167,10 +168,10 @@ jobs:
         run: cargo run --locked -p neo-cli -- match --device fixtures/match/device.json --catalogue fixtures/catalogue/sample_driver_catalogue.json --architecture x64 --build 26100
 
       - name: Runtime CLI fixture proof
-        run: cargo run --locked -p neo-cli -- runtimes --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/catalogue/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json --profile fresh-windows
+        run: cargo run --locked -p neo-cli -- runtimes --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/runtime/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json --profile fresh-windows
 
       - name: Gaming CLI fixture proof
-        run: cargo run --locked -p neo-cli -- gaming --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/catalogue/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json
+        run: cargo run --locked -p neo-cli -- gaming --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/runtime/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json
 
       - name: Vault source-map CLI fixture proof
         run: cargo run --locked -p neo-cli -- vault validate-sources config/driver-pack-sources.json
