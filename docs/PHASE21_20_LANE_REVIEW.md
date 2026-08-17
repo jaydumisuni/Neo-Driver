@@ -6,7 +6,7 @@ The Phase 21 candidate may freeze only when every lane is PASS and no named gap 
 
 1. **Master-plan continuity** — Repair/Windows Features implementation matches the frozen Phase 21 decision without silently absorbing Windows Update, networking, Winget, AppX, PnP, arbitrary DISM package/capability, or GUI mutation scope.
 2. **Platform and trusted executable boundary** — real servicing execution/RPC/session internals are Windows-only while deterministic fake-host tests remain portable; Windows directory comes from the trusted API and production launches exact System32 DISM/SFC binaries, never PATH/shell authority.
-3. **Fixed-command surface** — only frozen DISM/SFC operations and exact feature identities are constructible; no arbitrary argument/script/executable adapter exists.
+3. **Fixed-command surface** — only frozen DISM/SFC operations and exact feature identities are constructible; no arbitrary argument/script/executable adapter exists; every mutating DISM invocation carries `/NoRestart` so Neo retains reboot/resume authority.
 4. **Elevation truth** — error 740 and NUL-separated SFC administration failures become explicit elevation-required/unavailable evidence, never false healthy/disabled/absent state.
 5. **Bounded command evidence** — stdout/stderr are bounded at UTF-8 boundaries; start error, exit status and truncation remain explicit.
 6. **Component-store parsing** — healthy/repairable/unrepairable/unavailable outcomes are deterministic and unknown output fails closed.
@@ -16,7 +16,7 @@ The Phase 21 candidate may freeze only when every lane is PASS and no named gap 
 10. **Repair transaction truth** — RestoreHealth/SFC repair use irreversible Repair actions with fresh pre/post diagnosis and no fake rollback claim.
 11. **Feature transaction truth** — one selected supported feature uses exact desired state, stable Enabled/Disabled captured baseline, reversible inverse, and no `/Remove`.
 12. **Freshness/drift proof** — executor performs fresh pre-mutation observation, rejects baseline/route drift, and requires fresh postcondition observation rather than trusting process exit alone.
-13. **Servicing reboot semantics** — exit `3010` is successful-with-reboot; pending feature state or 3010 both preserve an explicit reboot/resume obligation even when the immediate feature state already equals target.
+13. **Servicing reboot semantics** — exit `3010` is successful-with-reboot; pending feature state or 3010 both preserve an explicit reboot/resume obligation even when the immediate feature state already equals target; DISM is never allowed to seize restart control from Neo.
 14. **Write-ahead mutation state** — `Applying` is durably persisted before Windows mutation can begin so restart recovery can reconcile without blindly repeating an irreversible operation.
 15. **Durable session ownership** — resume state is append-only beneath Neo-owned `NeoData/sessions`, no-follow constrained, caller-bound, strictly decoded with unknown fields rejected, and an `AlreadyExists` racing opener never claims creation/cleanup ownership.
 16. **MCP/RPC trust and confirmation continuity** — trusted caller/scopes are transport-owned; authorization happens before machine evidence; prepare/apply binds caller, exact action ID, plan fingerprint, confirmation and irreversible acknowledgement where required.
