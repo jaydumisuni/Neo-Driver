@@ -14,7 +14,7 @@ Phase 21 supports exactly these first-class repair/feature capabilities:
 
 1. **Component Store**
    - inspect with fixed `dism.exe /Online /Cleanup-Image /CheckHealth /English`;
-   - repair with fixed `dism.exe /Online /Cleanup-Image /RestoreHealth /English`;
+   - repair with fixed `dism.exe /Online /NoRestart /Cleanup-Image /RestoreHealth /English`;
    - no caller-supplied DISM source path, `/LimitAccess`, cleanup/reset-base, offline image, mount, package, or arbitrary arguments in this phase.
 2. **Protected System Files**
    - inspect with fixed `sfc.exe /verifyonly`;
@@ -23,6 +23,7 @@ Phase 21 supports exactly these first-class repair/feature capabilities:
 3. **Windows Optional Features**
    - inspect a fixed Neo catalogue by exact feature identity;
    - enable/disable one explicitly selected feature at a time;
+   - every mutating DISM feature command includes `/NoRestart`, leaving reboot ownership with Neo;
    - never use DISM `/Remove`;
    - no caller-supplied raw feature name reaches the executor.
 
@@ -107,7 +108,8 @@ These are Windows repair operations, not deterministic inverse edits. Phase 21 r
 - explicit user confirmation and admin requirement;
 - no fake rollback claim;
 - fresh post-operation diagnosis is mandatory;
-- process exit code alone is never completion proof.
+- process exit code alone is never completion proof;
+- DISM is invoked with `/NoRestart`; Neo, not DISM, owns any reboot/resume transition.
 
 ### Windows feature enable/disable
 
@@ -116,8 +118,9 @@ Feature changes use `ActionKind::WindowsFeature` and are reversible when the cap
 - capture exact current feature state immediately before mutation;
 - execute only the fixed catalogue identity and requested desired state;
 - do not use `/Remove`;
+- invoke mutating DISM with `/NoRestart`;
 - re-read the feature after execution;
-- pending states become reboot obligations, not false completion;
+- pending states or servicing success code `3010` become reboot obligations, not false completion;
 - rollback restores the captured Enabled/Disabled baseline and verifies it.
 
 A `Removed` or otherwise unavailable baseline cannot be promoted into normal reversible authority in this phase.
@@ -151,7 +154,7 @@ Required scopes:
 
 ## CLI boundary
 
-CLI may expose read-only diagnosis/plan surfaces such as `neo repair inspect` and `neo features inspect`. It must not construct executor capability or provide a raw DISM/SFC/feature mutation bypass.
+CLI exposes read-only diagnosis only through `neo repair inspect` and `neo repair features`. It must not construct executor capability or provide a raw DISM/SFC/feature mutation bypass.
 
 ## Explicitly deferred from Phase 21
 
