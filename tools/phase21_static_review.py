@@ -83,8 +83,10 @@ checks = [
                 '"/Get-FeatureInfo"',
                 '"/Enable-Feature"',
                 '"/Disable-Feature"',
+                '"/NoRestart"',
             ),
         )
+        and HOST.count('"/NoRestart"') == 3
         and '"/Remove"' not in HOST
         and "std::process::Command" not in HOST,
     ),
