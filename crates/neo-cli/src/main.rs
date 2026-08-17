@@ -1,3 +1,5 @@
+mod repair_cli;
+
 use clap::{Parser, Subcommand, ValueEnum};
 use neo_catalogue::Catalogue;
 use neo_core::{MissionPlan, UserDepth, UserIntent};
@@ -123,6 +125,11 @@ enum Command {
     Vault {
         #[command(subcommand)]
         command: VaultCommand,
+    },
+    /// Read-only Repair & Windows Features inspection. No machine mutation is exposed.
+    Repair {
+        #[command(subcommand)]
+        command: repair_cli::RepairCommand,
     },
     /// Show the current implementation boundary.
     Status,
@@ -324,6 +331,7 @@ fn run(cli: Cli) -> Result<(), String> {
             }
             Ok(())
         }
+        Command::Repair { command } => repair_cli::run(command),
         Command::RuntimeScan { json } => {
             let report = scan_current_runtime_inventory().map_err(|error| error.to_string())?;
             if json {

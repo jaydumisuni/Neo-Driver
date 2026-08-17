@@ -317,6 +317,7 @@ dependencies = [
  "neo-device",
  "neo-match",
  "neo-probe",
+ "neo-repair",
  "neo-runtime",
  "neo-runtime-executor",
  "neo-runtime-probe",
