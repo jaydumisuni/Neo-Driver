@@ -4,7 +4,7 @@ use crate::model::{
     ComponentStoreState, FeatureDesiredState, SystemFileState, WindowsFeatureState,
 };
 use crate::operation::{RepairBaseline, RepairOperation};
-use crate::plan::{feature_baseline_state, target_for, RepairExecutionPlan};
+use crate::plan::{feature_baseline_state, target_for, target_value, RepairExecutionPlan};
 use neo_transaction::{
     ApplyOutcome, ApplyRecord, Observation, ObservedValue, RollbackRecord, TransactionAuthorization,
     TransactionCheckpoint, TransactionStage,
@@ -102,7 +102,10 @@ impl RepairExecutionSession {
         Ok(())
     }
 
-    pub(crate) fn apply_with_host<H: RepairHost>(
+    /// Perform every non-mutating preflight, then enter `Applying` without
+    /// launching a Windows servicing command. The RPC layer persists this
+    /// write-ahead checkpoint before calling `execute_applying_with_host`.
+    pub(crate) fn begin_apply_with_host<H: RepairHost>(
         &mut self,
         _capability: &RepairExecutorCapability,
         host: &H,
@@ -116,9 +119,25 @@ impl RepairExecutionSession {
         }
         self.assert_fresh_baseline(host)?;
         self.checkpoint.begin_apply()?;
+        self.checkpoint.assert_action_pending(&self.plan.action_id())?;
+        Ok(())
+    }
+
+    /// Execute one already write-ahead-recorded Phase 21 operation.
+    pub(crate) fn execute_applying_with_host<H: RepairHost>(
+        &mut self,
+        _capability: &RepairExecutorCapability,
+        host: &H,
+    ) -> Result<(), RepairError> {
+        self.validate()?;
+        if self.stage() != TransactionStage::Applying {
+            return Err(RepairError::InvalidRequest(format!(
+                "repair command execution requires Applying stage, found {:?}",
+                self.stage()
+            )));
+        }
         let action_id = self.plan.action_id();
         self.checkpoint.assert_action_pending(&action_id)?;
-
         let execution = match host.execute(self.plan.operation()) {
             Ok(value) => value,
             Err(error) => {
@@ -135,17 +154,18 @@ impl RepairExecutionSession {
 
         let command_started = execution.start_error.is_none();
         if !execution.succeeded() {
+            let detail = command_detail(&execution);
             self.checkpoint.record_apply_result(ApplyRecord {
                 action_id,
                 outcome: ApplyOutcome::Failure,
-                detail: command_detail(&execution),
+                detail: detail.clone(),
                 machine_changed: command_started,
                 reboot_required: false,
             })?;
             if self.stage() == TransactionStage::RollingBack {
                 self.rollback_feature_with_host(host)?;
             }
-            return Err(RepairError::CommandFailed(command_detail(&execution)));
+            return Err(RepairError::CommandFailed(detail));
         }
 
         let post = self.observe_current(host)?;
@@ -157,22 +177,38 @@ impl RepairExecutionSession {
             machine_changed: true,
             reboot_required,
         })?;
-
         if self.stage() == TransactionStage::Verifying {
             self.verify_current_with_observation(post)?;
             if self.stage() == TransactionStage::RollingBack {
                 self.rollback_feature_with_host(host)?;
+                return Err(RepairError::CommandFailed(
+                    "Windows feature postcondition failed and the captured baseline was restored"
+                        .to_string(),
+                ));
             }
         }
         terminal_result(self.stage())
     }
 
+    #[cfg(test)]
+    pub(crate) fn apply_with_host<H: RepairHost>(
+        &mut self,
+        capability: &RepairExecutorCapability,
+        host: &H,
+    ) -> Result<(), RepairError> {
+        self.begin_apply_with_host(capability, host)?;
+        self.execute_applying_with_host(capability, host)
+    }
+
     pub(crate) fn resume_with_host<H: RepairHost>(
         &mut self,
-        _capability: &RepairExecutorCapability,
+        capability: &RepairExecutorCapability,
         host: &H,
     ) -> Result<(), RepairError> {
         self.validate()?;
+        if self.stage() == TransactionStage::Applying {
+            return self.recover_applying_with_host(capability, host);
+        }
         let observed = self.observe_current(host)?;
         match self.stage() {
             TransactionStage::AwaitingReboot => {
@@ -183,6 +219,10 @@ impl RepairExecutionSession {
                 }
                 if self.stage() == TransactionStage::RollingBack {
                     self.rollback_feature_with_host(host)?;
+                    return Err(RepairError::CommandFailed(
+                        "post-reboot feature verification failed and rollback was required"
+                            .to_string(),
+                    ));
                 }
             }
             TransactionStage::Blocked => {
@@ -193,6 +233,10 @@ impl RepairExecutionSession {
                 }
                 if self.stage() == TransactionStage::RollingBack {
                     self.rollback_feature_with_host(host)?;
+                    return Err(RepairError::CommandFailed(
+                        "blocked feature verification remained unproven and rollback was required"
+                            .to_string(),
+                    ));
                 }
             }
             TransactionStage::AwaitingRollbackReboot => {
@@ -200,11 +244,67 @@ impl RepairExecutionSession {
             }
             other => {
                 return Err(RepairError::InvalidRequest(format!(
-                    "repair resume requires a reboot/blocked stage, found {other:?}"
+                    "repair resume requires Applying/reboot/blocked stage, found {other:?}"
                 )))
             }
         }
         terminal_result(self.stage())
+    }
+
+    fn recover_applying_with_host<H: RepairHost>(
+        &mut self,
+        _capability: &RepairExecutorCapability,
+        host: &H,
+    ) -> Result<(), RepairError> {
+        self.validate()?;
+        if self.stage() != TransactionStage::Applying {
+            return Err(RepairError::InvalidRequest(
+                "in-flight recovery requires Applying stage".to_string(),
+            ));
+        }
+        let action_id = self.plan.action_id();
+        self.checkpoint.assert_action_pending(&action_id)?;
+        let observed = self.observe_current(host)?;
+        let reaches_target = observation_reaches_target(self.plan.operation(), &observed);
+        let pending = operation_pending(self.plan.operation(), &observed);
+        if reaches_target || pending {
+            self.checkpoint.record_apply_result(ApplyRecord {
+                action_id,
+                outcome: ApplyOutcome::Success,
+                detail: "recovered an interrupted Phase 21 apply from fresh machine state"
+                    .to_string(),
+                machine_changed: true,
+                reboot_required: pending,
+            })?;
+            if self.stage() == TransactionStage::Verifying {
+                self.verify_current_with_observation(observed)?;
+            }
+            return terminal_result(self.stage());
+        }
+
+        let baseline_unchanged = observation_matches_baseline(self.plan.baseline(), &observed);
+        let machine_changed = match self.plan.operation() {
+            RepairOperation::RestoreComponentStore | RepairOperation::RepairSystemFiles => true,
+            RepairOperation::SetWindowsFeature { .. } => !baseline_unchanged,
+        };
+        self.checkpoint.record_apply_result(ApplyRecord {
+            action_id,
+            outcome: ApplyOutcome::Failure,
+            detail: if baseline_unchanged {
+                "interrupted Phase 21 apply recovered at its captured baseline".to_string()
+            } else {
+                "interrupted Phase 21 apply recovered in an unexpected machine state".to_string()
+            },
+            machine_changed,
+            reboot_required: false,
+        })?;
+        if self.stage() == TransactionStage::RollingBack {
+            self.rollback_feature_with_host(host)?;
+        }
+        Err(RepairError::CommandFailed(
+            "interrupted Phase 21 apply could not be proven successful from fresh state"
+                .to_string(),
+        ))
     }
 
     fn assert_fresh_baseline<H: RepairHost>(&self, host: &H) -> Result<(), RepairError> {
@@ -333,16 +433,28 @@ fn observation_from_host<H: RepairHost>(
     Ok(Observation { target, value })
 }
 
-fn operation_pending(operation: RepairOperation, observed: &Observation) -> bool {
+fn observation_reaches_target(operation: RepairOperation, observed: &Observation) -> bool {
     matches!(
-        operation,
-        RepairOperation::SetWindowsFeature { .. }
-    ) && matches!(
         observed.value,
-        ObservedValue::Present(ref value)
-            if value == WindowsFeatureState::EnablePending.as_transaction_value()
-                || value == WindowsFeatureState::DisablePending.as_transaction_value()
+        ObservedValue::Present(ref value) if value == target_value(operation)
     )
+}
+
+fn observation_matches_baseline(baseline: RepairBaseline, observed: &Observation) -> bool {
+    matches!(
+        observed.value,
+        ObservedValue::Present(ref value) if value == baseline.transaction_value()
+    )
+}
+
+fn operation_pending(operation: RepairOperation, observed: &Observation) -> bool {
+    matches!(operation, RepairOperation::SetWindowsFeature { .. })
+        && matches!(
+            observed.value,
+            ObservedValue::Present(ref value)
+                if value == WindowsFeatureState::EnablePending.as_transaction_value()
+                    || value == WindowsFeatureState::DisablePending.as_transaction_value()
+        )
 }
 
 fn unavailable_component(state: ComponentStoreState, detail: &str) -> Result<(), RepairError> {
@@ -430,6 +542,26 @@ mod tests {
         }
     }
 
+    fn authorized_feature_session(
+        host: &FakeRepairHost,
+        feature: SupportedWindowsFeature,
+    ) -> (RepairExecutionSession, RepairExecutorCapability) {
+        host.set_feature(feature, WindowsFeatureState::Disabled);
+        let mut session = RepairExecutionSession::prepare_with_host(
+            RepairOperation::SetWindowsFeature {
+                feature,
+                desired: FeatureDesiredState::Enabled,
+            },
+            "mission",
+            host,
+        )
+        .unwrap();
+        let capability = RepairExecutorCapability::for_rpc();
+        let authorization = authorization(&session);
+        session.authorize(&capability, authorization).unwrap();
+        (session, capability)
+    }
+
     #[test]
     fn fresh_baseline_drift_blocks_before_mutation() {
         let host = FakeRepairHost::new(ComponentStoreState::Repairable, SystemFileState::Healthy);
@@ -440,7 +572,8 @@ mod tests {
         )
         .unwrap();
         let capability = RepairExecutorCapability::for_rpc();
-        session.authorize(&capability, authorization(&session)).unwrap();
+        let authorization = authorization(&session);
+        session.authorize(&capability, authorization).unwrap();
         host.set_component(ComponentStoreState::Healthy);
         assert!(matches!(
             session.apply_with_host(&capability, &host),
@@ -459,55 +592,55 @@ mod tests {
         )
         .unwrap();
         let capability = RepairExecutorCapability::for_rpc();
-        session.authorize(&capability, authorization(&session)).unwrap();
+        let authorization = authorization(&session);
+        session.authorize(&capability, authorization).unwrap();
         session.apply_with_host(&capability, &host).unwrap();
         assert_eq!(session.stage(), TransactionStage::Complete);
         assert_eq!(host.executed.borrow().len(), 1);
     }
 
     #[test]
-    fn feature_verification_failure_rolls_back_to_captured_baseline() {
-        let feature = SupportedWindowsFeature::DirectPlay;
-        let host = FakeRepairHost::new(ComponentStoreState::Healthy, SystemFileState::Healthy);
-        host.set_feature(feature, WindowsFeatureState::Disabled);
-        let mut session = RepairExecutionSession::prepare_with_host(
-            RepairOperation::SetWindowsFeature {
-                feature,
-                desired: FeatureDesiredState::Enabled,
-            },
-            "mission",
-            &host,
-        )
-        .unwrap();
-        let capability = RepairExecutorCapability::for_rpc();
-        session.authorize(&capability, authorization(&session)).unwrap();
-        host.set_feature(feature, WindowsFeatureState::Disabled);
-        session.apply_with_host(&capability, &host).unwrap();
-        assert_eq!(session.stage(), TransactionStage::Complete);
-    }
-
-    #[test]
     fn pending_feature_transition_requires_resume() {
         let feature = SupportedWindowsFeature::WindowsSubsystemLinux;
         let host = FakeRepairHost::new(ComponentStoreState::Healthy, SystemFileState::Healthy);
-        host.set_feature(feature, WindowsFeatureState::Disabled);
+        let (mut session, capability) = authorized_feature_session(&host, feature);
         *host.pending_feature_transition.borrow_mut() = true;
-        let mut session = RepairExecutionSession::prepare_with_host(
-            RepairOperation::SetWindowsFeature {
-                feature,
-                desired: FeatureDesiredState::Enabled,
-            },
-            "mission",
-            &host,
-        )
-        .unwrap();
-        let capability = RepairExecutorCapability::for_rpc();
-        session.authorize(&capability, authorization(&session)).unwrap();
         session.apply_with_host(&capability, &host).unwrap();
         assert_eq!(session.stage(), TransactionStage::AwaitingReboot);
         *host.pending_feature_transition.borrow_mut() = false;
         host.set_feature(feature, WindowsFeatureState::Enabled);
         session.resume_with_host(&capability, &host).unwrap();
         assert_eq!(session.stage(), TransactionStage::Complete);
+    }
+
+    #[test]
+    fn applying_write_ahead_recovers_success_without_rerunning_feature_command() {
+        let feature = SupportedWindowsFeature::VirtualMachinePlatform;
+        let host = FakeRepairHost::new(ComponentStoreState::Healthy, SystemFileState::Healthy);
+        let (mut session, capability) = authorized_feature_session(&host, feature);
+        session.begin_apply_with_host(&capability, &host).unwrap();
+        assert_eq!(session.stage(), TransactionStage::Applying);
+        host.set_feature(feature, WindowsFeatureState::Enabled);
+        session.resume_with_host(&capability, &host).unwrap();
+        assert_eq!(session.stage(), TransactionStage::Complete);
+        assert!(host.executed.borrow().is_empty());
+    }
+
+    #[test]
+    fn interrupted_irreversible_repair_at_old_baseline_fails_closed_without_rerun() {
+        let host = FakeRepairHost::new(ComponentStoreState::Repairable, SystemFileState::Healthy);
+        let mut session = RepairExecutionSession::prepare_with_host(
+            RepairOperation::RestoreComponentStore,
+            "mission",
+            &host,
+        )
+        .unwrap();
+        let capability = RepairExecutorCapability::for_rpc();
+        let authorization = authorization(&session);
+        session.authorize(&capability, authorization).unwrap();
+        session.begin_apply_with_host(&capability, &host).unwrap();
+        assert!(session.resume_with_host(&capability, &host).is_err());
+        assert_eq!(session.stage(), TransactionStage::Failed);
+        assert!(host.executed.borrow().is_empty());
     }
 }
