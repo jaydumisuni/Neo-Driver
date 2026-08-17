@@ -4,6 +4,8 @@
 //! transaction-bound operations. Machine mutation remains capability-gated and
 //! is intended to be issued only by the trusted MCP/RPC service path.
 
+#[cfg(any(windows, test))]
+mod command;
 mod error;
 #[cfg(any(windows, test))]
 mod executor;

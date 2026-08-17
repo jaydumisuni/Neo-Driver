@@ -12,6 +12,7 @@ LIB = (SRC / "lib.rs").read_text(encoding="utf-8")
 MODEL = (SRC / "model.rs").read_text(encoding="utf-8")
 PARSE = (SRC / "parse.rs").read_text(encoding="utf-8")
 HOST = (SRC / "host.rs").read_text(encoding="utf-8")
+COMMAND = (SRC / "command.rs").read_text(encoding="utf-8")
 INSPECTION = (SRC / "inspection.rs").read_text(encoding="utf-8")
 PLAN = (SRC / "plan.rs").read_text(encoding="utf-8")
 EXECUTOR = (SRC / "executor.rs").read_text(encoding="utf-8")
@@ -36,6 +37,88 @@ def has_all(text: str, values: tuple[str, ...]) -> bool:
     return all(value in text for value in values)
 
 
+def _unquote(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def parse_ci_job(text: str, job_name: str) -> tuple[dict[str, str], list[dict[str, str]]]:
+    job: dict[str, str] = {}
+    steps: list[dict[str, str]] = []
+    in_jobs = False
+    in_job = False
+    in_steps = False
+    current: dict[str, str] | None = None
+    section: str | None = None
+
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        if indent == 0:
+            if current is not None:
+                steps.append(current)
+                current = None
+            in_jobs = stripped == "jobs:"
+            in_job = False
+            in_steps = False
+            section = None
+            continue
+        if not in_jobs:
+            continue
+        if indent == 2 and stripped.endswith(":"):
+            if current is not None:
+                steps.append(current)
+                current = None
+            in_job = stripped[:-1] == job_name
+            in_steps = False
+            section = None
+            continue
+        if not in_job:
+            continue
+        if indent == 4:
+            if stripped == "steps:":
+                in_steps = True
+                continue
+            key, sep, value = stripped.partition(":")
+            if sep:
+                job[key] = _unquote(value)
+            continue
+        if in_steps and indent == 6 and stripped.startswith("- "):
+            if current is not None:
+                steps.append(current)
+            current = {}
+            section = None
+            key, sep, value = stripped[2:].partition(":")
+            if sep:
+                current[key] = _unquote(value)
+            continue
+        if in_steps and current is not None and indent == 8:
+            key, sep, value = stripped.partition(":")
+            if sep:
+                value = _unquote(value)
+                current[key] = value
+                section = key if not value else None
+            continue
+        if in_steps and current is not None and indent == 10 and section:
+            key, sep, value = stripped.partition(":")
+            if sep:
+                current[f"{section}.{key}"] = _unquote(value)
+
+    if current is not None:
+        steps.append(current)
+    return job, steps
+
+
+def ci_step_matches(name: str, **expected: str) -> bool:
+    matches = [step for step in CI_STEPS if step.get("name") == name]
+    return len(matches) == 1 and all(matches[0].get(key) == value for key, value in expected.items())
+
+
+CI_JOB, CI_STEPS = parse_ci_job(CI, "engineering-proof")
 members = set(WORKSPACE["workspace"]["members"])
 fixed_features = (
     '"NetFx3"',
@@ -76,19 +159,27 @@ checks = [
         has_all(
             HOST,
             (
-                '"/CheckHealth"',
-                '"/RestoreHealth"',
-                '"/verifyonly"',
-                '"/scannow"',
-                '"/Get-FeatureInfo"',
-                '"/Enable-Feature"',
-                '"/Disable-Feature"',
-                '"/NoRestart"',
+                "component_store_inspection_command()",
+                "system_files_inspection_command()",
+                "feature_inspection_command(feature)",
+                "operation_command(operation)",
+                "capture_trusted",
             ),
         )
-        and HOST.count('"/NoRestart"') == 3
-        and '"/Remove"' not in HOST
-        and "std::process::Command" not in HOST,
+        and HOST.count("self.capture(") == 1
+        and "std::process::Command" not in HOST
+        and has_all(
+            COMMAND,
+            (
+                "pub(crate) fn component_store_inspection_command",
+                "pub(crate) fn system_files_inspection_command",
+                "pub(crate) fn feature_inspection_command",
+                "pub(crate) fn operation_command",
+                "trusted_command_contract_is_exact",
+            ),
+        )
+        and "pub fn operation_command" not in COMMAND
+        and "pub fn feature_inspection_command" not in COMMAND,
     ),
     (
         "elevation-truth",
@@ -253,16 +344,44 @@ checks = [
     ),
     (
         "regression-and-ci-continuity",
-        "Phase 21 twenty-lane static review" in CI
-        and "python -W error tools/phase21_static_review.py" in CI
-        and "Phase 21 Repair & Windows Features proof" in CI
-        and "cargo test --locked -p neo-repair" in CI
-        and "Phase 21 read-only Windows repair source proof" in CI
-        and "Phase 21 read-only Windows feature source proof" in CI
-        and "actions/setup-python@v5" in CI
-        and 'python-version: "3.11"' in CI
-        and CI.count("timeout-minutes: 20") >= 2
-        and "Phase 20 twenty-lane static review" in CI,
+        CI_JOB.get("runs-on") == "${{ matrix.os }}"
+        and ci_step_matches(
+            "Set up Python 3.11",
+            uses="actions/setup-python@v5",
+            **{"with.python-version": "3.11"},
+        )
+        and ci_step_matches(
+            "Phase 20 twenty-lane static review",
+            run="python -W error tools/phase20_static_review.py",
+        )
+        and ci_step_matches(
+            "Phase 21 twenty-lane static review",
+            run="python -W error tools/phase21_static_review.py",
+        )
+        and ci_step_matches(
+            "Phase 21 Repair & Windows Features proof",
+            run="cargo test --locked -p neo-repair",
+        )
+        and ci_step_matches(
+            "Phase 21 trusted Windows command contract proof",
+            run="cargo test --locked -p neo-repair command::tests::trusted_command_contract_is_exact",
+        )
+        and ci_step_matches(
+            "Phase 21 read-only Windows repair source proof",
+            **{
+                "if": "runner.os == 'Windows'",
+                "timeout-minutes": "20",
+                "run": "cargo run --locked -p neo-cli -- repair inspect --json",
+            },
+        )
+        and ci_step_matches(
+            "Phase 21 read-only Windows feature source proof",
+            **{
+                "if": "runner.os == 'Windows'",
+                "timeout-minutes": "20",
+                "run": "cargo run --locked -p neo-cli -- repair features --json",
+            },
+        ),
     ),
     (
         "adversarial-source-first-acceptance",

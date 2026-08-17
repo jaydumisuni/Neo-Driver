@@ -1,3 +1,8 @@
+#[cfg(windows)]
+use crate::command::{
+    component_store_inspection_command, feature_inspection_command, operation_command,
+    system_files_inspection_command, TrustedCommand, TrustedProgram,
+};
 use crate::error::RepairError;
 use crate::model::{
     BoundedCommandEvidence, ComponentStoreObservation, SupportedWindowsFeature,
@@ -115,28 +120,34 @@ impl WindowsRepairHost {
         BoundedCommandEvidence::from_command(evidence)
     }
 
+    fn capture_trusted(&self, command: TrustedCommand) -> BoundedCommandEvidence {
+        let program = match command.program {
+            TrustedProgram::Dism => &self.dism,
+            TrustedProgram::Sfc => &self.sfc,
+        };
+        let args: Vec<&str> = command.args.iter().map(String::as_str).collect();
+        self.capture(program, &args)
+    }
+
     fn feature_info(&self, feature: SupportedWindowsFeature) -> WindowsFeatureObservation {
-        let feature_arg = format!("/FeatureName:{}", feature.dism_name());
-        let evidence = self.capture(
-            &self.dism,
-            &["/Online", "/Get-FeatureInfo", &feature_arg, "/English"],
-        );
-        feature_observation(feature, evidence)
+        feature_observation(
+            feature,
+            self.capture_trusted(feature_inspection_command(feature)),
+        )
     }
 }
 
 #[cfg(windows)]
 impl RepairHost for WindowsRepairHost {
     fn observe_component_store(&self) -> Result<ComponentStoreObservation, RepairError> {
-        Ok(component_store_observation(self.capture(
-            &self.dism,
-            &["/Online", "/Cleanup-Image", "/CheckHealth", "/English"],
-        )))
+        Ok(component_store_observation(
+            self.capture_trusted(component_store_inspection_command()),
+        ))
     }
 
     fn observe_system_files(&self) -> Result<SystemFileObservation, RepairError> {
         Ok(system_file_observation(
-            self.capture(&self.sfc, &["/verifyonly"]),
+            self.capture_trusted(system_files_inspection_command()),
         ))
     }
 
@@ -148,45 +159,7 @@ impl RepairHost for WindowsRepairHost {
     }
 
     fn execute(&self, operation: RepairOperation) -> Result<BoundedCommandEvidence, RepairError> {
-        let evidence = match operation {
-            RepairOperation::RestoreComponentStore => self.capture(
-                &self.dism,
-                &[
-                    "/Online",
-                    "/NoRestart",
-                    "/Cleanup-Image",
-                    "/RestoreHealth",
-                    "/English",
-                ],
-            ),
-            RepairOperation::RepairSystemFiles => self.capture(&self.sfc, &["/scannow"]),
-            RepairOperation::SetWindowsFeature { feature, desired } => {
-                let feature_arg = format!("/FeatureName:{}", feature.dism_name());
-                match desired {
-                    crate::model::FeatureDesiredState::Enabled => self.capture(
-                        &self.dism,
-                        &[
-                            "/Online",
-                            "/NoRestart",
-                            "/Enable-Feature",
-                            &feature_arg,
-                            "/English",
-                        ],
-                    ),
-                    crate::model::FeatureDesiredState::Disabled => self.capture(
-                        &self.dism,
-                        &[
-                            "/Online",
-                            "/NoRestart",
-                            "/Disable-Feature",
-                            &feature_arg,
-                            "/English",
-                        ],
-                    ),
-                }
-            }
-        };
-        Ok(evidence)
+        Ok(self.capture_trusted(operation_command(operation)))
     }
 }
 

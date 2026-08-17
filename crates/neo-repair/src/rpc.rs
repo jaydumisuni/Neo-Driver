@@ -218,6 +218,8 @@ pub struct RepairRpcErrorPayload {
     pub code: String,
     pub message: String,
     pub retryable: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resume_version: Option<u64>,
 }
 
 #[derive(Debug, Error)]
@@ -248,6 +250,13 @@ pub enum RepairRpcError {
     SessionNotResumable,
     #[error("repair RPC service sequence exhausted")]
     SequenceExhausted,
+    #[error("Phase 21 repair service failure with durable resume state")]
+    RepairWithResume {
+        #[source]
+        source: RepairError,
+        persistence: Option<RepairError>,
+        persisted_version: u64,
+    },
     #[error("Phase 21 repair service failure")]
     Repair(#[from] RepairError),
 }
@@ -268,23 +277,19 @@ impl RepairRpcError {
             Self::VersionMismatch => "version_mismatch",
             Self::SessionNotResumable => "session_not_resumable",
             Self::SequenceExhausted => "sequence_exhausted",
-            Self::Repair(RepairError::UnsupportedPlatform) => "unsupported_platform",
-            Self::Repair(RepairError::ElevationRequired) => "elevation_required",
-            Self::Repair(RepairError::NothingToRepair(_) | RepairError::NothingToChange(_)) => {
-                "nothing_to_do"
+            Self::Repair(error) | Self::RepairWithResume { source: error, .. } => {
+                repair_error_code(error)
             }
-            Self::Repair(
-                RepairError::StateUnavailable(_) | RepairError::FeatureNotReversible(_),
-            ) => "state_unavailable",
-            Self::Repair(
-                RepairError::SessionStore(_) | RepairError::InvalidPersistedSession(_),
-            ) => "session_store_failed",
-            Self::Repair(RepairError::BaselineDrift(_)) => "baseline_drift",
-            Self::Repair(_) => "execution_failed",
         }
     }
 
     pub fn payload(&self) -> RepairRpcErrorPayload {
+        let resume_version = match self {
+            Self::RepairWithResume {
+                persisted_version, ..
+            } => Some(*persisted_version),
+            _ => None,
+        };
         let (message, retryable) = match self {
             Self::InvalidRequest(_) => ("The repair request is invalid.", false),
             Self::UnauthorizedCaller => {
@@ -307,40 +312,61 @@ impl RepairRpcError {
             Self::VersionMismatch => ("A newer repair session state already exists.", false),
             Self::SessionNotResumable => ("The repair session is already terminal.", false),
             Self::SequenceExhausted => ("The repair service session sequence is exhausted.", false),
-            Self::Repair(RepairError::UnsupportedPlatform) => (
-                "Windows repair authority is unavailable on this platform.",
-                false,
-            ),
-            Self::Repair(RepairError::ElevationRequired) => {
-                ("Elevated Windows servicing authority is required.", true)
+            Self::Repair(error) | Self::RepairWithResume { source: error, .. } => {
+                repair_error_message(error)
             }
-            Self::Repair(RepairError::NothingToRepair(_) | RepairError::NothingToChange(_)) => {
-                ("The selected operation is already satisfied.", false)
-            }
-            Self::Repair(
-                RepairError::StateUnavailable(_) | RepairError::FeatureNotReversible(_),
-            ) => (
-                "The required Windows state is unavailable for this operation.",
-                true,
-            ),
-            Self::Repair(
-                RepairError::SessionStore(_) | RepairError::InvalidPersistedSession(_),
-            ) => (
-                "The trusted repair session store is unavailable or invalid.",
-                true,
-            ),
-            Self::Repair(RepairError::BaselineDrift(_)) => (
-                "Windows state changed after repair preparation; prepare again.",
-                true,
-            ),
-            Self::Repair(_) => ("The repair operation could not be completed safely.", true),
         };
         RepairRpcErrorPayload {
             schema: REPAIR_RPC_SCHEMA.to_string(),
             code: self.code().to_string(),
             message: message.to_string(),
             retryable,
+            resume_version,
         }
+    }
+}
+
+fn repair_error_code(error: &RepairError) -> &'static str {
+    match error {
+        RepairError::UnsupportedPlatform => "unsupported_platform",
+        RepairError::ElevationRequired => "elevation_required",
+        RepairError::NothingToRepair(_) | RepairError::NothingToChange(_) => "nothing_to_do",
+        RepairError::StateUnavailable(_) | RepairError::FeatureNotReversible(_) => {
+            "state_unavailable"
+        }
+        RepairError::SessionStore(_) | RepairError::InvalidPersistedSession(_) => {
+            "session_store_failed"
+        }
+        RepairError::BaselineDrift(_) => "baseline_drift",
+        _ => "execution_failed",
+    }
+}
+
+fn repair_error_message(error: &RepairError) -> (&'static str, bool) {
+    match error {
+        RepairError::UnsupportedPlatform => (
+            "Windows repair authority is unavailable on this platform.",
+            false,
+        ),
+        RepairError::ElevationRequired => {
+            ("Elevated Windows servicing authority is required.", true)
+        }
+        RepairError::NothingToRepair(_) | RepairError::NothingToChange(_) => {
+            ("The selected operation is already satisfied.", false)
+        }
+        RepairError::StateUnavailable(_) | RepairError::FeatureNotReversible(_) => (
+            "The required Windows state is unavailable for this operation.",
+            true,
+        ),
+        RepairError::SessionStore(_) | RepairError::InvalidPersistedSession(_) => (
+            "The trusted repair session store is unavailable or invalid.",
+            true,
+        ),
+        RepairError::BaselineDrift(_) => (
+            "Windows state changed after repair preparation; prepare again.",
+            true,
+        ),
+        _ => ("The repair operation could not be completed safely.", true),
     }
 }
 
@@ -563,12 +589,11 @@ impl RepairRpcService {
         let execution_result = pending
             .session
             .execute_applying_with_host(&capability, host);
-        let persisted =
+        let persist_result =
             self.store
-                .persist(&request.session_id, &pending.owner, &pending.session)?;
-        if let Err(error) = execution_result {
-            return Err(error.into());
-        }
+                .persist(&request.session_id, &pending.owner, &pending.session);
+        let persisted =
+            resolve_post_mutation_persist(execution_result, persist_result, write_ahead.version)?;
         if persisted.version < write_ahead.version {
             return Err(RepairRpcError::Repair(RepairError::SessionStore(
                 "persisted repair version regressed".to_string(),
@@ -638,14 +663,14 @@ impl RepairRpcService {
             return Err(RepairRpcError::SessionNotResumable);
         }
         let action_id = stored.session.plan().action_id();
+        let last_known_version = stored.version;
         let capability = RepairExecutorCapability::for_rpc();
         let resume_result = stored.session.resume_with_host(&capability, host);
-        let persisted = self
-            .store
-            .persist(&request.session_id, &stored.owner, &stored.session)?;
-        if let Err(error) = resume_result {
-            return Err(error.into());
-        }
+        let persist_result =
+            self.store
+                .persist(&request.session_id, &stored.owner, &stored.session);
+        let persisted =
+            resolve_post_mutation_persist(resume_result, persist_result, last_known_version)?;
         Ok(execution_receipt(
             REPAIR_RPC_RESUME_TOOL,
             REPAIR_RPC_RESUME_METHOD,
@@ -675,6 +700,27 @@ impl RepairRpcService {
                 return Ok(session_id);
             }
         }
+    }
+}
+
+fn resolve_post_mutation_persist<T>(
+    operation_result: Result<(), RepairError>,
+    persist_result: Result<T, RepairError>,
+    last_known_version: u64,
+) -> Result<T, RepairRpcError> {
+    match (operation_result, persist_result) {
+        (Err(operation_error), Ok(_)) => Err(operation_error.into()),
+        (Err(operation_error), Err(persist_error)) => Err(RepairRpcError::RepairWithResume {
+            source: operation_error,
+            persistence: Some(persist_error),
+            persisted_version: last_known_version,
+        }),
+        (Ok(()), Ok(persisted)) => Ok(persisted),
+        (Ok(()), Err(persist_error)) => Err(RepairRpcError::RepairWithResume {
+            source: persist_error,
+            persistence: None,
+            persisted_version: last_known_version,
+        }),
     }
 }
 
@@ -989,6 +1035,45 @@ mod tests {
         );
         assert!(matches!(replay, Err(RepairRpcError::VersionMismatch)));
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn dual_failure_preserves_execution_truth_and_last_durable_version() {
+        let error = resolve_post_mutation_persist::<()>(
+            Err(RepairError::CommandFailed(
+                "primary execution failure".to_string(),
+            )),
+            Err(RepairError::SessionStore(
+                "secondary persistence failure".to_string(),
+            )),
+            7,
+        )
+        .unwrap_err();
+        assert_eq!(error.code(), "execution_failed");
+        let payload = error.payload();
+        assert_eq!(payload.resume_version, Some(7));
+        assert!(!payload.message.contains("primary execution failure"));
+        assert!(!payload.message.contains("secondary persistence failure"));
+        assert!(matches!(
+            error,
+            RepairRpcError::RepairWithResume {
+                persistence: Some(_),
+                persisted_version: 7,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn post_mutation_persist_failure_exposes_last_durable_version() {
+        let error = resolve_post_mutation_persist::<()>(
+            Ok(()),
+            Err(RepairError::SessionStore("persistence failure".to_string())),
+            11,
+        )
+        .unwrap_err();
+        assert_eq!(error.code(), "session_store_failed");
+        assert_eq!(error.payload().resume_version, Some(11));
     }
 
     #[test]
