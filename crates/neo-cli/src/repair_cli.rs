@@ -41,8 +41,7 @@ pub(crate) fn run(command: RepairCommand) -> Result<(), String> {
             if json {
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&report.features)
-                        .map_err(|error| error.to_string())?
+                    serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
                 );
             } else {
                 println!("Neo read-only Windows optional-feature inspection");
@@ -61,12 +60,21 @@ pub(crate) fn run(command: RepairCommand) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::CommandFactory;
+
+    #[derive(Debug, clap::Parser)]
+    struct Probe {
+        #[command(subcommand)]
+        command: RepairCommand,
+    }
 
     #[test]
     fn cli_surface_contains_only_read_only_commands() {
-        let inspect = RepairCommand::Inspect { json: false };
-        let features = RepairCommand::Features { json: true };
-        assert!(matches!(inspect, RepairCommand::Inspect { .. }));
-        assert!(matches!(features, RepairCommand::Features { .. }));
+        let mut names: Vec<String> = Probe::command()
+            .get_subcommands()
+            .map(|subcommand| subcommand.get_name().to_string())
+            .collect();
+        names.sort();
+        assert_eq!(names, vec!["features".to_string(), "inspect".to_string()]);
     }
 }
