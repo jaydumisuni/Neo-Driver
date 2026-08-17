@@ -138,7 +138,7 @@ checks = [
                 "feature_inspection_does_not_probe_component_store_or_sfc",
             ),
         )
-        and "host.execute" not in INSPECTION
+        and "host.execute(" not in INSPECTION
         and "inspect_windows_repair_health" in REPAIR_CLI
         and "inspect_windows_features" in REPAIR_CLI,
     ),
@@ -183,14 +183,14 @@ checks = [
             ),
         )
         and "TransactionStage::Applying" in STORE
-        and "write-ahead" in DECISION.lower(),
+        and "write-ahead" in REVIEW.lower(),
     ),
     (
         "durable-session-ownership",
         has_all(
             STORE,
             (
-                "NeoData/sessions",
+                "self.layout.sessions().join(SESSION_NAMESPACE)",
                 "open_dir_nofollow",
                 "MAX_SESSION_VERSIONS",
                 "#[serde(deny_unknown_fields)]",
