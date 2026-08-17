@@ -32,6 +32,7 @@ pub enum RepairError {
 }
 
 impl RepairError {
+    #[cfg(any(windows, test))]
     pub(crate) fn from_unavailable_observation(
         elevation_required: bool,
         detail: impl Into<String>,
