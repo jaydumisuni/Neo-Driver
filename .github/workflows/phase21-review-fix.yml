@@ -33,7 +33,9 @@ jobs:
           rustup default stable
 
       - name: Apply bounded review corrections
-        run: python tools/phase21_apply_review_fix.py
+        run: |
+          python tools/phase21_apply_review_fix.py
+          git checkout HEAD -- .github/workflows/phase21-review-fix.yml
 
       - name: Format and prove correction
         run: |
