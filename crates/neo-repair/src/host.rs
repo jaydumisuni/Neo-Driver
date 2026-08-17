@@ -84,7 +84,13 @@ impl RepairHost for WindowsRepairHost {
         let evidence = match operation {
             RepairOperation::RestoreComponentStore => self.capture(
                 &self.dism,
-                &["/Online", "/Cleanup-Image", "/RestoreHealth", "/English"],
+                &[
+                    "/Online",
+                    "/NoRestart",
+                    "/Cleanup-Image",
+                    "/RestoreHealth",
+                    "/English",
+                ],
             ),
             RepairOperation::RepairSystemFiles => self.capture(&self.sfc, &["/scannow"]),
             RepairOperation::SetWindowsFeature { feature, desired } => {
@@ -92,11 +98,23 @@ impl RepairHost for WindowsRepairHost {
                 match desired {
                     crate::model::FeatureDesiredState::Enabled => self.capture(
                         &self.dism,
-                        &["/Online", "/Enable-Feature", &feature_arg, "/English"],
+                        &[
+                            "/Online",
+                            "/NoRestart",
+                            "/Enable-Feature",
+                            &feature_arg,
+                            "/English",
+                        ],
                     ),
                     crate::model::FeatureDesiredState::Disabled => self.capture(
                         &self.dism,
-                        &["/Online", "/Disable-Feature", &feature_arg, "/English"],
+                        &[
+                            "/Online",
+                            "/NoRestart",
+                            "/Disable-Feature",
+                            &feature_arg,
+                            "/English",
+                        ],
                     ),
                 }
             }
