@@ -12,6 +12,7 @@ mod model;
 mod operation;
 mod parse;
 mod plan;
+pub mod rpc;
 mod session_store;
 
 pub use error::RepairError;
