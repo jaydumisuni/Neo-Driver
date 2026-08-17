@@ -12,6 +12,7 @@ mod model;
 mod operation;
 mod parse;
 mod plan;
+mod session_store;
 
 pub use error::RepairError;
 pub use executor::{RepairExecutionSession, RepairExecutorCapability};
