@@ -1,6 +1,6 @@
 # Decision 0021 — Phase 21 Repair & Windows Features
 
-**Status:** FROZEN FOR IMPLEMENTATION
+**Status:** FROZEN AND PROVEN
 
 ## Why this phase exists
 
@@ -189,3 +189,13 @@ Phase 21 follows the owner-required development order:
 5. only after source confidence is earned may Builder perform one final packaging proof.
 
 Builder is not the bug-discovery loop.
+
+## Final Phase 21 proof and closeout
+
+The final corrected implementation head is `068a2d9c8e671834e4583c6b5e09f4ba9d82b67e`. All Phase 21 review threads were resolved before merge, including the corrected servicing timeout, rollback/error preservation, typed elevation signal, closed feature catalogue, machine-wide servicing serialization, durable session publication, and caller-safe RPC error findings.
+
+Phase 21 merged through PR #43 as `ecc3faa8eb84046975a520a33c46d8a5fa3690bf`. Merged-main CI run `32071009541` passed the complete Ubuntu and Windows Phase 1–21 pipeline, including the Phase 21 20-lane static review, locked workspace build, Clippy with warnings denied, full workspace units, the dedicated `neo-repair` proof, trusted Windows-command contract, and live read-only `repair inspect --json` plus `repair features --json` source probes.
+
+The reserved physical artifact gate was then executed on ATHENA through Oracle's local execution path. Builder commit `4c42e4822c1a811b5b999fafbfc00aedb0ac1a03` built the exact merged Neo commit `ecc3faa8eb84046975a520a33c46d8a5fa3690bf` for target `windows-exe`. Builder returned `TTG_RESULT` with `ok=true`, `state=complete`, and exit code `0`; the produced artifact was `dist/windows/neo.exe`, 2,465,792 bytes, SHA-256 `fc2889f28cf7b87e963a220d02d0d41398aec95428d073df60430341ced8dcc7`. That exact artifact passed runtime smoke `--help` with exit code `0`.
+
+Phase 21 is therefore **source-reviewed, merged, merged-main CI-proven, physically Builder-proven, and runtime-smoke-proven**. Live destructive DISM/SFC/Windows-feature mutation remains deliberately unclaimed and outside this closeout.
