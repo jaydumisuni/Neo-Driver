@@ -315,6 +315,7 @@ dependencies = [
  "neo-catalogue",
  "neo-core",
  "neo-device",
+ "neo-driver-repair",
  "neo-match",
  "neo-probe",
  "neo-repair",
@@ -449,6 +450,18 @@ dependencies = [
  "serde",
  "thiserror",
  "windows",
+]
+
+[[package]]
+name = "neo-driver-repair"
+version = "0.1.0"
+dependencies = [
+ "neo-device",
+ "neo-driverstore",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
 ]
 
 [[package]]
