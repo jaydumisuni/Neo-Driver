@@ -6,6 +6,8 @@ use std::collections::BTreeSet;
 
 use crate::DriverRepairError;
 
+pub(crate) const CM_PROB_DISABLED_CODE: u32 = 22;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum PnpStatusEvidence {
@@ -27,18 +29,38 @@ impl PnpStatusEvidence {
 
     fn validate_against(&self, device: &DeviceRecord) -> Result<(), DriverRepairError> {
         match (*self, device.problem_code) {
-            (Self::NoProblem, None) => Ok(()),
-            (Self::Problem { code }, Some(device_code)) if code != 0 && code == device_code => {
-                Ok(())
+            (Self::NoProblem, None) => {}
+            (Self::Problem { code }, Some(device_code)) if code != 0 && code == device_code => {}
+            (Self::Problem { code: 0 }, _) => {
+                return Err(DriverRepairError::InvalidEvidence(format!(
+                    "device {} contains non-canonical PnP status problem code 0",
+                    device.instance_id
+                )))
             }
-            (Self::Problem { code: 0 }, _) => Err(DriverRepairError::InvalidEvidence(format!(
-                "device {} contains non-canonical PnP status problem code 0",
+            _ => {
+                return Err(DriverRepairError::InvalidEvidence(format!(
+                    "device {} PnP status evidence does not match the inherited Phase 5 problem-code evidence",
+                    device.instance_id
+                )))
+            }
+        }
+
+        let status_disabled = matches!(
+            self,
+            Self::Problem {
+                code: CM_PROB_DISABLED_CODE
+            }
+        );
+        match device.disabled {
+            Some(true) if !status_disabled => Err(DriverRepairError::InvalidEvidence(format!(
+                "device {} reports disabled=true without CM_PROB_DISABLED (Code 22)",
                 device.instance_id
             ))),
-            _ => Err(DriverRepairError::InvalidEvidence(format!(
-                "device {} PnP status evidence does not match the inherited Phase 5 problem-code evidence",
+            Some(false) if status_disabled => Err(DriverRepairError::InvalidEvidence(format!(
+                "device {} reports disabled=false while PnP reports CM_PROB_DISABLED (Code 22)",
                 device.instance_id
             ))),
+            _ => Ok(()),
         }
     }
 
