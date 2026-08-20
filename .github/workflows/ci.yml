@@ -96,6 +96,9 @@ jobs:
       - name: Phase 21 twenty-lane static review
         run: python -W error tools/phase21_static_review.py
 
+      - name: Phase 22 twenty-lane static review
+        run: python -W error tools/phase22_static_review.py
+
       - name: Cargo lockfile proof
         run: |
           cargo generate-lockfile
@@ -112,6 +115,9 @@ jobs:
 
       - name: Rust unit proof
         run: cargo test --workspace --all-targets --locked
+
+      - name: Phase 22 Driver Store / PnP assessment proof
+        run: cargo test --locked -p neo-driver-repair
 
       - name: Phase 21 Repair & Windows Features proof
         run: cargo test --locked -p neo-repair
@@ -163,11 +169,18 @@ jobs:
         timeout-minutes: 20
         run: cargo run --locked -p neo-cli -- repair features --json
 
+      - name: Phase 22 live Windows driver repair source proof
+        if: runner.os == 'Windows'
+        run: cargo run --locked -p neo-cli -- repair drivers --json
+
       - name: Catalogue CLI fixture proof
         run: cargo run --locked -p neo-cli -- catalogue validate fixtures/catalogue/sample_driver_catalogue.json
 
       - name: Matcher CLI fixture proof
         run: cargo run --locked -p neo-cli -- match --device fixtures/match/device.json --catalogue fixtures/catalogue/sample_driver_catalogue.json --architecture x64 --build 26100
+
+      - name: Phase 22 driver repair fixture proof
+        run: cargo run --locked -p neo-cli -- repair drivers --evidence fixtures/repair/phase22_driver_evidence.json --json
 
       - name: Runtime CLI fixture proof
         run: cargo run --locked -p neo-cli -- runtimes --evidence fixtures/runtime/runtime_inventory.json --catalogue fixtures/catalogue/sample_runtime_catalogue.json --policy fixtures/runtime/runtime_policy.json --profile fresh-windows
