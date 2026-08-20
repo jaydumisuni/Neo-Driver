@@ -1,13 +1,12 @@
 #[cfg(any(windows, test))]
 use neo_driverstore::DriverHost;
 
+use crate::model::CM_PROB_DISABLED_CODE;
 use crate::{
     DriverRepairAssessment, DriverRepairAssessmentReport, DriverRepairDeviceEvidence,
     DriverRepairError, DriverRepairEvidence, DriverRepairRoute, DriverRepairState,
     PnpStatusEvidence,
 };
-
-const CM_PROB_DISABLED_CODE: u32 = 22;
 
 #[cfg(any(windows, test))]
 pub(crate) fn capture_and_assess_with_host<H: DriverHost>(
