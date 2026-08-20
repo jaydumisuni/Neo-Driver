@@ -1,3 +1,4 @@
+#[cfg(any(windows, test))]
 use neo_driverstore::DriverHost;
 
 use crate::{
@@ -5,6 +6,7 @@ use crate::{
     DriverRepairError, DriverRepairEvidence, DriverRepairRoute, DriverRepairState,
 };
 
+#[cfg(any(windows, test))]
 pub(crate) fn capture_and_assess_with_host<H: DriverHost>(
     host: &H,
 ) -> Result<DriverRepairAssessmentReport, DriverRepairError> {
