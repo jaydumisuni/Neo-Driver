@@ -12,7 +12,7 @@ mod model;
 pub use error::DriverRepairError;
 pub use model::{
     DriverRepairAssessment, DriverRepairAssessmentReport, DriverRepairDeviceEvidence,
-    DriverRepairEvidence, DriverRepairRoute, DriverRepairState,
+    DriverRepairEvidence, DriverRepairRoute, DriverRepairState, PnpStatusEvidence,
 };
 
 #[cfg(windows)]
