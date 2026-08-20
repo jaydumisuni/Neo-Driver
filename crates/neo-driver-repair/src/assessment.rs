@@ -4,7 +4,10 @@ use neo_driverstore::DriverHost;
 use crate::{
     DriverRepairAssessment, DriverRepairAssessmentReport, DriverRepairDeviceEvidence,
     DriverRepairError, DriverRepairEvidence, DriverRepairRoute, DriverRepairState,
+    PnpStatusEvidence,
 };
+
+const CM_PROB_DISABLED_CODE: u32 = 22;
 
 #[cfg(any(windows, test))]
 pub(crate) fn capture_and_assess_with_host<H: DriverHost>(
@@ -14,6 +17,7 @@ pub(crate) fn capture_and_assess_with_host<H: DriverHost>(
     let mut devices = Vec::with_capacity(inventory.devices.len());
 
     for device in inventory.devices {
+        let pnp_status = PnpStatusEvidence::from_device(&device)?;
         let published = device
             .active_driver
             .as_ref()
@@ -28,6 +32,7 @@ pub(crate) fn capture_and_assess_with_host<H: DriverHost>(
         };
         devices.push(DriverRepairDeviceEvidence {
             device,
+            pnp_status,
             current_package,
         });
     }
@@ -68,56 +73,58 @@ fn assess_device(evidence: &DriverRepairDeviceEvidence) -> DriverRepairAssessmen
     let published_valid = published
         .map(|value| value.to_ascii_lowercase().ends_with(".inf"))
         .unwrap_or(false);
+    let disabled = device.disabled == Some(true)
+        || matches!(
+            evidence.pnp_status,
+            PnpStatusEvidence::Problem {
+                code: CM_PROB_DISABLED_CODE
+            }
+        );
 
-    let (state, route, detail) = if device.disabled == Some(true) {
+    let (state, route, detail) = if disabled {
         (
             DriverRepairState::Disabled,
             DriverRepairRoute::ManualInvestigation,
-            "The device is reported disabled. Phase 22 records this state but has no enable or re-enumeration authority.".to_string(),
+            "Windows reports the device disabled. Phase 22 records this state but has no enable or re-enumeration authority.".to_string(),
         )
     } else {
-        match device.problem_code {
-            None => (
+        match evidence.pnp_status {
+            PnpStatusEvidence::NoProblem if !binding_present => (
                 DriverRepairState::EvidenceUnavailable,
                 DriverRepairRoute::ManualInvestigation,
-                "PnP problem-code evidence is unavailable; Neo will not infer device health or a repair route.".to_string(),
+                "PnP reports no device problem, but no active driver binding exists. Neo will not infer that driver selection or repair is required without an actual PnP problem.".to_string(),
             ),
-            Some(0) if !binding_present => (
-                DriverRepairState::MissingDriverBinding,
-                DriverRepairRoute::DriverSelectionRequired,
-                "The device has no active driver binding; a separate matcher/catalogue decision is required before any future mutation authority.".to_string(),
-            ),
-            Some(0) if !published_valid => (
+            PnpStatusEvidence::NoProblem if !published_valid => (
                 DriverRepairState::EvidenceUnavailable,
                 DriverRepairRoute::ManualInvestigation,
-                "The active binding does not expose a valid published INF identity, so exact Driver Store continuity cannot be proven.".to_string(),
+                "PnP reports no device problem, but the active binding does not expose a valid published INF identity, so exact Driver Store continuity cannot be proven.".to_string(),
             ),
-            Some(0) if evidence.current_package.is_none() => (
+            PnpStatusEvidence::NoProblem if evidence.current_package.is_none() => (
                 DriverRepairState::EvidenceUnavailable,
                 DriverRepairRoute::ManualInvestigation,
-                "PnP reports no problem, but the exact active published INF could not be resolved to its Driver Store package; repair readiness is therefore unproven.".to_string(),
+                "PnP reports no device problem, but the exact active published INF could not be resolved to its Driver Store package; repair readiness is therefore unproven.".to_string(),
             ),
-            Some(0) => (
+            PnpStatusEvidence::NoProblem => (
                 DriverRepairState::Healthy,
                 DriverRepairRoute::NoAction,
-                "PnP reports no problem and the active published INF resolves to the exact Driver Store package. Neo recommends no repair.".to_string(),
+                "PnP reports no device problem and the active published INF resolves to the exact Driver Store package. Neo recommends no repair.".to_string(),
             ),
-            Some(code) if !binding_present => (
+            PnpStatusEvidence::Problem { code } if !binding_present => (
                 DriverRepairState::MissingDriverBinding,
                 DriverRepairRoute::DriverSelectionRequired,
                 format!("PnP reports problem code {code} and no active driver binding. Candidate selection must occur through the existing matcher/catalogue authority."),
             ),
-            Some(code) if !published_valid => (
+            PnpStatusEvidence::Problem { code } if !published_valid => (
                 DriverRepairState::EvidenceUnavailable,
                 DriverRepairRoute::ManualInvestigation,
                 format!("PnP reports problem code {code}, but the active binding lacks a valid published INF identity; an exact repair baseline cannot be proven."),
             ),
-            Some(code) if evidence.current_package.is_some() => (
+            PnpStatusEvidence::Problem { code } if evidence.current_package.is_some() => (
                 DriverRepairState::PnpProblem,
                 DriverRepairRoute::CurrentExactDriverReinstallCandidate,
                 format!("PnP reports problem code {code}. The current published INF and exact Driver Store package are both proven, so a future authority phase may evaluate an exact-current-driver reinstall."),
             ),
-            Some(code) => (
+            PnpStatusEvidence::Problem { code } => (
                 DriverRepairState::PnpProblem,
                 DriverRepairRoute::ManualInvestigation,
                 format!("PnP reports problem code {code}, but the active published INF cannot be resolved to an exact Driver Store package. Neo will not claim reversible repair readiness."),
@@ -128,7 +135,8 @@ fn assess_device(evidence: &DriverRepairDeviceEvidence) -> DriverRepairAssessmen
     DriverRepairAssessment {
         instance_id: device.instance_id.to_string(),
         description: device.description.clone(),
-        problem_code: device.problem_code,
+        pnp_status: evidence.pnp_status,
+        problem_code: evidence.pnp_status.problem_code(),
         disabled: device.disabled,
         active_published_inf: published.map(ToOwned::to_owned),
         exact_driver_store_package: evidence.current_package.clone(),
