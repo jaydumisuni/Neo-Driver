@@ -43,13 +43,31 @@ No Phase 22 path may call:
 
 A regression host deliberately panics if those methods are reached.
 
+## Inherited PnP-status semantic law
+
+Phase 22 must consume the actual Phase 5 Windows host contract rather than reinterpret the generic `Option<u32>` field:
+
+- Phase 5 calls `CM_Get_DevNode_Status` for every present device;
+- a Config Manager query failure aborts inventory and cannot produce a device record;
+- a successful Windows problem code of zero is normalized by Phase 5 to `problem_code = None`;
+- a successful nonzero Windows problem code is retained as `problem_code = Some(code)`.
+
+Therefore Phase 22 normalizes every accepted device into an explicit `PnpStatusEvidence`:
+
+- `NoProblem` must correspond exactly to inherited `problem_code = None`;
+- `Problem { code }` must contain a nonzero code exactly equal to the inherited `problem_code = Some(code)`;
+- `Some(0)` is non-canonical Phase 5 evidence and is rejected;
+- fixture/import evidence must provide the explicit Phase 22 `pnp_status` field, so omission/defaulting cannot turn absent evidence into a no-problem claim.
+
+Windows `CM_PROB_DISABLED` / Device Manager Code 22 is treated as `Disabled` even when the generic Phase 2 `disabled` field is unavailable. If an explicit `disabled` field contradicts Code 22, the normalized evidence fails closed.
+
 ## Evidence law
 
 Each device assessment retains:
 
 - exact device instance ID;
 - description when available;
-- PnP problem code when available;
+- explicit normalized PnP status plus the inherited problem code representation;
 - disabled evidence when available;
 - exact active published INF when available;
 - exact resolved Driver Store package when available;
@@ -59,7 +77,7 @@ Each device assessment retains:
 - human-readable explanation;
 - report-level SHA-256 over normalized evidence.
 
-Case-insensitive duplicate device instance IDs fail closed. Driver Store package evidence without an active published INF fails closed. A resolved package whose published identity does not equal the active published INF fails closed.
+Case-insensitive duplicate device instance IDs fail closed. PnP status that disagrees with inherited Phase 5 problem-code evidence fails closed. Driver Store package evidence without an active published INF fails closed. A resolved package whose published identity does not equal the active published INF fails closed.
 
 ## Assessment states
 
@@ -71,22 +89,28 @@ Phase 22 uses exactly these assessment states:
 - `PnpProblem`;
 - `EvidenceUnavailable`.
 
-Unknown PnP problem-code evidence never becomes `Healthy`.
+A successful Phase 5 `NoProblem` observation can become `Healthy` only when exact active binding and exact Driver Store package continuity are also proven.
 
 ## Repair routes
 
 Phase 22 emits only non-executable candidate routes:
 
 - `NoAction` — PnP reports no problem and exact current binding/package continuity is proven;
-- `CurrentExactDriverReinstallCandidate` — PnP reports a problem and the exact current published INF plus exact Driver Store package are proven; a later authority phase may evaluate the actual reinstall;
-- `DriverSelectionRequired` — there is no active binding and any future repair must return to the existing matcher/catalogue authority;
+- `CurrentExactDriverReinstallCandidate` — PnP reports a non-disabled problem and the exact current published INF plus exact Driver Store package are proven; a later authority phase may evaluate the actual reinstall;
+- `DriverSelectionRequired` — PnP reports an actual problem and there is no active binding, so any future repair must return to the existing matcher/catalogue authority;
 - `ManualInvestigation` — evidence is incomplete, contradictory, disabled, or otherwise insufficient for a bounded candidate.
+
+A no-problem device with no active driver binding does **not** automatically become `DriverSelectionRequired`; Phase 22 will not manufacture a driver problem that Windows did not report.
 
 A route is not mutation authority.
 
 ## Fail-closed rules
 
-- `problem_code = None` is evidence unavailable, never healthy.
+- Config Manager status-query failure never reaches Phase 22 as a healthy device because Phase 5 aborts that inventory read.
+- `problem_code = None` means a successful inherited no-problem observation; it is not missing evidence inside the Phase 5 Windows host contract.
+- `problem_code = Some(0)` is rejected as non-canonical Phase 5 evidence.
+- Imported/fixture `pnp_status` must explicitly agree with the inherited `problem_code` representation.
+- Device Manager Code 22 is `Disabled`, never an exact-current-driver reinstall candidate.
 - An active binding without a valid published `.inf` identity cannot establish exact Driver Store continuity.
 - A published INF that cannot resolve to an exact current package cannot establish reversible repair readiness.
 - A disabled device is recorded as disabled; Phase 22 does not enable or re-enumerate it.
@@ -98,7 +122,7 @@ A route is not mutation authority.
 `neo repair drivers` is read-only.
 
 - On Windows with no `--evidence`, it reads the live host through the existing Phase 5 read authority.
-- With `--evidence <file>`, it validates normalized Phase 22 evidence and derives the same deterministic assessment on any supported CI host.
+- With `--evidence <file>`, it requires and validates normalized Phase 22 PnP-status evidence and derives the same deterministic assessment on any supported CI host.
 - `--json` emits the complete typed report.
 
 The CLI cannot construct or obtain Phase 5 driver mutation authority.
@@ -133,6 +157,8 @@ Phase 22 requires:
 - focused `neo-driver-repair` unit/adversarial proof;
 - deterministic fixture proof through `neo repair drivers --evidence ...` on both CI platforms;
 - a live Windows `neo repair drivers --json` proof using only present-device inventory and exact current-package resolution;
+- regression proof that inherited Phase 5 `None` is a successful no-problem observation and that non-canonical/mismatched PnP evidence fails closed;
+- regression proof that Code 22 is disabled and cannot become a reinstall candidate;
 - no unresolved material external-review finding before freeze;
 - final exact-head proof before merge.
 
