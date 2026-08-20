@@ -6,9 +6,54 @@ use std::collections::BTreeSet;
 
 use crate::DriverRepairError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum PnpStatusEvidence {
+    NoProblem,
+    Problem { code: u32 },
+}
+
+impl PnpStatusEvidence {
+    pub(crate) fn from_device(device: &DeviceRecord) -> Result<Self, DriverRepairError> {
+        match device.problem_code {
+            None => Ok(Self::NoProblem),
+            Some(0) => Err(DriverRepairError::InvalidEvidence(format!(
+                "device {} contains non-canonical PnP problem code 0; Phase 5 encodes a successful no-problem observation as None",
+                device.instance_id
+            ))),
+            Some(code) => Ok(Self::Problem { code }),
+        }
+    }
+
+    fn validate_against(&self, device: &DeviceRecord) -> Result<(), DriverRepairError> {
+        match (*self, device.problem_code) {
+            (Self::NoProblem, None) => Ok(()),
+            (Self::Problem { code }, Some(device_code)) if code != 0 && code == device_code => {
+                Ok(())
+            }
+            (Self::Problem { code: 0 }, _) => Err(DriverRepairError::InvalidEvidence(format!(
+                "device {} contains non-canonical PnP status problem code 0",
+                device.instance_id
+            ))),
+            _ => Err(DriverRepairError::InvalidEvidence(format!(
+                "device {} PnP status evidence does not match the inherited Phase 5 problem-code evidence",
+                device.instance_id
+            ))),
+        }
+    }
+
+    pub(crate) fn problem_code(self) -> Option<u32> {
+        match self {
+            Self::NoProblem => None,
+            Self::Problem { code } => Some(code),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DriverRepairDeviceEvidence {
     pub device: DeviceRecord,
+    pub pnp_status: PnpStatusEvidence,
     #[serde(default)]
     pub current_package: Option<StoredDriverPackage>,
 }
@@ -18,6 +63,7 @@ impl DriverRepairDeviceEvidence {
         self.device
             .validate()
             .map_err(|error| DriverRepairError::InvalidEvidence(error.to_string()))?;
+        self.pnp_status.validate_against(&self.device)?;
 
         let published = self
             .device
@@ -113,6 +159,7 @@ pub enum DriverRepairRoute {
 pub struct DriverRepairAssessment {
     pub instance_id: String,
     pub description: Option<String>,
+    pub pnp_status: PnpStatusEvidence,
     pub problem_code: Option<u32>,
     pub disabled: Option<bool>,
     pub active_published_inf: Option<String>,
