@@ -28,11 +28,16 @@ fn device(instance: &str, problem_code: Option<u32>, published: Option<&str>) ->
 fn package(published: &str) -> StoredDriverPackage {
     StoredDriverPackage {
         published_inf: published.to_string(),
-        driver_store_inf: PathBuf::from(format!(r"C:\Windows\System32\DriverStore\FileRepository\fixture\{published}")),
+        driver_store_inf: PathBuf::from(format!(
+            r"C:\Windows\System32\DriverStore\FileRepository\fixture\{published}"
+        )),
     }
 }
 
-fn evidence(device: DeviceRecord, current_package: Option<StoredDriverPackage>) -> DriverRepairEvidence {
+fn evidence(
+    device: DeviceRecord,
+    current_package: Option<StoredDriverPackage>,
+) -> DriverRepairEvidence {
     DriverRepairEvidence {
         devices: vec![DriverRepairDeviceEvidence {
             device,
@@ -65,25 +70,38 @@ fn pnp_problem_with_exact_baseline_is_only_a_reinstall_candidate() {
         report.assessments[0].route,
         DriverRepairRoute::CurrentExactDriverReinstallCandidate
     );
-    assert!(report.assessments[0].detail.contains("future authority phase"));
+    assert!(report.assessments[0]
+        .detail
+        .contains("future authority phase"));
 }
 
 #[test]
 fn problem_without_binding_requires_existing_selection_authority() {
-    let report = assess_driver_repair_evidence(evidence(device("PCI\\C", Some(28), None), None)).unwrap();
-    assert_eq!(report.assessments[0].state, DriverRepairState::MissingDriverBinding);
-    assert_eq!(report.assessments[0].route, DriverRepairRoute::DriverSelectionRequired);
+    let report =
+        assess_driver_repair_evidence(evidence(device("PCI\\C", Some(28), None), None)).unwrap();
+    assert_eq!(
+        report.assessments[0].state,
+        DriverRepairState::MissingDriverBinding
+    );
+    assert_eq!(
+        report.assessments[0].route,
+        DriverRepairRoute::DriverSelectionRequired
+    );
 }
 
 #[test]
 fn healthy_problem_code_without_exact_store_package_fails_closed() {
-    let report = assess_driver_repair_evidence(evidence(
-        device("PCI\\D", Some(0), Some("oem12.inf")),
-        None,
-    ))
-    .unwrap();
-    assert_eq!(report.assessments[0].state, DriverRepairState::EvidenceUnavailable);
-    assert_eq!(report.assessments[0].route, DriverRepairRoute::ManualInvestigation);
+    let report =
+        assess_driver_repair_evidence(evidence(device("PCI\\D", Some(0), Some("oem12.inf")), None))
+            .unwrap();
+    assert_eq!(
+        report.assessments[0].state,
+        DriverRepairState::EvidenceUnavailable
+    );
+    assert_eq!(
+        report.assessments[0].route,
+        DriverRepairRoute::ManualInvestigation
+    );
 }
 
 #[test]
@@ -93,7 +111,10 @@ fn unknown_problem_code_never_becomes_healthy() {
         Some(package("oem13.inf")),
     ))
     .unwrap();
-    assert_eq!(report.assessments[0].state, DriverRepairState::EvidenceUnavailable);
+    assert_eq!(
+        report.assessments[0].state,
+        DriverRepairState::EvidenceUnavailable
+    );
 }
 
 #[test]
@@ -102,8 +123,13 @@ fn disabled_device_is_recorded_without_enable_authority() {
     item.disabled = Some(true);
     let report = assess_driver_repair_evidence(evidence(item, Some(package("oem14.inf")))).unwrap();
     assert_eq!(report.assessments[0].state, DriverRepairState::Disabled);
-    assert_eq!(report.assessments[0].route, DriverRepairRoute::ManualInvestigation);
-    assert!(report.assessments[0].detail.contains("no enable or re-enumeration authority"));
+    assert_eq!(
+        report.assessments[0].route,
+        DriverRepairRoute::ManualInvestigation
+    );
+    assert!(report.assessments[0]
+        .detail
+        .contains("no enable or re-enumeration authority"));
 }
 
 #[test]
@@ -134,7 +160,10 @@ fn duplicate_instance_ids_are_case_insensitive() {
     };
     let mut b = a.clone();
     b.device.instance_id = OpaqueDeviceId::new("pci\\ven_abcd").unwrap();
-    let error = assess_driver_repair_evidence(DriverRepairEvidence { devices: vec![a, b] }).unwrap_err();
+    let error = assess_driver_repair_evidence(DriverRepairEvidence {
+        devices: vec![a, b],
+    })
+    .unwrap_err();
     assert!(matches!(error, DriverRepairError::DuplicateDevice(_)));
 }
 
@@ -148,8 +177,14 @@ fn output_order_and_digest_are_independent_of_inventory_order() {
         device: device("PCI\\B", Some(28), Some("oem21.inf")),
         current_package: Some(package("oem21.inf")),
     };
-    let left = assess_driver_repair_evidence(DriverRepairEvidence { devices: vec![a.clone(), b.clone()] }).unwrap();
-    let right = assess_driver_repair_evidence(DriverRepairEvidence { devices: vec![b, a] }).unwrap();
+    let left = assess_driver_repair_evidence(DriverRepairEvidence {
+        devices: vec![a.clone(), b.clone()],
+    })
+    .unwrap();
+    let right = assess_driver_repair_evidence(DriverRepairEvidence {
+        devices: vec![b, a],
+    })
+    .unwrap();
     assert_eq!(left, right);
     assert_eq!(left.assessments[0].instance_id, "PCI\\A");
 }
@@ -207,7 +242,10 @@ impl DriverHost for ReadOnlyHost {
         panic!("Phase 22 has no stage authority")
     }
 
-    fn install_best_match(&self, _instance_id: &str) -> Result<DriverBackendResult, DriverStoreError> {
+    fn install_best_match(
+        &self,
+        _instance_id: &str,
+    ) -> Result<DriverBackendResult, DriverStoreError> {
         panic!("Phase 22 has no install authority")
     }
 

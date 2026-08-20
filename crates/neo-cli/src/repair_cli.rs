@@ -85,7 +85,10 @@ pub(crate) fn run(command: RepairCommand) -> Result<(), String> {
                 println!("Neo read-only Driver Store / PnP repair assessment");
                 println!("---------------------------------------------------");
                 for item in &report.assessments {
-                    println!("- {}: {:?} -> {:?}", item.instance_id, item.state, item.route);
+                    println!(
+                        "- {}: {:?} -> {:?}",
+                        item.instance_id, item.state, item.route
+                    );
                     println!("  {}", item.detail);
                 }
                 println!("Evidence SHA-256: {}", report.source_evidence_sha256);

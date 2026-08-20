@@ -43,7 +43,12 @@ pub(crate) fn assess(
             .as_str()
             .to_ascii_lowercase()
             .cmp(&right.device.instance_id.as_str().to_ascii_lowercase())
-            .then_with(|| left.device.instance_id.as_str().cmp(right.device.instance_id.as_str()))
+            .then_with(|| {
+                left.device
+                    .instance_id
+                    .as_str()
+                    .cmp(right.device.instance_id.as_str())
+            })
     });
     let source_evidence_sha256 = evidence.digest()?;
     let assessments = evidence.devices.iter().map(assess_device).collect();
