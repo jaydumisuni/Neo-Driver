@@ -1,0 +1,35 @@
+name: Phase 22 live Windows diagnostic
+
+on:
+  push:
+    branches:
+      - implementation/phase22-driver-pnp-assessment
+
+permissions:
+  contents: read
+
+jobs:
+  live-diagnostic:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Capture Phase 22 live driver assessment
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          cargo run --locked -p neo-cli -- repair drivers --json 2>&1 | Tee-Object -FilePath phase22-live.txt
+          $code = $LASTEXITCODE
+          "EXIT_CODE=$code" | Add-Content phase22-live.txt
+          exit $code
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase22-live-diagnostic
+          path: phase22-live.txt
+          if-no-files-found: error
