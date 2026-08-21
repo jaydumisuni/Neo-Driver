@@ -96,7 +96,10 @@ def extract_block_after(text, pattern):
 
 
 def extract_function(text, name):
-    match = re.search(rf"\bfn\s+{re.escape(name)}\s*\(", text)
+    match = re.search(
+        rf"\bfn\s+{re.escape(name)}(?:\s*<[^{{}};]*>)?\s*\(",
+        text,
+    )
     if not match:
         return None
     brace_index = text.find("{", match.end())
