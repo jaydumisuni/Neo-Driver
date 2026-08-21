@@ -23,16 +23,46 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
-      - name: Capture Phase 22 live driver assessment
+      - name: Instrument Driver Store identity diagnostics in runner only
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Continue'
-          $PSNativeCommandUseErrorActionPreference = $false
-          cmd /c "cargo run --locked -p neo-cli -- repair drivers --json > .phase22-live-diagnostic.txt 2>&1"
+          @'
+          from pathlib import Path
+          path = Path('crates/neo-driverstore/src/windows.rs')
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  '        if !is_safe_published_name(published_inf) {\n            return Err(DriverStoreError::InvalidStoredPackage);\n        }\n        let published_path = windows_inf_dir()?.join(published_inf);',
+                  '        if !is_safe_published_name(published_inf) {\n            return Err(DriverStoreError::Windows(format!("diagnostic: unsafe published INF identity: {published_inf:?}")));\n        }\n        let published_path = windows_inf_dir()?.join(published_inf);'
+              ),
+              (
+                  '        if !mapped_published.eq_ignore_ascii_case(published_inf) {\n            return Err(DriverStoreError::InvalidStoredPackage);\n        }',
+                  '        if !mapped_published.eq_ignore_ascii_case(published_inf) {\n            return Err(DriverStoreError::Windows(format!("diagnostic: published/store inverse mismatch: requested={published_inf:?} mapped={mapped_published:?} store={driver_store_inf:?}")));\n        }'
+              ),
+              (
+                  '        package.validate()?;\n        Ok(Some(package))',
+                  '        package.validate().map_err(|error| DriverStoreError::Windows(format!("diagnostic: stored package validation failed: published={published_inf:?} store={:?}: {error}", package.driver_store_inf)))?;\n        Ok(Some(package))'
+              ),
+          ]
+          for old, new in replacements:
+              if text.count(old) != 1:
+                  raise SystemExit(f'diagnostic anchor count {text.count(old)} for {old[:60]!r}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          '@ | python -
+      - name: Capture Phase 22 live driver assessment
+        id: capture
+        shell: pwsh
+        run: |
+          cmd /d /s /c "cargo run --locked -p neo-cli -- repair drivers --json > .phase22-live-diagnostic.txt 2>&1"
           $code = $LASTEXITCODE
           "EXIT_CODE=$code" | Add-Content .phase22-live-diagnostic.txt
           Write-Host "Captured Phase 22 live exit code $code"
           exit 0
+      - name: Restore source before evidence commit
+        if: always()
+        shell: pwsh
+        run: git restore -- crates/neo-driverstore/src/windows.rs
       - name: Commit diagnostic evidence
         if: always()
         shell: pwsh
@@ -44,5 +74,5 @@ jobs:
             Write-Host "Diagnostic evidence unchanged."
             exit 0
           }
-          git commit -m "chore: capture Phase 22 live diagnostic evidence"
+          git commit -m "chore: capture Phase 22 Driver Store identity diagnostic"
           git push origin HEAD:implementation/phase22-driver-pnp-assessment
