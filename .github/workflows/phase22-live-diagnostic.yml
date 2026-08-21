@@ -27,11 +27,14 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
-          cargo run --locked -p neo-cli -- repair drivers --json 2>&1 | Tee-Object -FilePath .phase22-live-diagnostic.txt
+          $PSNativeCommandUseErrorActionPreference = $false
+          cmd /c "cargo run --locked -p neo-cli -- repair drivers --json > .phase22-live-diagnostic.txt 2>&1"
           $code = $LASTEXITCODE
           "EXIT_CODE=$code" | Add-Content .phase22-live-diagnostic.txt
           Write-Host "Captured Phase 22 live exit code $code"
+          exit 0
       - name: Commit diagnostic evidence
+        if: always()
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
