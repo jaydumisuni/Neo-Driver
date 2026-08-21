@@ -7,7 +7,7 @@ Phase 22 is a read-only Driver Store / PnP repair assessment foundation. PASS re
 | 01 | Frozen master-plan continuity: Driver Store/PnP repair remains the governing Repair child. |
 | 02 | Exact post-Phase-21 authority binding is recorded in Decision 0022. |
 | 03 | `neo-driver-repair` is a separate crate; Phase 5 `neo-driverstore` authority is not rewritten. |
-| 04 | Live collection uses only `DriverHost::inventory()` and `resolve_published_package()`. |
+| 04 | Live collection uses only `DriverHost::inventory()` plus OEM-only `resolve_published_package()`; inbox/system INF bindings remain read evidence and never enter Phase 5 reversible package authority. |
 | 05 | No Phase 22 production path calls driver staging, install, rollback, package deletion, re-enumeration, or enable/disable mutation. |
 | 06 | Device instance identity is exact and case-insensitive duplicates fail closed. |
 | 07 | Package evidence without an active published INF fails closed. |
