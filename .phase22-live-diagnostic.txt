@@ -1,0 +1,159 @@
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded anstream v1.0.0
+  Downloaded anstyle-parse v1.0.0
+  Downloaded anstyle-query v1.1.5
+  Downloaded colorchoice v1.0.5
+  Downloaded cpufeatures v0.2.17
+  Downloaded ambient-authority v0.0.2
+  Downloaded block-buffer v0.10.4
+  Downloaded clap_derive v4.6.4
+  Downloaded digest v0.10.7
+  Downloaded once_cell_polyfill v1.70.2
+  Downloaded anstyle v1.0.14
+  Downloaded bitflags v2.13.1
+  Downloaded cfg-if v1.0.4
+  Downloaded clap_builder v4.6.6
+  Downloaded clap_lex v1.1.0
+  Downloaded fs-set-times v0.20.3
+  Downloaded heck v0.5.0
+  Downloaded anstyle-wincon v3.0.11
+  Downloaded cap-std v4.0.3
+  Downloaded is_terminal_polyfill v1.70.2
+  Downloaded maybe-owned v0.3.4
+  Downloaded crypto-common v0.1.7
+  Downloaded unicode-ident v1.0.24
+  Downloaded utf8parse v0.2.2
+  Downloaded version_check v0.9.5
+  Downloaded windows-link v0.2.1
+  Downloaded windows-result v0.4.1
+  Downloaded windows-targets v0.52.6
+  Downloaded itoa v1.0.18
+  Downloaded cap-fs-ext v4.0.3
+  Downloaded io-lifetimes v3.0.1
+  Downloaded ipnet v2.12.1
+  Downloaded strsim v0.11.1
+  Downloaded windows-implement v0.60.2
+  Downloaded windows-numerics v0.3.1
+  Downloaded generic-array v0.14.7
+  Downloaded windows-interface v0.59.3
+  Downloaded windows-targets v0.53.5
+  Downloaded windows-threading v0.2.1
+  Downloaded winx v0.36.4
+  Downloaded sha2 v0.10.9
+  Downloaded thiserror-impl v2.0.20
+  Downloaded windows-core v0.62.2
+  Downloaded io-extras v0.19.0
+  Downloaded io-lifetimes v2.0.4
+  Downloaded windows-strings v0.5.1
+  Downloaded quote v1.0.47
+  Downloaded windows-collections v0.3.2
+  Downloaded windows-future v0.3.2
+  Downloaded serde_derive v1.0.229
+  Downloaded proc-macro2 v1.0.107
+  Downloaded zmij v1.0.23
+  Downloaded thiserror v2.0.20
+  Downloaded clap v4.6.6
+  Downloaded serde_core v1.0.229
+  Downloaded serde v1.0.229
+  Downloaded cap-primitives v4.0.3
+  Downloaded typenum v1.20.1
+  Downloaded memchr v2.8.3
+  Downloaded serde_json v1.0.151
+  Downloaded syn v2.0.119
+  Downloaded syn v3.0.3
+  Downloaded windows_x86_64_msvc v0.53.1
+  Downloaded windows_x86_64_msvc v0.52.6
+  Downloaded windows-sys v0.59.0
+  Downloaded windows-sys v0.60.2
+  Downloaded windows-sys v0.61.2
+  Downloaded windows v0.62.2
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling windows-link v0.2.1
+   Compiling serde_core v1.0.229
+   Compiling thiserror v2.0.20
+   Compiling serde v1.0.229
+   Compiling zmij v1.0.23
+   Compiling version_check v0.9.5
+   Compiling serde_json v1.0.151
+   Compiling syn v3.0.3
+   Compiling syn v2.0.119
+   Compiling generic-array v0.14.7
+   Compiling windows_x86_64_msvc v0.52.6
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling windows-strings v0.5.1
+   Compiling windows-sys v0.61.2
+   Compiling windows-result v0.4.1
+   Compiling typenum v1.20.1
+   Compiling windows_x86_64_msvc v0.53.1
+   Compiling windows-interface v0.59.3
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.20
+   Compiling windows-implement v0.60.2
+   Compiling windows-core v0.62.2
+   Compiling windows-targets v0.52.6
+   Compiling io-lifetimes v3.0.1
+   Compiling io-lifetimes v2.0.4
+   Compiling windows-targets v0.53.5
+   Compiling windows-sys v0.59.0
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling windows-threading v0.2.1
+   Compiling io-extras v0.19.0
+   Compiling windows-future v0.3.2
+   Compiling digest v0.10.7
+   Compiling windows-sys v0.60.2
+   Compiling windows-numerics v0.3.1
+   Compiling windows-collections v0.3.2
+   Compiling bitflags v2.13.1
+   Compiling cpufeatures v0.2.17
+   Compiling cfg-if v1.0.4
+   Compiling cap-primitives v4.0.3
+   Compiling sha2 v0.10.9
+   Compiling winx v0.36.4
+   Compiling fs-set-times v0.20.3
+   Compiling neo-core v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-core)
+   Compiling neo-device v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-device)
+   Compiling windows v0.62.2
+   Compiling neo-catalogue v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-catalogue)
+   Compiling maybe-owned v0.3.4
+   Compiling cap-std v4.0.3
+   Compiling ambient-authority v0.0.2
+   Compiling ipnet v2.12.1
+   Compiling cap-fs-ext v4.0.3
+   Compiling neo-transaction v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-transaction)
+   Compiling once_cell_polyfill v1.70.2
+   Compiling utf8parse v0.2.2
+   Compiling anstyle v1.0.14
+   Compiling anstyle-wincon v3.0.11
+   Compiling anstyle-parse v1.0.0
+   Compiling neo-probe v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-probe)
+   Compiling anstyle-query v1.1.5
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling colorchoice v1.0.5
+   Compiling anstream v1.0.0
+   Compiling neo-vault v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-vault)
+   Compiling neo-runtime v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-runtime)
+   Compiling neo-match v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-match)
+   Compiling clap_lex v1.1.0
+   Compiling heck v0.5.0
+   Compiling strsim v0.11.1
+   Compiling clap_derive v4.6.4
+   Compiling clap_builder v4.6.6
+   Compiling neo-state-plan v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-state-plan)
+   Compiling clap v4.6.6
+   Compiling neo-directx-legacy v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-directx-legacy)
+   Compiling neo-driverstore v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-driverstore)
+   Compiling neo-runtime-probe v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-runtime-probe)
+   Compiling neo-runtime-executor v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-runtime-executor)
+   Compiling neo-driver-repair v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-driver-repair)
+   Compiling neo-repair v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-repair)
+   Compiling neo-cli v0.1.0 (D:\a\Neo-Driver\Neo-Driver\crates\neo-cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 49.27s
+     Running `target\debug\neo.exe repair drivers --json`
+neo: driver host evidence failed: invalid stored driver package identity
+error: process didn't exit successfully: `target\debug\neo.exe repair drivers --json` (exit code: 1)
+EXIT_CODE=1
