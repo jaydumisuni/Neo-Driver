@@ -62,7 +62,10 @@ fn healthy_exact_binding_requires_no_action() {
         Some(package("oem10.inf")),
     ))
     .unwrap();
-    assert_eq!(report.assessments[0].pnp_status, PnpStatusEvidence::NoProblem);
+    assert_eq!(
+        report.assessments[0].pnp_status,
+        PnpStatusEvidence::NoProblem
+    );
     assert_eq!(report.assessments[0].problem_code, None);
     assert_eq!(report.assessments[0].state, DriverRepairState::Healthy);
     assert_eq!(report.assessments[0].route, DriverRepairRoute::NoAction);
@@ -121,8 +124,9 @@ fn no_problem_without_exact_store_package_fails_closed() {
 
 #[test]
 fn no_problem_without_binding_does_not_invent_driver_selection_need() {
-    let report = assess_driver_repair_evidence(evidence(device("ROOT\\NO_DRIVER", None, None), None))
-        .unwrap();
+    let report =
+        assess_driver_repair_evidence(evidence(device("ROOT\\NO_DRIVER", None, None), None))
+            .unwrap();
     assert_eq!(
         report.assessments[0].state,
         DriverRepairState::EvidenceUnavailable
@@ -160,7 +164,8 @@ fn explicit_pnp_status_must_match_device_problem_evidence() {
 fn disabled_device_is_recorded_without_enable_authority() {
     let mut device = device("PCI\\F", Some(22), Some("oem14.inf"));
     device.disabled = Some(true);
-    let report = assess_driver_repair_evidence(evidence(device, Some(package("oem14.inf")))).unwrap();
+    let report =
+        assess_driver_repair_evidence(evidence(device, Some(package("oem14.inf")))).unwrap();
     assert_eq!(report.assessments[0].state, DriverRepairState::Disabled);
     assert_eq!(
         report.assessments[0].route,
@@ -190,8 +195,8 @@ fn cm_prob_disabled_is_authoritative_when_generic_disabled_field_is_unavailable(
 fn contradictory_disabled_evidence_fails_closed() {
     let mut device = device("PCI\\CONTRADICT", Some(22), Some("oem14.inf"));
     device.disabled = Some(false);
-    let error = assess_driver_repair_evidence(evidence(device, Some(package("oem14.inf"))))
-        .unwrap_err();
+    let error =
+        assess_driver_repair_evidence(evidence(device, Some(package("oem14.inf")))).unwrap_err();
     assert!(matches!(error, DriverRepairError::InvalidEvidence(_)));
 }
 
@@ -257,7 +262,8 @@ fn filters_are_retained_as_evidence_not_inferred_as_fault() {
     let mut device = device("USB\\FILTERED", None, Some("oem22.inf"));
     device.upper_filters = vec!["FixtureUpper".to_string()];
     device.lower_filters = vec!["FixtureLower".to_string()];
-    let report = assess_driver_repair_evidence(evidence(device, Some(package("oem22.inf")))).unwrap();
+    let report =
+        assess_driver_repair_evidence(evidence(device, Some(package("oem22.inf")))).unwrap();
     assert_eq!(report.assessments[0].state, DriverRepairState::Healthy);
     assert_eq!(report.assessments[0].route, DriverRepairRoute::NoAction);
     assert_eq!(report.assessments[0].upper_filters, vec!["FixtureUpper"]);
@@ -333,7 +339,10 @@ fn live_adapter_maps_phase5_none_to_no_problem_and_uses_only_read_authority() {
         },
     };
     let report = crate::assessment::capture_and_assess_with_host(&host).unwrap();
-    assert_eq!(report.assessments[0].pnp_status, PnpStatusEvidence::NoProblem);
+    assert_eq!(
+        report.assessments[0].pnp_status,
+        PnpStatusEvidence::NoProblem
+    );
     assert_eq!(report.assessments[0].state, DriverRepairState::Healthy);
     assert_eq!(report.assessments[0].route, DriverRepairRoute::NoAction);
     assert!(!report.machine_changes);
