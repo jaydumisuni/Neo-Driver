@@ -655,10 +655,7 @@ fn utf16_multisz(value: &[u16]) -> Vec<String> {
 
 fn bytes_to_u16(bytes: &[u8]) -> Vec<u16> {
     let (pairs, _) = bytes.as_chunks::<2>();
-    pairs
-        .iter()
-        .map(|pair| u16::from_le_bytes(*pair))
-        .collect()
+    pairs.iter().map(|pair| u16::from_le_bytes(*pair)).collect()
 }
 
 fn opaque_id(value: String) -> Result<OpaqueDeviceId, DriverStoreError> {
