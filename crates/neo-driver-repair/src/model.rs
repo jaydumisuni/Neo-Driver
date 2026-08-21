@@ -16,6 +16,7 @@ pub enum PnpStatusEvidence {
 }
 
 impl PnpStatusEvidence {
+    #[cfg(any(windows, test))]
     pub(crate) fn from_device(device: &DeviceRecord) -> Result<Self, DriverRepairError> {
         match device.problem_code {
             None => Ok(Self::NoProblem),
