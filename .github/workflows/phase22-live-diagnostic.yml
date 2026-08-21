@@ -4,15 +4,20 @@ on:
   push:
     branches:
       - implementation/phase22-driver-pnp-assessment
+    paths:
+      - .github/workflows/phase22-live-diagnostic.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   live-diagnostic:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase22-driver-pnp-assessment
+          fetch-depth: 0
       - name: Install stable Rust
         shell: pwsh
         run: |
@@ -22,14 +27,19 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
-          cargo run --locked -p neo-cli -- repair drivers --json 2>&1 | Tee-Object -FilePath phase22-live.txt
+          cargo run --locked -p neo-cli -- repair drivers --json 2>&1 | Tee-Object -FilePath .phase22-live-diagnostic.txt
           $code = $LASTEXITCODE
-          "EXIT_CODE=$code" | Add-Content phase22-live.txt
-          exit $code
-      - name: Upload diagnostic evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase22-live-diagnostic
-          path: phase22-live.txt
-          if-no-files-found: error
+          "EXIT_CODE=$code" | Add-Content .phase22-live-diagnostic.txt
+          Write-Host "Captured Phase 22 live exit code $code"
+      - name: Commit diagnostic evidence
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .phase22-live-diagnostic.txt
+          if (git diff --cached --quiet) {
+            Write-Host "Diagnostic evidence unchanged."
+            exit 0
+          }
+          git commit -m "chore: capture Phase 22 live diagnostic evidence"
+          git push origin HEAD:implementation/phase22-driver-pnp-assessment
