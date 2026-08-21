@@ -431,9 +431,20 @@ fn registry_multisz(
     data: &SP_DEVINFO_DATA,
     property: windows::Win32::Devices::DeviceAndDriverInstallation::SETUP_DI_REGISTRY_PROPERTY,
 ) -> Result<Vec<String>, DriverStoreError> {
-    Ok(registry_property_wide(set, data, property)?
+    let values = registry_property_wide(set, data, property)?
         .map(|values| utf16_multisz(&values))
-        .unwrap_or_default())
+        .unwrap_or_default();
+    Ok(stable_unique(values))
+}
+
+fn stable_unique(values: Vec<String>) -> Vec<String> {
+    let mut unique = Vec::with_capacity(values.len());
+    for value in values {
+        if !unique.contains(&value) {
+            unique.push(value);
+        }
+    }
+    unique
 }
 
 fn registry_property_wide(
@@ -712,6 +723,23 @@ fn is_safe_published_name(value: &str) -> bool {
 #[cfg(test)]
 mod windows_tests {
     use super::*;
+
+    #[test]
+    fn setupapi_id_normalization_removes_exact_duplicates_without_reordering() {
+        let values = vec![
+            r"COMPUTER\{A}".to_string(),
+            r"COMPUTER\{A}".to_string(),
+            r"PCI\VEN_1234&DEV_5678".to_string(),
+            r"COMPUTER\{A}".to_string(),
+        ];
+        assert_eq!(
+            stable_unique(values),
+            vec![
+                r"COMPUTER\{A}".to_string(),
+                r"PCI\VEN_1234&DEV_5678".to_string(),
+            ]
+        );
+    }
 
     #[test]
     fn published_name_requires_numeric_oem_index() {
