@@ -1,0 +1,58 @@
+name: Phase 22 Rust 1.98 compatibility sync
+
+on:
+  push:
+    branches:
+      - implementation/phase22-driver-pnp-assessment
+
+permissions:
+  contents: write
+
+jobs:
+  sync-rust198:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Apply exact Phase 5 compatibility replacement
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("crates/neo-driverstore/src/windows.rs")
+          text = path.read_text(encoding="utf-8")
+          old = '''fn bytes_to_u16(bytes: &[u8]) -> Vec<u16> {
+              bytes
+                  .chunks_exact(2)
+                  .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+                  .collect()
+          }
+          '''
+          new = '''fn bytes_to_u16(bytes: &[u8]) -> Vec<u16> {
+              let (pairs, _) = bytes.as_chunks::<2>();
+              pairs
+                  .iter()
+                  .map(|pair| u16::from_le_bytes(*pair))
+                  .collect()
+          }
+          '''
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f"expected exactly one bytes_to_u16 block, found {count}")
+          path.write_text(text.replace(old, new), encoding="utf-8")
+          PY
+          git diff --check -- crates/neo-driverstore/src/windows.rs
+          test "$(git diff --name-only | tr -d '\r')" = "crates/neo-driverstore/src/windows.rs"
+
+      - name: Commit exact compatibility correction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crates/neo-driverstore/src/windows.rs
+          git commit -m "chore: update Phase 5 byte conversion for Rust 1.98"
+          git push origin HEAD:${{ github.ref_name }}
