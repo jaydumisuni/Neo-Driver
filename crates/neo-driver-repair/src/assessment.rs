@@ -24,10 +24,10 @@ pub(crate) fn capture_and_assess_with_host<H: DriverHost>(
             .map(str::trim)
             .filter(|value| !value.is_empty());
         let current_package = match published {
-            Some(value) if value.to_ascii_lowercase().ends_with(".inf") => {
+            Some(value) if is_phase5_oem_published_inf(value) => {
                 host.resolve_published_package(value)?
             }
-            _ => None,
+            Some(_) | None => None,
         };
         devices.push(DriverRepairDeviceEvidence {
             device,
@@ -37,6 +37,16 @@ pub(crate) fn capture_and_assess_with_host<H: DriverHost>(
     }
 
     assess(DriverRepairEvidence { devices })
+}
+
+#[cfg(any(windows, test))]
+fn is_phase5_oem_published_inf(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    if value.contains(['\\', '/']) || !lower.starts_with("oem") || !lower.ends_with(".inf") {
+        return false;
+    }
+    let digits = &lower[3..lower.len() - 4];
+    !digits.is_empty() && digits.chars().all(|character| character.is_ascii_digit())
 }
 
 pub(crate) fn assess(
@@ -144,5 +154,21 @@ fn assess_device(evidence: &DriverRepairDeviceEvidence) -> DriverRepairAssessmen
         state,
         route,
         detail,
+    }
+}
+
+#[cfg(test)]
+mod capture_boundary_tests {
+    use super::is_phase5_oem_published_inf;
+
+    #[test]
+    fn only_phase5_oem_published_inf_enters_exact_package_resolution() {
+        assert!(is_phase5_oem_published_inf("oem0.inf"));
+        assert!(is_phase5_oem_published_inf("OEM42.INF"));
+        assert!(!is_phase5_oem_published_inf("machine.inf"));
+        assert!(!is_phase5_oem_published_inf("usbport.inf"));
+        assert!(!is_phase5_oem_published_inf("oem.inf"));
+        assert!(!is_phase5_oem_published_inf("oemx.inf"));
+        assert!(!is_phase5_oem_published_inf(r"sub\oem1.inf"));
     }
 }
