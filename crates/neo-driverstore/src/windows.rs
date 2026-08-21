@@ -654,9 +654,10 @@ fn utf16_multisz(value: &[u16]) -> Vec<String> {
 }
 
 fn bytes_to_u16(bytes: &[u8]) -> Vec<u16> {
-    bytes
-        .chunks_exact(2)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+    let (pairs, _) = bytes.as_chunks::<2>();
+    pairs
+        .iter()
+        .map(|pair| u16::from_le_bytes(*pair))
         .collect()
 }
 
