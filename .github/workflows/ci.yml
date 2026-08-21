@@ -171,6 +171,7 @@ jobs:
 
       - name: Phase 22 live Windows driver repair source proof
         if: runner.os == 'Windows'
+        timeout-minutes: 20
         run: cargo run --locked -p neo-cli -- repair drivers --json
 
       - name: Catalogue CLI fixture proof
