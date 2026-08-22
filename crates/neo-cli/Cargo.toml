@@ -14,6 +14,7 @@ clap.workspace = true
 neo-catalogue = { path = "../neo-catalogue" }
 neo-core = { path = "../neo-core" }
 neo-device = { path = "../neo-device" }
+neo-driver-repair = { path = "../neo-driver-repair" }
 neo-match = { path = "../neo-match" }
 neo-probe = { path = "../neo-probe" }
 neo-repair = { path = "../neo-repair" }

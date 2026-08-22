@@ -1,0 +1,219 @@
+use neo_device::DeviceRecord;
+use neo_driverstore::StoredDriverPackage;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
+
+use crate::DriverRepairError;
+
+pub(crate) const CM_PROB_DISABLED_CODE: u32 = 22;
+
+fn is_phase5_oem_published_inf(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    if value.contains(['\\', '/']) || !lower.starts_with("oem") || !lower.ends_with(".inf") {
+        return false;
+    }
+    let digits = &lower[3..lower.len() - 4];
+    !digits.is_empty() && digits.chars().all(|character| character.is_ascii_digit())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum PnpStatusEvidence {
+    NoProblem,
+    Problem { code: u32 },
+}
+
+impl PnpStatusEvidence {
+    #[cfg(any(windows, test))]
+    pub(crate) fn from_device(device: &DeviceRecord) -> Result<Self, DriverRepairError> {
+        match device.problem_code {
+            None => Ok(Self::NoProblem),
+            Some(0) => Err(DriverRepairError::InvalidEvidence(format!(
+                "device {} contains non-canonical PnP problem code 0; Phase 5 encodes a successful no-problem observation as None",
+                device.instance_id
+            ))),
+            Some(code) => Ok(Self::Problem { code }),
+        }
+    }
+
+    fn validate_against(&self, device: &DeviceRecord) -> Result<(), DriverRepairError> {
+        match (*self, device.problem_code) {
+            (Self::NoProblem, None) => {}
+            (Self::Problem { code }, Some(device_code)) if code != 0 && code == device_code => {}
+            (Self::Problem { code: 0 }, _) => {
+                return Err(DriverRepairError::InvalidEvidence(format!(
+                    "device {} contains non-canonical PnP status problem code 0",
+                    device.instance_id
+                )))
+            }
+            _ => {
+                return Err(DriverRepairError::InvalidEvidence(format!(
+                    "device {} PnP status evidence does not match the inherited Phase 5 problem-code evidence",
+                    device.instance_id
+                )))
+            }
+        }
+
+        let status_disabled = matches!(
+            self,
+            Self::Problem {
+                code: CM_PROB_DISABLED_CODE
+            }
+        );
+        match device.disabled {
+            Some(true) if !status_disabled => Err(DriverRepairError::InvalidEvidence(format!(
+                "device {} reports disabled=true without CM_PROB_DISABLED (Code 22)",
+                device.instance_id
+            ))),
+            Some(false) if status_disabled => Err(DriverRepairError::InvalidEvidence(format!(
+                "device {} reports disabled=false while PnP reports CM_PROB_DISABLED (Code 22)",
+                device.instance_id
+            ))),
+            _ => Ok(()),
+        }
+    }
+
+    pub(crate) fn problem_code(self) -> Option<u32> {
+        match self {
+            Self::NoProblem => None,
+            Self::Problem { code } => Some(code),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DriverRepairDeviceEvidence {
+    pub device: DeviceRecord,
+    pub pnp_status: PnpStatusEvidence,
+    #[serde(default)]
+    pub current_package: Option<StoredDriverPackage>,
+}
+
+impl DriverRepairDeviceEvidence {
+    pub fn validate(&self) -> Result<(), DriverRepairError> {
+        self.device
+            .validate()
+            .map_err(|error| DriverRepairError::InvalidEvidence(error.to_string()))?;
+        self.pnp_status.validate_against(&self.device)?;
+
+        let published = self
+            .device
+            .active_driver
+            .as_ref()
+            .and_then(|binding| binding.published_name.as_deref())
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+
+        if let Some(package) = &self.current_package {
+            package
+                .validate()
+                .map_err(|error| DriverRepairError::InvalidEvidence(error.to_string()))?;
+            let Some(published) = published else {
+                return Err(DriverRepairError::PackageWithoutBinding(
+                    self.device.instance_id.to_string(),
+                ));
+            };
+            if !is_phase5_oem_published_inf(published)
+                || !is_phase5_oem_published_inf(&package.published_inf)
+            {
+                return Err(DriverRepairError::InvalidEvidence(format!(
+                    "device {} current package is not a Phase 5 OEM published INF identity",
+                    self.device.instance_id
+                )));
+            }
+            if !package.published_inf.eq_ignore_ascii_case(published) {
+                return Err(DriverRepairError::PackageMismatch(
+                    self.device.instance_id.to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn active_published_inf(&self) -> Option<&str> {
+        self.device
+            .active_driver
+            .as_ref()
+            .and_then(|binding| binding.published_name.as_deref())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct DriverRepairEvidence {
+    pub devices: Vec<DriverRepairDeviceEvidence>,
+}
+
+impl DriverRepairEvidence {
+    pub fn validate(&self) -> Result<(), DriverRepairError> {
+        let mut seen = BTreeSet::new();
+        for item in &self.devices {
+            item.validate()?;
+            let identity = item.device.instance_id.as_str().to_ascii_lowercase();
+            if !seen.insert(identity) {
+                return Err(DriverRepairError::DuplicateDevice(
+                    item.device.instance_id.to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn from_json_str(input: &str) -> Result<Self, DriverRepairError> {
+        let value: Self = serde_json::from_str(input)
+            .map_err(|error| DriverRepairError::Serialization(error.to_string()))?;
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn digest(&self) -> Result<String, DriverRepairError> {
+        self.validate()?;
+        let bytes = serde_json::to_vec(self)
+            .map_err(|error| DriverRepairError::Serialization(error.to_string()))?;
+        Ok(format!("{:x}", Sha256::digest(bytes)))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DriverRepairState {
+    Healthy,
+    Disabled,
+    MissingDriverBinding,
+    PnpProblem,
+    EvidenceUnavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DriverRepairRoute {
+    NoAction,
+    CurrentExactDriverReinstallCandidate,
+    DriverSelectionRequired,
+    ManualInvestigation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DriverRepairAssessment {
+    pub instance_id: String,
+    pub description: Option<String>,
+    pub pnp_status: PnpStatusEvidence,
+    pub problem_code: Option<u32>,
+    pub disabled: Option<bool>,
+    pub active_published_inf: Option<String>,
+    pub exact_driver_store_package: Option<StoredDriverPackage>,
+    pub upper_filters: Vec<String>,
+    pub lower_filters: Vec<String>,
+    pub state: DriverRepairState,
+    pub route: DriverRepairRoute,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DriverRepairAssessmentReport {
+    pub source_evidence_sha256: String,
+    pub assessments: Vec<DriverRepairAssessment>,
+    pub machine_changes: bool,
+}

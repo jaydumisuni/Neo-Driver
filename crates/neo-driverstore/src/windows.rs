@@ -20,8 +20,9 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     SetupUninstallOEMInfW, SetupVerifyInfFileW, CM_DEVNODE_STATUS_FLAGS, CM_PROB, CONFIGRET,
     CR_SUCCESS, DIGCF_ALLCLASSES, DIGCF_PRESENT, DIINSTALLDEVICE_FLAGS, DI_ENUMSINGLEINF,
     DI_FLAGSEX_ALLOWEXCLUDEDDRVS, HDEVINFO, SPDIT_COMPATDRIVER, SPDRP_CLASS, SPDRP_CLASSGUID,
-    SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_MFG, SPOST_PATH, SP_COPY_STYLE,
-    SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
+    SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_LOWERFILTERS, SPDRP_MFG,
+    SPDRP_UPPERFILTERS, SPOST_PATH, SP_COPY_STYLE, SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W,
+    SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
 };
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_DriverInfPath, DEVPROPTYPE};
 use windows::Win32::Foundation::ERROR_NO_MORE_ITEMS;
@@ -78,6 +79,8 @@ impl DriverHost for WindowsDriverHost {
             let published_name =
                 device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
             let problem_code = problem_code(&data)?;
+            let upper_filters = registry_multisz(set.0, &data, SPDRP_UPPERFILTERS)?;
+            let lower_filters = registry_multisz(set.0, &data, SPDRP_LOWERFILTERS)?;
             devices.push(DeviceRecord {
                 instance_id: opaque_id(instance_id)?,
                 description: registry_string(set.0, &data, SPDRP_DEVICEDESC)?,
@@ -94,8 +97,8 @@ impl DriverHost for WindowsDriverHost {
                     published_name: Some(published_name),
                     ..DriverBinding::default()
                 }),
-                upper_filters: vec![],
-                lower_filters: vec![],
+                upper_filters,
+                lower_filters,
             });
         }
         let inventory = DriverInventory { devices };
@@ -431,9 +434,20 @@ fn registry_multisz(
     data: &SP_DEVINFO_DATA,
     property: windows::Win32::Devices::DeviceAndDriverInstallation::SETUP_DI_REGISTRY_PROPERTY,
 ) -> Result<Vec<String>, DriverStoreError> {
-    Ok(registry_property_wide(set, data, property)?
+    let values = registry_property_wide(set, data, property)?
         .map(|values| utf16_multisz(&values))
-        .unwrap_or_default())
+        .unwrap_or_default();
+    Ok(stable_unique(values))
+}
+
+fn stable_unique(values: Vec<String>) -> Vec<String> {
+    let mut unique = Vec::with_capacity(values.len());
+    for value in values {
+        if !unique.contains(&value) {
+            unique.push(value);
+        }
+    }
+    unique
 }
 
 fn registry_property_wide(
@@ -654,10 +668,8 @@ fn utf16_multisz(value: &[u16]) -> Vec<String> {
 }
 
 fn bytes_to_u16(bytes: &[u8]) -> Vec<u16> {
-    bytes
-        .chunks_exact(2)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
-        .collect()
+    let (pairs, _) = bytes.as_chunks::<2>();
+    pairs.iter().map(|pair| u16::from_le_bytes(*pair)).collect()
 }
 
 fn opaque_id(value: String) -> Result<OpaqueDeviceId, DriverStoreError> {
@@ -714,6 +726,23 @@ fn is_safe_published_name(value: &str) -> bool {
 #[cfg(test)]
 mod windows_tests {
     use super::*;
+
+    #[test]
+    fn setupapi_id_normalization_removes_exact_duplicates_without_reordering() {
+        let values = vec![
+            r"COMPUTER\{A}".to_string(),
+            r"COMPUTER\{A}".to_string(),
+            r"PCI\VEN_1234&DEV_5678".to_string(),
+            r"COMPUTER\{A}".to_string(),
+        ];
+        assert_eq!(
+            stable_unique(values),
+            vec![
+                r"COMPUTER\{A}".to_string(),
+                r"PCI\VEN_1234&DEV_5678".to_string(),
+            ]
+        );
+    }
 
     #[test]
     fn published_name_requires_numeric_oem_index() {

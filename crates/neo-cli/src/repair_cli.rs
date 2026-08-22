@@ -1,5 +1,9 @@
 use clap::Subcommand;
+use neo_driver_repair::{
+    assess_driver_repair_evidence, inspect_windows_driver_repair, DriverRepairEvidence,
+};
 use neo_repair::{inspect_windows_features, inspect_windows_repair_health};
+use std::path::PathBuf;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum RepairCommand {
@@ -12,6 +16,15 @@ pub(crate) enum RepairCommand {
     /// Inspect the fixed Phase 21 Windows optional-feature catalogue without changing features.
     Features {
         /// Emit machine-readable JSON including bounded command evidence.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Assess present-device Driver Store / PnP repair readiness without changing any device.
+    Drivers {
+        /// Optional normalized Phase 22 evidence JSON. Omit on Windows to inspect the live host.
+        #[arg(long)]
+        evidence: Option<PathBuf>,
+        /// Emit machine-readable JSON including exact current binding/package evidence.
         #[arg(long)]
         json: bool,
     },
@@ -53,6 +66,35 @@ pub(crate) fn run(command: RepairCommand) -> Result<(), String> {
                 println!("Machine changes: none");
             }
         }
+        RepairCommand::Drivers { evidence, json } => {
+            let report = match evidence {
+                Some(path) => {
+                    let raw = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+                    let evidence = DriverRepairEvidence::from_json_str(&raw)
+                        .map_err(|error| error.to_string())?;
+                    assess_driver_repair_evidence(evidence).map_err(|error| error.to_string())?
+                }
+                None => inspect_windows_driver_repair().map_err(|error| error.to_string())?,
+            };
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
+                );
+            } else {
+                println!("Neo read-only Driver Store / PnP repair assessment");
+                println!("---------------------------------------------------");
+                for item in &report.assessments {
+                    println!(
+                        "- {}: {:?} -> {:?}",
+                        item.instance_id, item.state, item.route
+                    );
+                    println!("  {}", item.detail);
+                }
+                println!("Evidence SHA-256: {}", report.source_evidence_sha256);
+                println!("Machine changes: none");
+            }
+        }
     }
     Ok(())
 }
@@ -75,6 +117,13 @@ mod tests {
             .map(|subcommand| subcommand.get_name().to_string())
             .collect();
         names.sort();
-        assert_eq!(names, vec!["features".to_string(), "inspect".to_string()]);
+        assert_eq!(
+            names,
+            vec![
+                "drivers".to_string(),
+                "features".to_string(),
+                "inspect".to_string(),
+            ]
+        );
     }
 }

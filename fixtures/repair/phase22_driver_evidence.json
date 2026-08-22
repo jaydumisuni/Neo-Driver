@@ -1,0 +1,63 @@
+{
+  "devices": [
+    {
+      "device": {
+        "instance_id": "PCI\\VEN_1234&DEV_0001\\HEALTHY",
+        "description": "Healthy fixture device",
+        "manufacturer": "THETECHGUY fixture",
+        "class_name": "Fixture",
+        "class_guid": null,
+        "problem_code": null,
+        "disabled": null,
+        "ids": {
+          "hardware_ids": ["PCI\\VEN_1234&DEV_0001"],
+          "compatible_ids": []
+        },
+        "active_driver": {
+          "published_name": "oem40.inf",
+          "original_name": null,
+          "provider": null,
+          "class_name": null,
+          "class_guid": null,
+          "version": null,
+          "date": null,
+          "signer": null,
+          "catalog_file": null,
+          "service": null
+        },
+        "upper_filters": [],
+        "lower_filters": []
+      },
+      "pnp_status": {
+        "state": "no_problem"
+      },
+      "current_package": {
+        "published_inf": "oem40.inf",
+        "driver_store_inf": "C:\\Windows\\System32\\DriverStore\\FileRepository\\fixture\\oem40.inf"
+      }
+    },
+    {
+      "device": {
+        "instance_id": "PCI\\VEN_1234&DEV_0002\\PROBLEM",
+        "description": "Problem fixture device",
+        "manufacturer": "THETECHGUY fixture",
+        "class_name": "Fixture",
+        "class_guid": null,
+        "problem_code": 28,
+        "disabled": null,
+        "ids": {
+          "hardware_ids": ["PCI\\VEN_1234&DEV_0002"],
+          "compatible_ids": []
+        },
+        "active_driver": null,
+        "upper_filters": [],
+        "lower_filters": []
+      },
+      "pnp_status": {
+        "state": "problem",
+        "code": 28
+      },
+      "current_package": null
+    }
+  ]
+}
