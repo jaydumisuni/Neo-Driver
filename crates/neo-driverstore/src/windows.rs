@@ -20,8 +20,9 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     SetupUninstallOEMInfW, SetupVerifyInfFileW, CM_DEVNODE_STATUS_FLAGS, CM_PROB, CONFIGRET,
     CR_SUCCESS, DIGCF_ALLCLASSES, DIGCF_PRESENT, DIINSTALLDEVICE_FLAGS, DI_ENUMSINGLEINF,
     DI_FLAGSEX_ALLOWEXCLUDEDDRVS, HDEVINFO, SPDIT_COMPATDRIVER, SPDRP_CLASS, SPDRP_CLASSGUID,
-    SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_MFG, SPOST_PATH, SP_COPY_STYLE,
-    SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
+    SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_LOWERFILTERS, SPDRP_MFG,
+    SPDRP_UPPERFILTERS, SPOST_PATH, SP_COPY_STYLE, SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W,
+    SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
 };
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_DriverInfPath, DEVPROPTYPE};
 use windows::Win32::Foundation::ERROR_NO_MORE_ITEMS;
@@ -78,6 +79,8 @@ impl DriverHost for WindowsDriverHost {
             let published_name =
                 device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
             let problem_code = problem_code(&data)?;
+            let upper_filters = registry_multisz(set.0, &data, SPDRP_UPPERFILTERS)?;
+            let lower_filters = registry_multisz(set.0, &data, SPDRP_LOWERFILTERS)?;
             devices.push(DeviceRecord {
                 instance_id: opaque_id(instance_id)?,
                 description: registry_string(set.0, &data, SPDRP_DEVICEDESC)?,
@@ -94,8 +97,8 @@ impl DriverHost for WindowsDriverHost {
                     published_name: Some(published_name),
                     ..DriverBinding::default()
                 }),
-                upper_filters: vec![],
-                lower_filters: vec![],
+                upper_filters,
+                lower_filters,
             });
         }
         let inventory = DriverInventory { devices };
