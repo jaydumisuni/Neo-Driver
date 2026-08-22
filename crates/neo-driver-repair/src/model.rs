@@ -8,6 +8,15 @@ use crate::DriverRepairError;
 
 pub(crate) const CM_PROB_DISABLED_CODE: u32 = 22;
 
+fn is_phase5_oem_published_inf(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    if value.contains(['\\', '/']) || !lower.starts_with("oem") || !lower.ends_with(".inf") {
+        return false;
+    }
+    let digits = &lower[3..lower.len() - 4];
+    !digits.is_empty() && digits.chars().all(|character| character.is_ascii_digit())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum PnpStatusEvidence {
@@ -105,6 +114,14 @@ impl DriverRepairDeviceEvidence {
                     self.device.instance_id.to_string(),
                 ));
             };
+            if !is_phase5_oem_published_inf(published)
+                || !is_phase5_oem_published_inf(&package.published_inf)
+            {
+                return Err(DriverRepairError::InvalidEvidence(format!(
+                    "device {} current package is not a Phase 5 OEM published INF identity",
+                    self.device.instance_id
+                )));
+            }
             if !package.published_inf.eq_ignore_ascii_case(published) {
                 return Err(DriverRepairError::PackageMismatch(
                     self.device.instance_id.to_string(),
