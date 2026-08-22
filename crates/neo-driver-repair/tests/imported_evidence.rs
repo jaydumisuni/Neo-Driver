@@ -38,5 +38,7 @@ fn imported_inbox_inf_cannot_claim_exact_package_authority() {
 
     let error = assess_driver_repair_evidence(evidence).unwrap_err();
     assert!(matches!(error, DriverRepairError::InvalidEvidence(_)));
-    assert!(error.to_string().contains("Phase 5 OEM published INF identity"));
+    assert!(error
+        .to_string()
+        .contains("Phase 5 OEM published INF identity"));
 }
