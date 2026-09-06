@@ -296,9 +296,9 @@ impl<'de> Deserialize<'de> for ImportedPnpStatusEvidence {
         match (value.state, value.code) {
             (ImportedPnpState::NoProblem, None) => Ok(Self::NoProblem),
             (ImportedPnpState::Problem, Some(code)) => Ok(Self::Problem { code }),
-            (ImportedPnpState::NoProblem, Some(_)) => {
-                Err(D::Error::custom("no_problem PnP status must not contain code"))
-            }
+            (ImportedPnpState::NoProblem, Some(_)) => Err(D::Error::custom(
+                "no_problem PnP status must not contain code",
+            )),
             (ImportedPnpState::Problem, None) => {
                 Err(D::Error::custom("problem PnP status requires code"))
             }
