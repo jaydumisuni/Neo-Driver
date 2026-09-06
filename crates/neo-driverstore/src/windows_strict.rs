@@ -11,7 +11,7 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_Get_DevNode_Status, SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo,
     SetupDiGetClassDevsW, SetupDiGetDeviceInstanceIdW, SetupDiGetDevicePropertyW,
     CM_DEVNODE_STATUS_FLAGS, CM_PROB, CONFIGRET, CR_SUCCESS, DIGCF_ALLCLASSES, DIGCF_PRESENT,
-    HDEVINFO, SP_DEVINFO_DATA,
+    DN_HAS_PROBLEM, HDEVINFO, SP_DEVINFO_DATA,
 };
 use windows::Win32::Devices::Properties::{
     DEVPKEY_Device_Class, DEVPKEY_Device_CompatibleIds, DEVPKEY_Device_DeviceDesc,
@@ -320,11 +320,12 @@ fn problem_code(data: &SP_DEVINFO_DATA) -> Result<Option<u32>, DriverStoreError>
     let mut status = CM_DEVNODE_STATUS_FLAGS(0);
     let mut problem = CM_PROB(0);
     let result = unsafe { CM_Get_DevNode_Status(&mut status, &mut problem, data.DevInst, 0) };
-    decode_problem_code(result, problem)
+    decode_problem_code(result, status, problem)
 }
 
 fn decode_problem_code(
     result: CONFIGRET,
+    status: CM_DEVNODE_STATUS_FLAGS,
     problem: CM_PROB,
 ) -> Result<Option<u32>, DriverStoreError> {
     if result != CR_SUCCESS {
@@ -333,7 +334,18 @@ fn decode_problem_code(
             result.0
         )));
     }
-    Ok((problem.0 != 0).then_some(problem.0))
+
+    let has_problem = status.0 & DN_HAS_PROBLEM.0 != 0;
+    match (has_problem, problem.0) {
+        (false, 0) => Ok(None),
+        (true, code) if code != 0 => Ok(Some(code)),
+        (true, 0) => Err(DriverStoreError::Windows(
+            "CM_Get_DevNode_Status set DN_HAS_PROBLEM without a nonzero problem code".to_string(),
+        )),
+        (false, code) => Err(DriverStoreError::Windows(format!(
+            "CM_Get_DevNode_Status returned problem code {code} without DN_HAS_PROBLEM"
+        ))),
+    }
 }
 
 fn stable_unique(values: Vec<String>) -> Vec<String> {
@@ -444,13 +456,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn config_manager_problem_decode_remains_fail_closed() {
-        assert_eq!(decode_problem_code(CR_SUCCESS, CM_PROB(0)).unwrap(), None);
+    fn config_manager_problem_decode_requires_status_flag_and_code_consistency() {
         assert_eq!(
-            decode_problem_code(CR_SUCCESS, CM_PROB(28)).unwrap(),
+            decode_problem_code(CR_SUCCESS, CM_DEVNODE_STATUS_FLAGS(0), CM_PROB(0)).unwrap(),
+            None
+        );
+        assert_eq!(
+            decode_problem_code(CR_SUCCESS, DN_HAS_PROBLEM, CM_PROB(28)).unwrap(),
             Some(28)
         );
-        assert!(decode_problem_code(CONFIGRET(13), CM_PROB(0)).is_err());
+        assert!(decode_problem_code(CR_SUCCESS, DN_HAS_PROBLEM, CM_PROB(0)).is_err());
+        assert!(
+            decode_problem_code(CR_SUCCESS, CM_DEVNODE_STATUS_FLAGS(0), CM_PROB(28)).is_err()
+        );
+        assert!(
+            decode_problem_code(CONFIGRET(13), CM_DEVNODE_STATUS_FLAGS(0), CM_PROB(0)).is_err()
+        );
     }
 
     #[test]
