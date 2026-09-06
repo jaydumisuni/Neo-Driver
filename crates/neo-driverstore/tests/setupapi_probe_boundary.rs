@@ -85,6 +85,29 @@ fn public_setupapi_id_dedup_is_case_insensitive_and_stable() {
 }
 
 #[test]
+fn config_manager_problem_evidence_requires_dn_has_problem_consistency() {
+    let problem = function_body(STRICT_WINDOWS_SOURCE, "problem_code", "decode_problem_code");
+    let decode = function_body(STRICT_WINDOWS_SOURCE, "decode_problem_code", "stable_unique");
+
+    assert!(problem.contains("decode_problem_code(result, status, problem)"));
+    for token in [
+        "DN_HAS_PROBLEM",
+        "status.0 & DN_HAS_PROBLEM.0 != 0",
+        "(false, 0) => Ok(None)",
+        "(true, code) if code != 0 => Ok(Some(code))",
+        "without a nonzero problem code",
+        "without DN_HAS_PROBLEM",
+        "config_manager_problem_decode_requires_status_flag_and_code_consistency",
+    ] {
+        assert!(
+            STRICT_WINDOWS_SOURCE.contains(token),
+            "missing Config Manager PnP-status authority token: {token}"
+        );
+    }
+    assert!(decode.contains("result != CR_SUCCESS"));
+}
+
+#[test]
 fn exact_package_resolution_rejects_lossy_utf16_evidence() {
     let location = function_body(
         LEGACY_WINDOWS_SOURCE,
