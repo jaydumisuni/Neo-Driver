@@ -29,6 +29,23 @@ fn imported_exact_package_authority_remains_oem_only() {
 }
 
 #[test]
+fn imported_exact_package_authority_requires_driver_store_path_shape() {
+    assert_eq!(MODEL_SOURCE.matches("fn is_driver_store_inf_path").count(), 1);
+    for token in [
+        "System32",
+        "DriverStore",
+        "FileRepository",
+        "if !is_driver_store_inf_path(&package.driver_store_inf)",
+        "fully qualified Driver Store FileRepository INF path",
+    ] {
+        assert!(
+            MODEL_SOURCE.contains(token),
+            "missing imported Driver Store path authority token: {token}"
+        );
+    }
+}
+
+#[test]
 fn live_windows_inventory_collects_real_filter_evidence() {
     for token in [
         "SPDRP_UPPERFILTERS",
