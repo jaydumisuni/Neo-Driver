@@ -30,7 +30,10 @@ fn imported_exact_package_authority_remains_oem_only() {
 
 #[test]
 fn imported_exact_package_authority_requires_driver_store_path_shape() {
-    assert_eq!(MODEL_SOURCE.matches("fn is_driver_store_inf_path").count(), 1);
+    assert_eq!(
+        MODEL_SOURCE.matches("fn is_driver_store_inf_path").count(),
+        1
+    );
     for token in [
         "System32",
         "DriverStore",
