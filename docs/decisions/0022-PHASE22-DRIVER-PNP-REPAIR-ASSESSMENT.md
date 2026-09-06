@@ -1,6 +1,6 @@
 # Decision 0022 — Phase 22 Driver Store / PnP Repair Assessment Foundation
 
-**Status:** FROZEN AND PROVEN
+**Status:** REOPENED FOR CORRECTION / EXACT-HEAD REPROOF
 
 ## Why this phase exists
 
@@ -29,10 +29,12 @@ Phase 22 has `machine_changes = false`.
 
 ## Existing authority must be reused
 
-Phase 22 does not duplicate SetupAPI/NewDev logic. Live Windows collection uses the existing Phase 5 `DriverHost` contract:
+Phase 22 does not duplicate SetupAPI/NewDev mutation logic. Live Windows collection uses the existing Phase 5 `DriverHost` contract:
 
 - `inventory()` for present devices and current binding/problem evidence;
 - `resolve_published_package()` only for active Phase 5 OEM published INF identities (`oem<digits>.inf`); inbox/system INF identities remain visible binding evidence and are conservatively represented without exact reversible package evidence.
+
+The public Windows `DriverHost` is a fail-closed inventory wrapper around the established Phase 5 mutation backend. The wrapper owns the present-device evidence read boundary; mutation methods continue delegating to the established backend and are not widened by Phase 22.
 
 No Phase 22 path may call:
 
@@ -79,9 +81,9 @@ Each device assessment retains:
 
 Case-insensitive duplicate device instance IDs fail closed. PnP status that disagrees with inherited Phase 5 problem-code evidence fails closed. Driver Store package evidence without an active published INF fails closed. A resolved package whose published identity does not equal the active published INF fails closed.
 
-Raw SetupAPI hardware/compatible-ID lists are stable-deduplicated at the Windows evidence boundary while preserving first-occurrence ranking order. Inbox/system INF bindings such as `machine.inf` remain valid active-binding evidence but are never promoted into Phase 5 OEM rollback-package authority. Imported or fixture `current_package` evidence is accepted only when both the active binding and the package published identity satisfy the same Phase 5 `oem<digits>.inf` rule.
+Raw SetupAPI hardware/compatible-ID lists are stable-deduplicated at the Windows evidence boundary while preserving first-occurrence ranking order. Inbox/system INF bindings such as `machine.inf` remain valid active-binding evidence but are never promoted into Phase 5 OEM rollback-package authority. Imported or fixture `current_package` evidence is accepted only when both the active binding and the package published identity satisfy the same Phase 5 `oem<digits>.inf` rule **and** `driver_store_inf` has the fully qualified Windows Driver Store `System32\DriverStore\FileRepository\<package>\<original>.inf` path shape returned by SetupAPI.
 
-Live Windows filter evidence is read from `SPDRP_UPPERFILTERS` and `SPDRP_LOWERFILTERS` through the existing SetupAPI registry-property path. Missing properties may produce empty lists, but Phase 22 does not manufacture empty filter evidence when filter values are present.
+The public Windows inventory boundary uses the unified device-property model (`SetupDiGetDevicePropertyW` with `DEVPKEY_Device_*`) for hardware IDs, compatible IDs, active INF, description/manufacturer/class metadata, and upper/lower filters. This is deliberate: the legacy `SetupDiGetDeviceRegistryPropertyW` contract uses `ERROR_INVALID_DATA` for both a missing property and invalid property data, so it cannot prove absence without also risking malformed evidence being collapsed into emptiness. On the public boundary, only unified-property `ERROR_NOT_FOUND` is accepted as absence; insufficient-buffer, type, size, and UTF-16 failures propagate. `ClassGuid` is taken directly from the enumerated `SP_DEVINFO_DATA.ClassGuid` field. Missing filter properties may therefore produce empty lists, but malformed/query-failed filter evidence cannot be manufactured as empty.
 
 ## Assessment states
 
@@ -119,6 +121,8 @@ A route is not mutation authority.
 - A Phase 5 OEM published INF that cannot resolve to an exact current package cannot establish reversible repair readiness.
 - A valid inbox/system INF binding is not an error, but because it is outside Phase 5 OEM rollback-package authority it carries no exact reversible-package claim and cannot become an exact-current-driver reinstall candidate.
 - Imported or fixture `current_package` evidence for an inbox/system or otherwise non-OEM INF is rejected rather than promoted into exact-package authority.
+- Imported or fixture exact-package evidence whose `driver_store_inf` is not a fully qualified Driver Store `FileRepository` INF path is rejected.
+- On the public Windows inventory boundary, only unified-property `ERROR_NOT_FOUND` is absence; sizing, property-type, byte-count, invalid UTF-16, or other SetupAPI failures abort that inventory read rather than becoming empty evidence.
 - A disabled device is recorded as disabled; Phase 22 does not enable or re-enumerate it.
 - Filters are retained as evidence but are not blamed automatically.
 - No caller-supplied raw SetupAPI/PnP command or arbitrary shell adapter exists.
@@ -127,7 +131,7 @@ A route is not mutation authority.
 
 `neo repair drivers` is read-only.
 
-- On Windows with no `--evidence`, it reads the live host through the existing Phase 5 read authority.
+- On Windows with no `--evidence`, it reads the live host through the existing Phase 5 read authority and the fail-closed public Windows inventory boundary.
 - With `--evidence <file>`, it requires and validates normalized Phase 22 PnP-status evidence and derives the same deterministic assessment on any supported CI host.
 - `--json` emits the complete typed report.
 
@@ -166,24 +170,26 @@ Phase 22 requires:
 - regression proof that inherited Phase 5 `None` is a successful no-problem observation and that non-canonical/mismatched PnP evidence fails closed;
 - regression proof that Code 22 is disabled and cannot become a reinstall candidate;
 - regression proof that duplicate SetupAPI IDs preserve first-occurrence order after normalization and that only `oem<digits>.inf` enters Phase 5 exact-package resolution;
-- regression proof that imported/fixture `current_package` evidence cannot bypass the Phase 5 OEM published-INF boundary;
-- anti-drift proof that live Windows inventory continues reading `SPDRP_UPPERFILTERS` and `SPDRP_LOWERFILTERS` rather than fabricating empty filter arrays;
+- regression proof that imported/fixture `current_package` evidence cannot bypass the Phase 5 OEM published-INF boundary or claim exact Driver Store authority with an arbitrary non-Driver-Store path;
+- anti-drift proof that the exported Windows host uses the unified `DEVPKEY_Device_*` property boundary for IDs, active INF, and filter evidence, accepts only `ERROR_NOT_FOUND` as property absence, validates property types and UTF-16 shape, and does not use `SetupDiGetDeviceRegistryPropertyW` for public inventory evidence;
 - no unresolved material external-review finding before freeze;
 - final exact-head proof before merge.
 
-## Frozen implementation proof
+## Frozen implementation proof history and current reopen
 
-The final production-source implementation proof head before this freeze/anti-drift closure record is `9ffd3175a23068a1c513b88ada27f86aa7c96f55`. Neo Driver CI run `32555744807` completed successfully on both Ubuntu and Windows. The Windows lane passed the complete inherited Phase 1–22 chain, including locked build, Clippy with warnings denied, workspace units, the focused Phase 22 proof, inherited live-system probes, and the real bounded `neo repair drivers --json` source probe.
+The earlier production-source implementation proof head before this correction cycle was `9ffd3175a23068a1c513b88ada27f86aa7c96f55`. Neo Driver CI run `32555744807` completed successfully on both Ubuntu and Windows. That historical proof remains evidence for the state it tested, but it is **not** sufficient proof for the reopened exact head after the later authority-boundary corrections below.
 
-The evidence campaign and subsequent external review found and corrected four Windows/authority-boundary defects before final closure:
+The evidence campaign, external review, and this correction cycle found the following Windows/authority-boundary defects:
 
-1. raw SetupAPI hardware/compatible-ID lists can contain duplicate entries, so the Windows adapter now stable-deduplicates them while retaining first-occurrence ranking order;
+1. raw SetupAPI hardware/compatible-ID lists can contain duplicate entries, so the Windows adapter stable-deduplicates them while retaining first-occurrence ranking order;
 2. valid inbox/system INF bindings such as `machine.inf` are binding evidence but do not enter Phase 5's OEM-only exact rollback-package resolver;
-3. imported evidence could previously pair a non-OEM binding such as `machine.inf` with matching `current_package` data and falsely claim exact-package authority, so shared validation now rejects non-OEM package evidence and a dedicated regression proves the boundary;
-4. live Windows inventory previously emitted empty upper/lower filter arrays regardless of actual device filter properties, so it now reads `SPDRP_UPPERFILTERS` and `SPDRP_LOWERFILTERS` and carries those values into the assessment evidence.
+3. imported evidence could pair a non-OEM binding such as `machine.inf` with matching `current_package` data and falsely claim exact-package authority, so shared validation rejects non-OEM package evidence and a dedicated regression proves the boundary;
+4. live Windows inventory previously emitted empty upper/lower filter arrays regardless of actual device filter properties, so the inventory boundary was changed to collect real filter evidence;
+5. imported OEM-shaped `current_package` evidence could still claim exact-package continuity with an arbitrary non-Driver-Store path, so normalized evidence now requires a fully qualified Driver Store `FileRepository` INF path shape;
+6. the legacy registry-property sizing probe discarded its first SetupAPI result and the subsequent strict wrapper still treated `ERROR_INVALID_DATA` as property absence, even though that code also represents invalid property data. The exported Windows inventory host now uses the unified `SetupDiGetDevicePropertyW`/`DEVPKEY_Device_*` model, where `ERROR_NOT_FOUND` is the distinct absence signal, and fails closed on sizing/type/UTF-16 errors.
 
-The subsequent closure commits add only regression/anti-drift proof and documentation around that already-proven production source. They do not broaden runtime behavior or mutation authority and must themselves pass exact-head CI before merge.
+Corrections 5 and 6 do not grant mutation authority. They narrow what may become trusted read evidence. The existing Phase 5 OEM mutation boundary remains unchanged.
 
-Neither correction path grants mutation authority. The existing Phase 5 OEM mutation boundary remains unchanged.
+This decision returns to **FROZEN AND PROVEN** only after the final correction/documentation head passes the complete exact-head CI matrix and no further material review finding remains.
 
 Live driver/PnP mutation is explicitly unclaimed.
