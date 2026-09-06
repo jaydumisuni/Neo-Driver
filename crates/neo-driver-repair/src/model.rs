@@ -29,19 +29,13 @@ fn is_driver_store_inf_path(path: &Path) -> bool {
     // the same evidence validates deterministically on non-Windows CI hosts.
     let normalized = value.replace('/', "\\");
     let bytes = normalized.as_bytes();
-    if bytes.len() < 4
-        || !bytes[0].is_ascii_alphabetic()
-        || bytes[1] != b':'
-        || bytes[2] != b'\\'
-    {
+    if bytes.len() < 4 || !bytes[0].is_ascii_alphabetic() || bytes[1] != b':' || bytes[2] != b'\\' {
         return false;
     }
 
     let components: Vec<&str> = normalized[3..].split('\\').collect();
     if components.iter().any(|component| {
-        component.is_empty()
-            || matches!(*component, "." | "..")
-            || component.contains(':')
+        component.is_empty() || matches!(*component, "." | "..") || component.contains(':')
     }) {
         return false;
     }
