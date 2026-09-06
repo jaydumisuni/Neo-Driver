@@ -11,6 +11,9 @@ LIB = (SRC / "lib.rs").read_text(encoding="utf-8")
 MODEL = (SRC / "model.rs").read_text(encoding="utf-8")
 ASSESS = (SRC / "assessment.rs").read_text(encoding="utf-8")
 TESTS = (SRC / "tests.rs").read_text(encoding="utf-8")
+INTEGRATION_TESTS = "\n".join(
+    path.read_text(encoding="utf-8") for path in sorted((CRATE / "tests").glob("*.rs"))
+)
 PRODUCTION_SOURCES = {
     path.name: path.read_text(encoding="utf-8")
     for path in sorted(SRC.glob("*.rs"))
@@ -21,6 +24,9 @@ MANIFEST = (CRATE / "Cargo.toml").read_text(encoding="utf-8")
 DRIVER_HOST = (ROOT / "crates" / "neo-driverstore" / "src" / "host.rs").read_text(
     encoding="utf-8"
 )
+DRIVERSTORE_WINDOWS = (
+    ROOT / "crates" / "neo-driverstore" / "src" / "windows.rs"
+).read_text(encoding="utf-8")
 WORKSPACE_RAW = (ROOT / "Cargo.toml").read_text(encoding="utf-8")
 WORKSPACE = tomllib.loads(WORKSPACE_RAW)
 MASTER = (ROOT / "docs" / "NEO_DRIVER_MASTER_PLAN.md").read_text(encoding="utf-8")
@@ -277,9 +283,13 @@ checks = [
     ),
     (
         "08-package-identity-equality",
-        "eq_ignore_ascii_case(published)" in MODEL
+        "if !is_phase5_oem_published_inf(published)" in MODEL
+        and "|| !is_phase5_oem_published_inf(&package.published_inf)" in MODEL
+        and "eq_ignore_ascii_case(published)" in MODEL
         and "DriverRepairError::PackageMismatch" in MODEL
-        and "mismatched_driver_store_identity_is_rejected" in TESTS,
+        and "mismatched_driver_store_identity_is_rejected" in TESTS
+        and "imported_inbox_inf_cannot_claim_exact_package_authority" in INTEGRATION_TESTS
+        and "imported_exact_package_authority_remains_oem_only" in INTEGRATION_TESTS,
     ),
     (
         "09-phase5-pnp-semantics",
@@ -339,7 +349,21 @@ checks = [
     (
         "14-filters-are-evidence-only",
         has_all(MODEL, ("upper_filters", "lower_filters"))
-        and "filters_are_retained_as_evidence_not_inferred_as_fault" in TESTS,
+        and has_all(
+            DRIVERSTORE_WINDOWS,
+            (
+                "SPDRP_UPPERFILTERS",
+                "SPDRP_LOWERFILTERS",
+                "let upper_filters = registry_multisz(set.0, &data, SPDRP_UPPERFILTERS)?;",
+                "let lower_filters = registry_multisz(set.0, &data, SPDRP_LOWERFILTERS)?;",
+                "upper_filters,",
+                "lower_filters,",
+            ),
+        )
+        and "upper_filters: vec![]" not in DRIVERSTORE_WINDOWS
+        and "lower_filters: vec![]" not in DRIVERSTORE_WINDOWS
+        and "filters_are_retained_as_evidence_not_inferred_as_fault" in TESTS
+        and "live_windows_inventory_collects_real_filter_evidence" in INTEGRATION_TESTS,
     ),
     (
         "15-deterministic-order-and-digest",
