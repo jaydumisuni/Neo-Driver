@@ -1,6 +1,6 @@
 # Decision 0022 — Phase 22 Driver Store / PnP Repair Assessment Foundation
 
-**Status:** REOPENED FOR CORRECTION / EXACT-HEAD REPROOF
+**Status:** REOPENED FOR FINAL CLOSEOUT / EXACT-HEAD REPROOF
 
 ## Why this phase exists
 
@@ -81,9 +81,9 @@ Each device assessment retains:
 
 Case-insensitive duplicate device instance IDs fail closed. PnP status that disagrees with inherited Phase 5 problem-code evidence fails closed. Driver Store package evidence without an active published INF fails closed. A resolved package whose published identity does not equal the active published INF fails closed.
 
-Raw SetupAPI hardware/compatible-ID lists are stable-deduplicated at the Windows evidence boundary while preserving first-occurrence ranking order. Inbox/system INF bindings such as `machine.inf` remain valid active-binding evidence but are never promoted into Phase 5 OEM rollback-package authority. Imported or fixture `current_package` evidence is accepted only when both the active binding and the package published identity satisfy the same Phase 5 `oem<digits>.inf` rule **and** `driver_store_inf` has the fully qualified Windows Driver Store `System32\DriverStore\FileRepository\<package>\<original>.inf` path shape returned by SetupAPI.
+Raw SetupAPI hardware/compatible-ID lists are stable-deduplicated case-insensitively at the Windows evidence boundary while preserving the exact spelling and ranking position of the first occurrence. This matches Neo's case-insensitive hardware/compatible-ID matching semantics and prevents a case-only duplicate from consuming a later ranking position. Inbox/system INF bindings such as `machine.inf` remain valid active-binding evidence but are never promoted into Phase 5 OEM rollback-package authority. Imported or fixture `current_package` evidence is accepted only when both the active binding and the package published identity satisfy the same Phase 5 `oem<digits>.inf` rule **and** `driver_store_inf` has the fully qualified Windows-root `System32\DriverStore\FileRepository\<package>\<original>.inf` shape with exactly one root component before `System32`.
 
-The public Windows inventory boundary uses the unified device-property model (`SetupDiGetDevicePropertyW` with `DEVPKEY_Device_*`) for hardware IDs, compatible IDs, active INF, description/manufacturer/class metadata, and upper/lower filters. This is deliberate: the legacy `SetupDiGetDeviceRegistryPropertyW` contract uses `ERROR_INVALID_DATA` for both a missing property and invalid property data, so it cannot prove absence without also risking malformed evidence being collapsed into emptiness. On the public boundary, only unified-property `ERROR_NOT_FOUND` is accepted as absence; insufficient-buffer, type, size, and UTF-16 failures propagate. `ClassGuid` is taken directly from the enumerated `SP_DEVINFO_DATA.ClassGuid` field. Missing filter properties may therefore produce empty lists, but malformed/query-failed filter evidence cannot be manufactured as empty.
+The public Windows inventory boundary uses the unified device-property model (`SetupDiGetDevicePropertyW` with `DEVPKEY_Device_*`) for hardware IDs, compatible IDs, active INF, description/manufacturer/class metadata, and upper/lower filters. This is deliberate: the legacy `SetupDiGetDeviceRegistryPropertyW` contract uses `ERROR_INVALID_DATA` for both a missing property and invalid property data, so it cannot prove absence without also risking malformed evidence being collapsed into emptiness. On the public boundary, only unified-property `ERROR_NOT_FOUND` is accepted as absence; insufficient-buffer, type, size, and UTF-16 failures propagate. String evidence must contain exactly one final NUL with no embedded/trailing data, while string-list evidence must use the canonical list terminator and cannot hide trailing values behind an early empty element. The anti-drift guard normalizes whitespace before checking that the sizing call's result is not discarded, so equivalent Rust formatting cannot bypass the proof. `ClassGuid` is taken directly from the enumerated `SP_DEVINFO_DATA.ClassGuid` field. Missing filter properties may therefore produce empty lists, but malformed/query-failed filter evidence cannot be manufactured as empty.
 
 ## Assessment states
 
@@ -121,8 +121,8 @@ A route is not mutation authority.
 - A Phase 5 OEM published INF that cannot resolve to an exact current package cannot establish reversible repair readiness.
 - A valid inbox/system INF binding is not an error, but because it is outside Phase 5 OEM rollback-package authority it carries no exact reversible-package claim and cannot become an exact-current-driver reinstall candidate.
 - Imported or fixture `current_package` evidence for an inbox/system or otherwise non-OEM INF is rejected rather than promoted into exact-package authority.
-- Imported or fixture exact-package evidence whose `driver_store_inf` is not a fully qualified Driver Store `FileRepository` INF path is rejected.
-- On the public Windows inventory boundary, only unified-property `ERROR_NOT_FOUND` is absence; sizing, property-type, byte-count, invalid UTF-16, or other SetupAPI failures abort that inventory read rather than becoming empty evidence.
+- Imported or fixture exact-package evidence whose `driver_store_inf` is not a fully qualified Windows-root `System32\DriverStore\FileRepository\<package>\<original>.inf` path with exactly one root component before `System32` is rejected.
+- On the public Windows inventory boundary, only unified-property `ERROR_NOT_FOUND` is absence; sizing, property-type, byte-count, missing/early UTF-16 terminators, trailing UTF-16 data, invalid UTF-16, or other SetupAPI failures abort that inventory read rather than becoming empty evidence.
 - A disabled device is recorded as disabled; Phase 22 does not enable or re-enumerate it.
 - Filters are retained as evidence but are not blamed automatically.
 - No caller-supplied raw SetupAPI/PnP command or arbitrary shell adapter exists.
@@ -132,7 +132,7 @@ A route is not mutation authority.
 `neo repair drivers` is read-only.
 
 - On Windows with no `--evidence`, it reads the live host through the existing Phase 5 read authority and the fail-closed public Windows inventory boundary.
-- With `--evidence <file>`, it requires and validates normalized Phase 22 PnP-status evidence and derives the same deterministic assessment on any supported CI host.
+- With `--evidence <file>`, it requires and validates normalized Phase 22 PnP-status evidence and derives the same deterministic assessment on any supported CI host. A filesystem read failure identifies the exact evidence path as well as the underlying OS error.
 - `--json` emits the complete typed report.
 
 The CLI cannot construct or obtain Phase 5 driver mutation authority.
@@ -169,27 +169,34 @@ Phase 22 requires:
 - a live Windows `neo repair drivers --json` proof using only present-device inventory and exact current-package resolution where Phase 5 OEM package authority applies;
 - regression proof that inherited Phase 5 `None` is a successful no-problem observation and that non-canonical/mismatched PnP evidence fails closed;
 - regression proof that Code 22 is disabled and cannot become a reinstall candidate;
-- regression proof that duplicate SetupAPI IDs preserve first-occurrence order after normalization and that only `oem<digits>.inf` enters Phase 5 exact-package resolution;
-- regression proof that imported/fixture `current_package` evidence cannot bypass the Phase 5 OEM published-INF boundary or claim exact Driver Store authority with an arbitrary non-Driver-Store path;
-- anti-drift proof that the exported Windows host uses the unified `DEVPKEY_Device_*` property boundary for IDs, active INF, and filter evidence, accepts only `ERROR_NOT_FOUND` as property absence, validates property types and UTF-16 shape, and does not use `SetupDiGetDeviceRegistryPropertyW` for public inventory evidence;
+- regression proof that duplicate SetupAPI IDs are normalized case-insensitively while preserving the first occurrence's exact spelling/order and that only `oem<digits>.inf` enters Phase 5 exact-package resolution;
+- regression proof that imported/fixture `current_package` evidence cannot bypass the Phase 5 OEM published-INF boundary, claim exact Driver Store authority with an arbitrary non-Driver-Store path, or hide extra path components before `System32`;
+- anti-drift proof that the exported Windows host uses the unified `DEVPKEY_Device_*` property boundary for IDs, active INF, and filter evidence, accepts only `ERROR_NOT_FOUND` as property absence, validates property types and exact canonical UTF-16/string-list termination, normalizes whitespace before checking for discarded SetupAPI sizing results, and does not use `SetupDiGetDeviceRegistryPropertyW` for public inventory evidence;
 - no unresolved material external-review finding before freeze;
 - final exact-head proof before merge.
 
 ## Frozen implementation proof history and current reopen
 
-The earlier production-source implementation proof head before this correction cycle was `9ffd3175a23068a1c513b88ada27f86aa7c96f55`. Neo Driver CI run `32555744807` completed successfully on both Ubuntu and Windows. That historical proof remains evidence for the state it tested, but it is **not** sufficient proof for the reopened exact head after the later authority-boundary corrections below.
+The earlier production-source implementation proof head before this correction cycle was `9ffd3175a23068a1c513b88ada27f86aa7c96f55`. Neo Driver CI run `32555744807` completed successfully on both Ubuntu and Windows. That historical proof remains evidence for the state it tested, but it is **not** sufficient proof for the later authority-boundary corrections below.
 
-The evidence campaign, external review, and this correction cycle found the following Windows/authority-boundary defects:
+The corrected implementation head `1eb464370c97872ebdbbd83d200a8838f4735c5a` passed exact-head Neo Driver CI run `34036106250` on Ubuntu and Windows. That run includes locked build/type proof, Clippy with warnings denied, complete workspace units, the focused Phase 22 assessment proof, deterministic fixture proof, and the live Windows `neo repair drivers --json` source proof. It establishes the implementation state before the final review/closeout-only corrections described below.
+
+The evidence campaign, external review, and correction cycle found the following Windows/authority-boundary and proof defects:
 
 1. raw SetupAPI hardware/compatible-ID lists can contain duplicate entries, so the Windows adapter stable-deduplicates them while retaining first-occurrence ranking order;
 2. valid inbox/system INF bindings such as `machine.inf` are binding evidence but do not enter Phase 5's OEM-only exact rollback-package resolver;
 3. imported evidence could pair a non-OEM binding such as `machine.inf` with matching `current_package` data and falsely claim exact-package authority, so shared validation rejects non-OEM package evidence and a dedicated regression proves the boundary;
 4. live Windows inventory previously emitted empty upper/lower filter arrays regardless of actual device filter properties, so the inventory boundary was changed to collect real filter evidence;
 5. imported OEM-shaped `current_package` evidence could still claim exact-package continuity with an arbitrary non-Driver-Store path, so normalized evidence now requires a fully qualified Driver Store `FileRepository` INF path shape;
-6. the legacy registry-property sizing probe discarded its first SetupAPI result and the subsequent strict wrapper still treated `ERROR_INVALID_DATA` as property absence, even though that code also represents invalid property data. The exported Windows inventory host now uses the unified `SetupDiGetDevicePropertyW`/`DEVPKEY_Device_*` model, where `ERROR_NOT_FOUND` is the distinct absence signal, and fails closed on sizing/type/UTF-16 errors.
+6. the legacy registry-property sizing probe discarded its first SetupAPI result and the subsequent strict wrapper still treated `ERROR_INVALID_DATA` as property absence, even though that code also represents invalid property data. The exported Windows inventory host now uses the unified `SetupDiGetDevicePropertyW`/`DEVPKEY_Device_*` model, where `ERROR_NOT_FOUND` is the distinct absence signal, and fails closed on sizing/type/UTF-16 errors;
+7. the strict UTF-16 decoders still accepted unterminated strings and could stop at an early NUL without proving that no trailing evidence remained. The public boundary now requires canonical final termination for both strings and string lists and rejects missing, early, malformed, or trailing termination data;
+8. the imported Driver Store path validator required a `System32\DriverStore\FileRepository` segment but only rejected the zero-prefix case, so a forged path such as `C:\Temp\Nested\System32\DriverStore\FileRepository\...` could be promoted into exact-package evidence. Exact imported authority now requires precisely one Windows-root component before `System32`;
+9. SetupAPI ID deduplication was exact-case while Neo matching is case-insensitive, allowing a case-only duplicate to consume a ranking position and demote the next distinct ID. The Windows evidence boundary now deduplicates hardware/compatible IDs case-insensitively while retaining the first occurrence's spelling and order;
+10. the evidence-file CLI read error omitted the input path and surfaced only generic filesystem text. The read-only CLI now reports the exact evidence path together with the underlying error;
+11. the anti-drift proof for a discarded `SetupDiGetDevicePropertyW` sizing result matched one indentation shape, so equivalent reformatting could bypass both the Rust boundary test and Python static review. Both gates now normalize whitespace before applying that prohibition.
 
-Corrections 5 and 6 do not grant mutation authority. They narrow what may become trusted read evidence. The existing Phase 5 OEM mutation boundary remains unchanged.
+Corrections 5 through 11 do not grant mutation authority. They narrow what may become trusted read evidence, preserve the ranking semantics of that read evidence, or strengthen the proof/diagnostic boundary. The existing Phase 5 OEM mutation boundary remains unchanged.
 
-This decision returns to **FROZEN AND PROVEN** only after the final correction/documentation head passes the complete exact-head CI matrix and no further material review finding remains.
+This decision returns to **FROZEN AND PROVEN** only after the final closeout head containing these documentation and anti-drift updates passes the complete exact-head Ubuntu/Windows CI matrix and no further material review finding remains.
 
 Live driver/PnP mutation is explicitly unclaimed.
