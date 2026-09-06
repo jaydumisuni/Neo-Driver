@@ -69,7 +69,9 @@ pub(crate) fn run(command: RepairCommand) -> Result<(), String> {
         RepairCommand::Drivers { evidence, json } => {
             let report = match evidence {
                 Some(path) => {
-                    let raw = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+                    let raw = std::fs::read_to_string(&path).map_err(|error| {
+                        format!("failed to read evidence file {}: {error}", path.display())
+                    })?;
                     let evidence = DriverRepairEvidence::from_json_str(&raw)
                         .map_err(|error| error.to_string())?;
                     assess_driver_repair_evidence(evidence).map_err(|error| error.to_string())?
