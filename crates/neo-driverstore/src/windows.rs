@@ -443,7 +443,10 @@ fn registry_multisz(
 fn stable_unique(values: Vec<String>) -> Vec<String> {
     let mut unique = Vec::with_capacity(values.len());
     for value in values {
-        if !unique.contains(&value) {
+        if !unique
+            .iter()
+            .any(|existing: &String| existing.eq_ignore_ascii_case(&value))
+        {
             unique.push(value);
         }
     }
@@ -732,6 +735,7 @@ mod windows_tests {
         let values = vec![
             r"COMPUTER\{A}".to_string(),
             r"COMPUTER\{A}".to_string(),
+            r"computer\{a}".to_string(),
             r"PCI\VEN_1234&DEV_5678".to_string(),
             r"COMPUTER\{A}".to_string(),
         ];

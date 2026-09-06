@@ -50,3 +50,8 @@ fn class_guid_comes_from_enumerated_devinfo_not_ambiguous_registry_data() {
     assert!(STRICT_WINDOWS_SOURCE.contains("data.ClassGuid"));
     assert!(!STRICT_WINDOWS_SOURCE.contains("SPDRP_CLASSGUID"));
 }
+
+#[test]
+fn public_setupapi_id_dedup_is_case_insensitive_and_stable() {
+    assert!(STRICT_WINDOWS_SOURCE.contains("existing.eq_ignore_ascii_case(&value)"));
+}
