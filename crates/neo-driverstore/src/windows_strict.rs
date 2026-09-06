@@ -19,9 +19,7 @@ use windows::Win32::Devices::Properties::{
     DEVPKEY_Device_Manufacturer, DEVPKEY_Device_UpperFilters, DEVPROPTYPE, DEVPROP_TYPE_STRING,
     DEVPROP_TYPE_STRING_LIST,
 };
-use windows::Win32::Foundation::{
-    ERROR_INSUFFICIENT_BUFFER, ERROR_NOT_FOUND, ERROR_NO_MORE_ITEMS,
-};
+use windows::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, ERROR_NOT_FOUND, ERROR_NO_MORE_ITEMS};
 
 use crate::{
     DriverBackendResult, DriverHost, DriverInventory, DriverStoreError, StoredDriverPackage,
@@ -116,23 +114,18 @@ fn strict_inventory() -> Result<DriverInventory, DriverStoreError> {
         index += 1;
 
         let instance_id = device_instance_id(set.0, &data)?;
-        let hardware_ids =
-            device_property_multisz(set.0, &data, &DEVPKEY_Device_HardwareIds)?
-                .into_iter()
-                .map(opaque_id)
-                .collect::<Result<Vec<_>, _>>()?;
-        let compatible_ids =
-            device_property_multisz(set.0, &data, &DEVPKEY_Device_CompatibleIds)?
-                .into_iter()
-                .map(opaque_id)
-                .collect::<Result<Vec<_>, _>>()?;
-        let published_name =
-            device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
+        let hardware_ids = device_property_multisz(set.0, &data, &DEVPKEY_Device_HardwareIds)?
+            .into_iter()
+            .map(opaque_id)
+            .collect::<Result<Vec<_>, _>>()?;
+        let compatible_ids = device_property_multisz(set.0, &data, &DEVPKEY_Device_CompatibleIds)?
+            .into_iter()
+            .map(opaque_id)
+            .collect::<Result<Vec<_>, _>>()?;
+        let published_name = device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
         let problem_code = problem_code(&data)?;
-        let upper_filters =
-            device_property_multisz(set.0, &data, &DEVPKEY_Device_UpperFilters)?;
-        let lower_filters =
-            device_property_multisz(set.0, &data, &DEVPKEY_Device_LowerFilters)?;
+        let upper_filters = device_property_multisz(set.0, &data, &DEVPKEY_Device_UpperFilters)?;
+        let lower_filters = device_property_multisz(set.0, &data, &DEVPKEY_Device_LowerFilters)?;
 
         devices.push(DeviceRecord {
             instance_id: opaque_id(instance_id)?,
@@ -203,10 +196,12 @@ fn device_property_string(
     data: &SP_DEVINFO_DATA,
     property: &windows::Win32::Foundation::DEVPROPKEY,
 ) -> Result<Option<String>, DriverStoreError> {
-    Ok(device_property_wide(set, data, property, DEVPROP_TYPE_STRING)?
-        .map(|values| utf16_array(&values))
-        .transpose()?
-        .and_then(nonempty))
+    Ok(
+        device_property_wide(set, data, property, DEVPROP_TYPE_STRING)?
+            .map(|values| utf16_array(&values))
+            .transpose()?
+            .and_then(nonempty),
+    )
 }
 
 fn device_property_multisz(
@@ -367,7 +362,9 @@ fn utf16_array(value: &[u16]) -> Result<String, DriverStoreError> {
         .position(|code| *code == 0)
         .unwrap_or(value.len());
     String::from_utf16(&value[..end]).map_err(|error| {
-        DriverStoreError::Windows(format!("SetupAPI returned invalid UTF-16 evidence: {error}"))
+        DriverStoreError::Windows(format!(
+            "SetupAPI returned invalid UTF-16 evidence: {error}"
+        ))
     })
 }
 
