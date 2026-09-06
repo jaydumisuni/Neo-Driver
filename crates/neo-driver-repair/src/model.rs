@@ -50,7 +50,7 @@ fn is_driver_store_inf_path(path: &Path) -> bool {
 
     // A Windows root component must precede System32, and FileRepository contains one
     // package directory whose direct child is the original INF returned by SetupAPI.
-    if repository_index == 0 || components.len() != repository_index + 5 {
+    if repository_index != 1 || components.len() != repository_index + 5 {
         return false;
     }
 
