@@ -98,7 +98,7 @@ fn config_manager_problem_evidence_requires_dn_has_problem_consistency() {
         "DN_HAS_PROBLEM",
         "status.0 & DN_HAS_PROBLEM.0 != 0",
         "(false, 0) => Ok(None)",
-        "(true, code) if code != 0 => Ok(Some(code))",
+        "(true, code @ 1..=u32::MAX) => Ok(Some(code))",
         "without a nonzero problem code",
         "without DN_HAS_PROBLEM",
         "config_manager_problem_decode_requires_status_flag_and_code_consistency",
