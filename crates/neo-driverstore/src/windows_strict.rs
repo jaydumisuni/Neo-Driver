@@ -331,10 +331,7 @@ fn bytes_to_u16(bytes: &[u8]) -> Result<Vec<u16>, DriverStoreError> {
             "SetupAPI returned an odd byte count for UTF-16 evidence".to_string(),
         ));
     }
-    Ok(pairs
-        .iter()
-        .map(|pair| u16::from_le_bytes(*pair))
-        .collect())
+    Ok(pairs.iter().map(|pair| u16::from_le_bytes(*pair)).collect())
 }
 
 fn utf16_array(value: &[u16]) -> String {
