@@ -214,3 +214,16 @@ fn direct_root_serde_rejects_semantically_contradictory_pnp_evidence() {
         "direct root Serde must not bypass Phase 22 semantic validation"
     );
 }
+
+#[test]
+fn imported_original_inf_must_match_driver_store_filename_when_supplied() {
+    let mut evidence: serde_json::Value = serde_json::from_str(PHASE22_FIXTURE).unwrap();
+    evidence["devices"][0]["device"]["active_driver"]["original_name"] =
+        serde_json::Value::String("different-original.inf".to_string());
+
+    let input = serde_json::to_string(&evidence).unwrap();
+    assert!(
+        DriverRepairEvidence::from_json_str(&input).is_err(),
+        "imported original INF identity must agree with the Driver Store INF filename"
+    );
+}
