@@ -24,9 +24,19 @@ MANIFEST = (CRATE / "Cargo.toml").read_text(encoding="utf-8")
 DRIVER_HOST = (ROOT / "crates" / "neo-driverstore" / "src" / "host.rs").read_text(
     encoding="utf-8"
 )
+DRIVERSTORE_LIB = (ROOT / "crates" / "neo-driverstore" / "src" / "lib.rs").read_text(
+    encoding="utf-8"
+)
 DRIVERSTORE_WINDOWS = (
     ROOT / "crates" / "neo-driverstore" / "src" / "windows.rs"
 ).read_text(encoding="utf-8")
+DRIVERSTORE_STRICT_WINDOWS = (
+    ROOT / "crates" / "neo-driverstore" / "src" / "windows_strict.rs"
+).read_text(encoding="utf-8")
+DRIVERSTORE_BOUNDARY_TESTS = "\n".join(
+    path.read_text(encoding="utf-8")
+    for path in sorted((ROOT / "crates" / "neo-driverstore" / "tests").glob("*.rs"))
+)
 WORKSPACE_RAW = (ROOT / "Cargo.toml").read_text(encoding="utf-8")
 WORKSPACE = tomllib.loads(WORKSPACE_RAW)
 MASTER = (ROOT / "docs" / "NEO_DRIVER_MASTER_PLAN.md").read_text(encoding="utf-8")
@@ -368,6 +378,43 @@ checks = [
         )
         and "upper_filters: vec![]" not in DRIVERSTORE_WINDOWS
         and "lower_filters: vec![]" not in DRIVERSTORE_WINDOWS
+        and has_all(
+            DRIVERSTORE_LIB,
+            (
+                "mod windows_strict;",
+                "pub use windows_strict::WindowsDriverHost;",
+            ),
+        )
+        and has_all(
+            DRIVERSTORE_STRICT_WINDOWS,
+            (
+                "SPDRP_UPPERFILTERS",
+                "SPDRP_LOWERFILTERS",
+                "ERROR_INSUFFICIENT_BUFFER",
+                "ERROR_INVALID_DATA",
+                "ERROR_NOT_FOUND",
+                "REG_VALUE_TYPE",
+                "REG_MULTI_SZ",
+                "REG_SZ",
+                "DEVPROP_TYPE_STRING",
+                "expected_registry_type",
+                "is_missing_registry_property",
+                "is_missing_device_property",
+                "is_insufficient_registry_buffer",
+                "registry property type",
+                "device property type",
+            ),
+        )
+        and "let _ = unsafe {\n        SetupDiGetDeviceRegistryPropertyW"
+        not in DRIVERSTORE_STRICT_WINDOWS
+        and "let _ = unsafe {\n        SetupDiGetDevicePropertyW" not in DRIVERSTORE_STRICT_WINDOWS
+        and has_all(
+            DRIVERSTORE_BOUNDARY_TESTS,
+            (
+                "public_registry_property_probe_distinguishes_absence_from_failure",
+                "public_driver_evidence_requires_documented_property_types",
+            ),
+        )
         and "filters_are_retained_as_evidence_not_inferred_as_fault" in TESTS
         and "live_windows_inventory_collects_real_filter_evidence" in INTEGRATION_TESTS,
     ),
