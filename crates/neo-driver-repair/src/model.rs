@@ -8,7 +8,7 @@ use crate::DriverRepairError;
 
 pub(crate) const CM_PROB_DISABLED_CODE: u32 = 22;
 
-fn is_phase5_oem_published_inf(value: &str) -> bool {
+pub(crate) fn is_phase5_oem_published_inf(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
     if value.contains(['\\', '/']) || !lower.starts_with("oem") || !lower.ends_with(".inf") {
         return false;
