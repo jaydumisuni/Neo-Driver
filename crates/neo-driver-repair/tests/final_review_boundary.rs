@@ -4,9 +4,19 @@ const WINDOWS_DRIVERSTORE_SOURCE: &str = include_str!("../../neo-driverstore/src
 
 #[test]
 fn phase5_oem_inf_law_has_one_shared_source_of_truth() {
-    assert_eq!(MODEL_SOURCE.matches("fn is_phase5_oem_published_inf").count(), 1);
+    assert_eq!(
+        MODEL_SOURCE
+            .matches("fn is_phase5_oem_published_inf")
+            .count(),
+        1
+    );
     assert!(MODEL_SOURCE.contains("pub(crate) fn is_phase5_oem_published_inf"));
-    assert_eq!(ASSESSMENT_SOURCE.matches("fn is_phase5_oem_published_inf").count(), 0);
+    assert_eq!(
+        ASSESSMENT_SOURCE
+            .matches("fn is_phase5_oem_published_inf")
+            .count(),
+        0
+    );
     assert!(ASSESSMENT_SOURCE.contains("use crate::model::is_phase5_oem_published_inf;"));
     assert!(ASSESSMENT_SOURCE.contains("Some(value) if is_phase5_oem_published_inf(value)"));
 }
