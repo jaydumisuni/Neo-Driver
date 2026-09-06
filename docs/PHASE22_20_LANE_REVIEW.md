@@ -11,7 +11,7 @@ Phase 22 is a read-only Driver Store / PnP repair assessment foundation. PASS re
 | 05 | No Phase 22 production path calls driver staging, install, rollback, package deletion, re-enumeration, or enable/disable mutation. |
 | 06 | Device instance identity is exact and case-insensitive duplicates fail closed. |
 | 07 | Package evidence without an active published INF fails closed. |
-| 08 | Exact package authority is OEM-only: both the active binding and imported/resolved `current_package` must be `oem<digits>.inf`, and package published identity must equal the active published INF. |
+| 08 | Exact package authority is OEM-only and has one crate-owned identity predicate shared by live capture and imported-evidence validation: both the active binding and imported/resolved `current_package` must be `oem<digits>.inf`, and package published identity must equal the active published INF. |
 | 09 | Phase 22 preserves Phase 5 semantics: successful problem code zero is inherited as `None`/`NoProblem`; nonzero codes are explicit problems; `Some(0)` or mismatched imported status fails closed. |
 | 10 | Healthy requires explicit normalized `NoProblem` plus exact active published INF and exact Driver Store package. |
 | 11 | A non-disabled nonzero problem with exact current package is only a future reinstall candidate, not execution authority. |
@@ -22,7 +22,7 @@ Phase 22 is a read-only Driver Store / PnP repair assessment foundation. PASS re
 | 16 | Report explicitly records `machine_changes = false`. |
 | 17 | CLI surface is read-only: `neo repair drivers` supports live Windows evidence and validated fixture evidence with explicit normalized PnP status only. |
 | 18 | Adversarial host proof panics all write-capable Phase 5 methods and Phase 22 still passes. |
-| 19 | Normal Ubuntu/Windows CI runs Phase 22 static, focused, fixture, and Windows live read-only gates; focused tests also bind the final imported-package and live-filter evidence corrections against drift. |
+| 19 | Normal Ubuntu/Windows CI runs Phase 22 static, focused, fixture, and Windows live read-only gates; focused tests bind the single shared OEM identity law plus the imported-package and live-filter evidence corrections against drift. |
 | 20 | Windows Update/networking/Winget/AppX/restore-recovery and all Driver/PnP mutations remain explicitly deferred. |
 
 No lane may be waived by a passing test elsewhere. A material failure reopens Phase 22 review.
