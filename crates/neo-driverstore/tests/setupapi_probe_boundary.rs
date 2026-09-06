@@ -1,8 +1,20 @@
 const LIB_SOURCE: &str = include_str!("../src/lib.rs");
 const STRICT_WINDOWS_SOURCE: &str = include_str!("../src/windows_strict.rs");
+const LEGACY_WINDOWS_SOURCE: &str = include_str!("../src/windows.rs");
 
 fn normalized_source(source: &str) -> String {
     source.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn function_body<'a>(source: &'a str, name: &str, next_name: &str) -> &'a str {
+    let start = source
+        .find(&format!("fn {name}"))
+        .unwrap_or_else(|| panic!("missing function {name}"));
+    let end = source[start..]
+        .find(&format!("fn {next_name}"))
+        .map(|offset| start + offset)
+        .unwrap_or(source.len());
+    &source[start..end]
 }
 
 #[test]
@@ -59,4 +71,27 @@ fn class_guid_comes_from_enumerated_devinfo_not_ambiguous_registry_data() {
 #[test]
 fn public_setupapi_id_dedup_is_case_insensitive_and_stable() {
     assert!(STRICT_WINDOWS_SOURCE.contains("existing.eq_ignore_ascii_case(&value)"));
+}
+
+#[test]
+fn exact_package_resolution_rejects_lossy_utf16_evidence() {
+    let location = function_body(
+        LEGACY_WINDOWS_SOURCE,
+        "driver_store_location",
+        "published_name_for_store_inf",
+    );
+    let published = function_body(
+        LEGACY_WINDOWS_SOURCE,
+        "published_name_for_store_inf",
+        "source_catalog_path",
+    );
+
+    for body in [location, published] {
+        assert!(body.contains("strict_utf16_api_string"));
+        assert!(!body.contains("utf16_array(&buffer)"));
+        assert!(!body.contains("from_utf16_lossy"));
+    }
+    assert!(LEGACY_WINDOWS_SOURCE.contains("fn strict_utf16_api_string"));
+    assert!(LEGACY_WINDOWS_SOURCE.contains("String::from_utf16(&value[..end])"));
+    assert!(LEGACY_WINDOWS_SOURCE.contains("exact_package_identity_utf16_is_fail_closed"));
 }
