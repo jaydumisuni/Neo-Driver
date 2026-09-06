@@ -81,6 +81,10 @@ def has_all(text, values):
     return all(value in text for value in values)
 
 
+def normalize_whitespace(text):
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def extract_braced(text, brace_index):
     if brace_index < 0 or brace_index >= len(text) or text[brace_index] != "{":
         return None
@@ -231,6 +235,7 @@ phase22_ci_exact = all(
     )
 )
 
+normalized_driverstore_strict_windows = normalize_whitespace(DRIVERSTORE_STRICT_WINDOWS)
 strict_property_boundary = (
     has_all(
         DRIVERSTORE_LIB,
@@ -259,18 +264,25 @@ strict_property_boundary = (
             "class_guid_from_devinfo",
             "data.ClassGuid",
             "odd byte count",
+            "split_last()",
+            "ends_with(&[0, 0])",
+            "existing.eq_ignore_ascii_case(&value)",
+            "string_evidence_requires_exact_termination",
+            "string_list_evidence_requires_final_list_terminator_and_no_trailing_data",
+            "setupapi_id_normalization_removes_case_only_duplicates_without_reordering",
         ),
     )
     and "SetupDiGetDeviceRegistryPropertyW" not in DRIVERSTORE_STRICT_WINDOWS
     and "ERROR_INVALID_DATA" not in DRIVERSTORE_STRICT_WINDOWS
     and "is_missing_registry_property" not in DRIVERSTORE_STRICT_WINDOWS
-    and "let _ = unsafe {\n        SetupDiGetDevicePropertyW" not in DRIVERSTORE_STRICT_WINDOWS
+    and "let _ = unsafe { SetupDiGetDevicePropertyW" not in normalized_driverstore_strict_windows
     and has_all(
         DRIVERSTORE_BOUNDARY_TESTS,
         (
             "public_device_property_probe_distinguishes_absence_from_failure",
             "public_driver_evidence_requires_documented_property_types",
             "class_guid_comes_from_enumerated_devinfo_not_ambiguous_registry_data",
+            "public_setupapi_id_dedup_is_case_insensitive_and_stable",
         ),
     )
 )
@@ -331,6 +343,7 @@ checks = [
         and "|| !is_phase5_oem_published_inf(&package.published_inf)" in MODEL
         and "eq_ignore_ascii_case(published)" in MODEL
         and "is_driver_store_inf_path" in MODEL
+        and "repository_index != 1" in MODEL
         and "DriverRepairError::PackageMismatch" in MODEL
         and has_all(
             INTEGRATION_TESTS,
@@ -339,6 +352,7 @@ checks = [
                 "imported_inbox_inf_cannot_claim_exact_package_authority",
                 "imported_exact_package_authority_remains_oem_only",
                 "imported_exact_package_authority_requires_driver_store_path_shape",
+                "imported_oem_package_with_nested_prefix_before_system32_cannot_claim_exact_authority",
             ),
         ),
     ),
@@ -423,6 +437,7 @@ checks = [
                 "RepairCommand::Drivers",
                 "inspect_windows_driver_repair",
                 "DriverRepairEvidence::from_json_str",
+                "failed to read evidence file",
                 "Machine changes: none",
             ),
         )
