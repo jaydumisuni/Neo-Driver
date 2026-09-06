@@ -1,0 +1,41 @@
+name: One-shot Cargo lock refresh
+
+on:
+  push:
+    branches:
+      - implementation/phase22-driver-pnp-assessment
+    paths:
+      - .github/workflows/refresh-lockfile.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: implementation/phase22-driver-pnp-assessment
+          fetch-depth: 0
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Regenerate and prove Cargo.lock
+        run: |
+          cargo generate-lockfile
+          python tools/lockfile_guard.py || true
+          git diff -- Cargo.lock
+      - name: Commit generated lock only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          if git diff --cached --quiet; then
+            echo "Cargo.lock already current"
+            exit 0
+          fi
+          git commit -m "chore: refresh generated Cargo lockfile"
+          git push origin HEAD:implementation/phase22-driver-pnp-assessment
