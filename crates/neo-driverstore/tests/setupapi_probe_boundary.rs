@@ -46,7 +46,10 @@ fn public_device_property_probe_distinguishes_absence_from_failure() {
         "device_property_wide",
         "ensure_device_property_type",
     ));
-    assert_eq!(property_wide.matches("SetupDiGetDevicePropertyW(").count(), 2);
+    assert_eq!(
+        property_wide.matches("SetupDiGetDevicePropertyW(").count(),
+        2
+    );
     assert!(property_wide.contains("let sizing = unsafe { SetupDiGetDevicePropertyW("));
     assert!(property_wide.contains("match sizing {"));
     assert!(!property_wide.contains("let _ = unsafe { SetupDiGetDevicePropertyW("));
