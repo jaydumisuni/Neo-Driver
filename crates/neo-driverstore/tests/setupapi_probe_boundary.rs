@@ -87,7 +87,11 @@ fn public_setupapi_id_dedup_is_case_insensitive_and_stable() {
 #[test]
 fn config_manager_problem_evidence_requires_dn_has_problem_consistency() {
     let problem = function_body(STRICT_WINDOWS_SOURCE, "problem_code", "decode_problem_code");
-    let decode = function_body(STRICT_WINDOWS_SOURCE, "decode_problem_code", "stable_unique");
+    let decode = function_body(
+        STRICT_WINDOWS_SOURCE,
+        "decode_problem_code",
+        "stable_unique",
+    );
 
     assert!(problem.contains("decode_problem_code(result, status, problem)"));
     for token in [
