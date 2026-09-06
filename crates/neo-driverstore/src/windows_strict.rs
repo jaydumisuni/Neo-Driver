@@ -26,13 +26,15 @@ use crate::{
 };
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct WindowsDriverHost {
-    inner: crate::windows::WindowsDriverHost,
+pub struct WindowsDriverHost;
+
+fn mutation_host() -> crate::windows::WindowsDriverHost {
+    crate::windows::WindowsDriverHost
 }
 
 impl DriverHost for WindowsDriverHost {
     fn windows_build(&self) -> Result<u32, DriverStoreError> {
-        self.inner.windows_build()
+        mutation_host().windows_build()
     }
 
     fn inventory(&self) -> Result<DriverInventory, DriverStoreError> {
@@ -40,11 +42,11 @@ impl DriverHost for WindowsDriverHost {
     }
 
     fn compatible_present_devices(&self, inf: &Path) -> Result<Vec<String>, DriverStoreError> {
-        self.inner.compatible_present_devices(inf)
+        mutation_host().compatible_present_devices(inf)
     }
 
     fn verify_inf_signature(&self, inf: &Path) -> Result<VerifiedInfSignature, DriverStoreError> {
-        self.inner.verify_inf_signature(inf)
+        mutation_host().verify_inf_signature(inf)
     }
 
     fn find_equivalent_package(
@@ -52,26 +54,25 @@ impl DriverHost for WindowsDriverHost {
         source_inf: &Path,
         catalogue_files: &[String],
     ) -> Result<Option<StoredDriverPackage>, DriverStoreError> {
-        self.inner
-            .find_equivalent_package(source_inf, catalogue_files)
+        mutation_host().find_equivalent_package(source_inf, catalogue_files)
     }
 
     fn resolve_published_package(
         &self,
         published_inf: &str,
     ) -> Result<Option<StoredDriverPackage>, DriverStoreError> {
-        self.inner.resolve_published_package(published_inf)
+        mutation_host().resolve_published_package(published_inf)
     }
 
     fn stage_driver(&self, source_inf: &Path) -> Result<StoredDriverPackage, DriverStoreError> {
-        self.inner.stage_driver(source_inf)
+        mutation_host().stage_driver(source_inf)
     }
 
     fn install_best_match(
         &self,
         instance_id: &str,
     ) -> Result<DriverBackendResult, DriverStoreError> {
-        self.inner.install_best_match(instance_id)
+        mutation_host().install_best_match(instance_id)
     }
 
     fn restore_specific_driver(
@@ -79,12 +80,11 @@ impl DriverHost for WindowsDriverHost {
         instance_id: &str,
         published_inf: &str,
     ) -> Result<DriverBackendResult, DriverStoreError> {
-        self.inner
-            .restore_specific_driver(instance_id, published_inf)
+        mutation_host().restore_specific_driver(instance_id, published_inf)
     }
 
     fn remove_published_package(&self, published_inf: &str) -> Result<(), DriverStoreError> {
-        self.inner.remove_published_package(published_inf)
+        mutation_host().remove_published_package(published_inf)
     }
 }
 
