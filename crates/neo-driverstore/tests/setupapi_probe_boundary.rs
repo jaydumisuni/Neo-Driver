@@ -10,10 +10,7 @@ fn public_registry_property_probe_distinguishes_absence_from_failure() {
     assert!(STRICT_WINDOWS_SOURCE.contains("is_missing_registry_property"));
     assert!(STRICT_WINDOWS_SOURCE.contains("is_missing_device_property"));
     assert!(STRICT_WINDOWS_SOURCE.contains("is_insufficient_registry_buffer"));
-    assert!(!STRICT_WINDOWS_SOURCE.contains(
-        "let _ = unsafe {\n        SetupDiGetDeviceRegistryPropertyW"
-    ));
-    assert!(!STRICT_WINDOWS_SOURCE.contains(
-        "let _ = unsafe {\n        SetupDiGetDevicePropertyW"
-    ));
+    assert!(!STRICT_WINDOWS_SOURCE
+        .contains("let _ = unsafe {\n        SetupDiGetDeviceRegistryPropertyW"));
+    assert!(!STRICT_WINDOWS_SOURCE.contains("let _ = unsafe {\n        SetupDiGetDevicePropertyW"));
 }
