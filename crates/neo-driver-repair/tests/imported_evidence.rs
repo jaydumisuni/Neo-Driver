@@ -42,3 +42,36 @@ fn imported_inbox_inf_cannot_claim_exact_package_authority() {
         .to_string()
         .contains("Phase 5 OEM published INF identity"));
 }
+
+#[test]
+fn imported_oem_package_outside_driver_store_cannot_claim_exact_authority() {
+    let evidence = DriverRepairEvidence {
+        devices: vec![DriverRepairDeviceEvidence {
+            device: DeviceRecord {
+                instance_id: OpaqueDeviceId::new("ROOT\\OEM").unwrap(),
+                description: Some("OEM driver fixture".to_string()),
+                manufacturer: Some("Neo".to_string()),
+                class_name: Some("System".to_string()),
+                class_guid: None,
+                problem_code: None,
+                disabled: None,
+                ids: OrderedDeviceIds::default(),
+                active_driver: Some(DriverBinding {
+                    published_name: Some("oem42.inf".to_string()),
+                    ..DriverBinding::default()
+                }),
+                upper_filters: vec![],
+                lower_filters: vec![],
+            },
+            pnp_status: PnpStatusEvidence::NoProblem,
+            current_package: Some(StoredDriverPackage {
+                published_inf: "oem42.inf".to_string(),
+                driver_store_inf: PathBuf::from(r"C:\Temp\neo.inf"),
+            }),
+        }],
+    };
+
+    let error = assess_driver_repair_evidence(evidence).unwrap_err();
+    assert!(matches!(error, DriverRepairError::InvalidEvidence(_)));
+    assert!(error.to_string().contains("Driver Store"));
+}
