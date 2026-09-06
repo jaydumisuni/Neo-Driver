@@ -121,8 +121,7 @@ fn strict_inventory() -> Result<DriverInventory, DriverStoreError> {
             .into_iter()
             .map(opaque_id)
             .collect::<Result<Vec<_>, _>>()?;
-        let published_name =
-            device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
+        let published_name = device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
         let problem_code = problem_code(&data)?;
         let upper_filters = registry_multisz(set.0, &data, SPDRP_UPPERFILTERS)?;
         let lower_filters = registry_multisz(set.0, &data, SPDRP_LOWERFILTERS)?;
@@ -221,12 +220,7 @@ fn registry_property_wide(
         Ok(()) => {}
         Err(error) if is_missing_registry_property(&error) => return Ok(None),
         Err(error) if is_insufficient_registry_buffer(&error) && required > 0 => {}
-        Err(error) => {
-            return Err(win_error(
-                "SetupDiGetDeviceRegistryPropertyW sizing",
-                error,
-            ))
-        }
+        Err(error) => return Err(win_error("SetupDiGetDeviceRegistryPropertyW sizing", error)),
     }
 
     if required == 0 {
