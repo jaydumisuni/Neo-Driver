@@ -196,3 +196,21 @@ fn imported_json_rejects_unknown_fields_at_every_authority_layer() {
         );
     }
 }
+
+#[test]
+fn direct_root_serde_rejects_semantically_contradictory_pnp_evidence() {
+    let mut evidence: serde_json::Value = serde_json::from_str(PHASE22_FIXTURE).unwrap();
+    evidence["devices"][0]["pnp_status"]["state"] =
+        serde_json::Value::String("problem".to_string());
+    evidence["devices"][0]["pnp_status"]["code"] = serde_json::Value::from(28u32);
+
+    let input = serde_json::to_string(&evidence).unwrap();
+    assert!(
+        DriverRepairEvidence::from_json_str(&input).is_err(),
+        "validated import helper must reject contradictory PnP evidence"
+    );
+    assert!(
+        serde_json::from_str::<DriverRepairEvidence>(&input).is_err(),
+        "direct root Serde must not bypass Phase 22 semantic validation"
+    );
+}
