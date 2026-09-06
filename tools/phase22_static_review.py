@@ -342,6 +342,40 @@ config_manager_problem_boundary = (
     in DRIVERSTORE_BOUNDARY_TESTS
 )
 
+root_deserialize_impl = extract_block_after(
+    MODEL, r"impl<'de>\s+Deserialize<'de>\s+for\s+DriverRepairEvidence\s*"
+) or ""
+root_deserialize_body = normalize_whitespace(
+    extract_function(root_deserialize_impl, "deserialize") or ""
+)
+strict_import_boundary = (
+    has_all(
+        MODEL,
+        (
+            "struct ImportedDriverRepairEvidence",
+            "struct ImportedDriverRepairDeviceEvidence",
+            "struct ImportedDeviceRecord",
+            "struct ImportedOrderedDeviceIds",
+            "struct ImportedDriverBinding",
+            "struct ImportedPnpStatusEnvelope",
+            "struct ImportedStoredDriverPackage",
+            "no_problem PnP status must not contain code",
+            "problem PnP status requires code",
+        ),
+    )
+    and MODEL.count("#[serde(deny_unknown_fields)]") >= 7
+    and "ImportedDriverRepairEvidence::deserialize(deserializer)?" in root_deserialize_body
+    and "value.validate().map_err(D::Error::custom)?" in root_deserialize_body
+    and "Ok(value)" in root_deserialize_body
+    and has_all(
+        INTEGRATION_TESTS,
+        (
+            "imported_json_rejects_unknown_fields_at_every_authority_layer",
+            "direct_root_serde_rejects_semantically_contradictory_pnp_evidence",
+        ),
+    )
+)
+
 checks = [
     (
         "01-master-plan-continuity",
@@ -415,6 +449,7 @@ checks = [
     (
         "09-phase5-pnp-semantics",
         config_manager_problem_boundary
+        and strict_import_boundary
         and has_all(
             MODEL,
             (
@@ -498,6 +533,7 @@ checks = [
                 "Machine changes: none",
             ),
         )
+        and strict_import_boundary
         and "neo-driver-repair" in CLI_MANIFEST
         and '"pnp_status"' in FIXTURE
         and '"state": "no_problem"' in FIXTURE,
