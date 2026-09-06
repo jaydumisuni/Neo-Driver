@@ -283,11 +283,17 @@ checks = [
     ),
     (
         "08-package-identity-equality",
-        "if !is_phase5_oem_published_inf(published)" in MODEL
+        MODEL.count("fn is_phase5_oem_published_inf") == 1
+        and "pub(crate) fn is_phase5_oem_published_inf" in MODEL
+        and "fn is_phase5_oem_published_inf" not in ASSESS
+        and "use crate::model::is_phase5_oem_published_inf;" in ASSESS
+        and "Some(value) if is_phase5_oem_published_inf(value)" in ASSESS
+        and "if !is_phase5_oem_published_inf(published)" in MODEL
         and "|| !is_phase5_oem_published_inf(&package.published_inf)" in MODEL
         and "eq_ignore_ascii_case(published)" in MODEL
         and "DriverRepairError::PackageMismatch" in MODEL
         and "mismatched_driver_store_identity_is_rejected" in TESTS
+        and "phase5_oem_inf_law_has_one_shared_source_of_truth" in INTEGRATION_TESTS
         and "imported_inbox_inf_cannot_claim_exact_package_authority" in INTEGRATION_TESTS
         and "imported_exact_package_authority_remains_oem_only" in INTEGRATION_TESTS,
     ),
