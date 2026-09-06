@@ -27,9 +27,6 @@ DRIVER_HOST = (ROOT / "crates" / "neo-driverstore" / "src" / "host.rs").read_tex
 DRIVERSTORE_LIB = (ROOT / "crates" / "neo-driverstore" / "src" / "lib.rs").read_text(
     encoding="utf-8"
 )
-DRIVERSTORE_WINDOWS = (
-    ROOT / "crates" / "neo-driverstore" / "src" / "windows.rs"
-).read_text(encoding="utf-8")
 DRIVERSTORE_STRICT_WINDOWS = (
     ROOT / "crates" / "neo-driverstore" / "src" / "windows_strict.rs"
 ).read_text(encoding="utf-8")
@@ -44,12 +41,8 @@ DECISION = (
     ROOT / "docs" / "decisions" / "0022-PHASE22-DRIVER-PNP-REPAIR-ASSESSMENT.md"
 ).read_text(encoding="utf-8")
 REVIEW = (ROOT / "docs" / "PHASE22_20_LANE_REVIEW.md").read_text(encoding="utf-8")
-CLI = (ROOT / "crates" / "neo-cli" / "src" / "repair_cli.rs").read_text(
-    encoding="utf-8"
-)
-CLI_MANIFEST = (ROOT / "crates" / "neo-cli" / "Cargo.toml").read_text(
-    encoding="utf-8"
-)
+CLI = (ROOT / "crates" / "neo-cli" / "src" / "repair_cli.rs").read_text(encoding="utf-8")
+CLI_MANIFEST = (ROOT / "crates" / "neo-cli" / "Cargo.toml").read_text(encoding="utf-8")
 CI = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 FIXTURE = (ROOT / "fixtures" / "repair" / "phase22_driver_evidence.json").read_text(
     encoding="utf-8"
@@ -107,19 +100,14 @@ def extract_block_after(text, pattern):
     match = re.search(pattern, text, re.MULTILINE)
     if not match:
         return None
-    brace_index = text.find("{", match.end())
-    return extract_braced(text, brace_index)
+    return extract_braced(text, text.find("{", match.end()))
 
 
 def extract_function(text, name):
-    match = re.search(
-        rf"\bfn\s+{re.escape(name)}(?:\s*<[^{{}};]*>)?\s*\(",
-        text,
-    )
+    match = re.search(rf"\bfn\s+{re.escape(name)}(?:\s*<[^{{}};]*>)?\s*\(", text)
     if not match:
         return None
-    brace_index = text.find("{", match.end())
-    return extract_braced(text, brace_index)
+    return extract_braced(text, text.find("{", match.end()))
 
 
 def trait_methods(text):
@@ -243,13 +231,54 @@ phase22_ci_exact = all(
     )
 )
 
+strict_property_boundary = (
+    has_all(
+        DRIVERSTORE_LIB,
+        ("mod windows_strict;", "pub use windows_strict::WindowsDriverHost;"),
+    )
+    and has_all(
+        DRIVERSTORE_STRICT_WINDOWS,
+        (
+            "SetupDiGetDevicePropertyW",
+            "DEVPKEY_Device_HardwareIds",
+            "DEVPKEY_Device_CompatibleIds",
+            "DEVPKEY_Device_DriverInfPath",
+            "DEVPKEY_Device_UpperFilters",
+            "DEVPKEY_Device_LowerFilters",
+            "DEVPKEY_Device_DeviceDesc",
+            "DEVPKEY_Device_Manufacturer",
+            "DEVPKEY_Device_Class",
+            "DEVPROP_TYPE_STRING",
+            "DEVPROP_TYPE_STRING_LIST",
+            "ERROR_INSUFFICIENT_BUFFER",
+            "ERROR_NOT_FOUND",
+            "device_property_wide",
+            "expected_property_type",
+            "is_missing_device_property",
+            "is_insufficient_device_property_buffer",
+            "class_guid_from_devinfo",
+            "data.ClassGuid",
+            "odd byte count",
+        ),
+    )
+    and "SetupDiGetDeviceRegistryPropertyW" not in DRIVERSTORE_STRICT_WINDOWS
+    and "ERROR_INVALID_DATA" not in DRIVERSTORE_STRICT_WINDOWS
+    and "is_missing_registry_property" not in DRIVERSTORE_STRICT_WINDOWS
+    and "let _ = unsafe {\n        SetupDiGetDevicePropertyW" not in DRIVERSTORE_STRICT_WINDOWS
+    and has_all(
+        DRIVERSTORE_BOUNDARY_TESTS,
+        (
+            "public_device_property_probe_distinguishes_absence_from_failure",
+            "public_driver_evidence_requires_documented_property_types",
+            "class_guid_comes_from_enumerated_devinfo_not_ambiguous_registry_data",
+        ),
+    )
+)
+
 checks = [
     (
         "01-master-plan-continuity",
-        has_all(
-            MASTER,
-            ("Driver Store/PnP repair;", "device re-enumeration;", "Windows Update reset/repair;"),
-        ),
+        has_all(MASTER, ("Driver Store/PnP repair;", "device re-enumeration;", "Windows Update reset/repair;")),
     ),
     (
         "02-exact-authority-recorded",
@@ -301,11 +330,17 @@ checks = [
         and "if !is_phase5_oem_published_inf(published)" in MODEL
         and "|| !is_phase5_oem_published_inf(&package.published_inf)" in MODEL
         and "eq_ignore_ascii_case(published)" in MODEL
+        and "is_driver_store_inf_path" in MODEL
         and "DriverRepairError::PackageMismatch" in MODEL
-        and "mismatched_driver_store_identity_is_rejected" in TESTS
-        and "phase5_oem_inf_law_has_one_shared_source_of_truth" in INTEGRATION_TESTS
-        and "imported_inbox_inf_cannot_claim_exact_package_authority" in INTEGRATION_TESTS
-        and "imported_exact_package_authority_remains_oem_only" in INTEGRATION_TESTS,
+        and has_all(
+            INTEGRATION_TESTS,
+            (
+                "phase5_oem_inf_law_has_one_shared_source_of_truth",
+                "imported_inbox_inf_cannot_claim_exact_package_authority",
+                "imported_exact_package_authority_remains_oem_only",
+                "imported_exact_package_authority_requires_driver_store_path_shape",
+            ),
+        ),
     ),
     (
         "09-phase5-pnp-semantics",
@@ -365,58 +400,8 @@ checks = [
     (
         "14-filters-are-evidence-only",
         has_all(MODEL, ("upper_filters", "lower_filters"))
-        and has_all(
-            DRIVERSTORE_WINDOWS,
-            (
-                "SPDRP_UPPERFILTERS",
-                "SPDRP_LOWERFILTERS",
-                "let upper_filters = registry_multisz(set.0, &data, SPDRP_UPPERFILTERS)?;",
-                "let lower_filters = registry_multisz(set.0, &data, SPDRP_LOWERFILTERS)?;",
-                "upper_filters,",
-                "lower_filters,",
-            ),
-        )
-        and "upper_filters: vec![]" not in DRIVERSTORE_WINDOWS
-        and "lower_filters: vec![]" not in DRIVERSTORE_WINDOWS
-        and has_all(
-            DRIVERSTORE_LIB,
-            (
-                "mod windows_strict;",
-                "pub use windows_strict::WindowsDriverHost;",
-            ),
-        )
-        and has_all(
-            DRIVERSTORE_STRICT_WINDOWS,
-            (
-                "SPDRP_UPPERFILTERS",
-                "SPDRP_LOWERFILTERS",
-                "ERROR_INSUFFICIENT_BUFFER",
-                "ERROR_INVALID_DATA",
-                "ERROR_NOT_FOUND",
-                "REG_VALUE_TYPE",
-                "REG_MULTI_SZ",
-                "REG_SZ",
-                "DEVPROP_TYPE_STRING",
-                "expected_registry_type",
-                "is_missing_registry_property",
-                "is_missing_device_property",
-                "is_insufficient_registry_buffer",
-                "registry property type",
-                "device property type",
-            ),
-        )
-        and "let _ = unsafe {\n        SetupDiGetDeviceRegistryPropertyW"
-        not in DRIVERSTORE_STRICT_WINDOWS
-        and "let _ = unsafe {\n        SetupDiGetDevicePropertyW" not in DRIVERSTORE_STRICT_WINDOWS
-        and has_all(
-            DRIVERSTORE_BOUNDARY_TESTS,
-            (
-                "public_registry_property_probe_distinguishes_absence_from_failure",
-                "public_driver_evidence_requires_documented_property_types",
-            ),
-        )
-        and "filters_are_retained_as_evidence_not_inferred_as_fault" in TESTS
-        and "live_windows_inventory_collects_real_filter_evidence" in INTEGRATION_TESTS,
+        and strict_property_boundary
+        and "filters_are_retained_as_evidence_not_inferred_as_fault" in TESTS,
     ),
     (
         "15-deterministic-order-and-digest",
