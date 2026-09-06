@@ -79,7 +79,9 @@ Each device assessment retains:
 
 Case-insensitive duplicate device instance IDs fail closed. PnP status that disagrees with inherited Phase 5 problem-code evidence fails closed. Driver Store package evidence without an active published INF fails closed. A resolved package whose published identity does not equal the active published INF fails closed.
 
-Raw SetupAPI hardware/compatible-ID lists are stable-deduplicated at the Windows evidence boundary while preserving first-occurrence ranking order. Inbox/system INF bindings such as `machine.inf` remain valid active-binding evidence but are never promoted into Phase 5 OEM rollback-package authority.
+Raw SetupAPI hardware/compatible-ID lists are stable-deduplicated at the Windows evidence boundary while preserving first-occurrence ranking order. Inbox/system INF bindings such as `machine.inf` remain valid active-binding evidence but are never promoted into Phase 5 OEM rollback-package authority. Imported or fixture `current_package` evidence is accepted only when both the active binding and the package published identity satisfy the same Phase 5 `oem<digits>.inf` rule.
+
+Live Windows filter evidence is read from `SPDRP_UPPERFILTERS` and `SPDRP_LOWERFILTERS` through the existing SetupAPI registry-property path. Missing properties may produce empty lists, but Phase 22 does not manufacture empty filter evidence when filter values are present.
 
 ## Assessment states
 
@@ -116,6 +118,7 @@ A route is not mutation authority.
 - An active binding without a valid published `.inf` identity cannot establish exact Driver Store continuity.
 - A Phase 5 OEM published INF that cannot resolve to an exact current package cannot establish reversible repair readiness.
 - A valid inbox/system INF binding is not an error, but because it is outside Phase 5 OEM rollback-package authority it carries no exact reversible-package claim and cannot become an exact-current-driver reinstall candidate.
+- Imported or fixture `current_package` evidence for an inbox/system or otherwise non-OEM INF is rejected rather than promoted into exact-package authority.
 - A disabled device is recorded as disabled; Phase 22 does not enable or re-enumerate it.
 - Filters are retained as evidence but are not blamed automatically.
 - No caller-supplied raw SetupAPI/PnP command or arbitrary shell adapter exists.
@@ -163,18 +166,24 @@ Phase 22 requires:
 - regression proof that inherited Phase 5 `None` is a successful no-problem observation and that non-canonical/mismatched PnP evidence fails closed;
 - regression proof that Code 22 is disabled and cannot become a reinstall candidate;
 - regression proof that duplicate SetupAPI IDs preserve first-occurrence order after normalization and that only `oem<digits>.inf` enters Phase 5 exact-package resolution;
+- regression proof that imported/fixture `current_package` evidence cannot bypass the Phase 5 OEM published-INF boundary;
+- anti-drift proof that live Windows inventory continues reading `SPDRP_UPPERFILTERS` and `SPDRP_LOWERFILTERS` rather than fabricating empty filter arrays;
 - no unresolved material external-review finding before freeze;
 - final exact-head proof before merge.
 
 ## Frozen implementation proof
 
-The final source implementation proof head before this freeze record is `402216945dee41ac5b44001f9cf62026544fea4b`. Neo Driver CI run `32531907420` completed successfully on both Ubuntu and Windows. The Windows lane passed the complete inherited Phase 1–22 chain, including locked build, Clippy with warnings denied, workspace units, the focused Phase 22 proof, inherited live-system probes, and the real bounded `neo repair drivers --json` source probe.
+The final production-source implementation proof head before this freeze/anti-drift closure record is `9ffd3175a23068a1c513b88ada27f86aa7c96f55`. Neo Driver CI run `32555744807` completed successfully on both Ubuntu and Windows. The Windows lane passed the complete inherited Phase 1–22 chain, including locked build, Clippy with warnings denied, workspace units, the focused Phase 22 proof, inherited live-system probes, and the real bounded `neo repair drivers --json` source probe.
 
-That live campaign found and corrected two Windows evidence defects before freeze:
+The evidence campaign and subsequent external review found and corrected four Windows/authority-boundary defects before final closure:
 
 1. raw SetupAPI hardware/compatible-ID lists can contain duplicate entries, so the Windows adapter now stable-deduplicates them while retaining first-occurrence ranking order;
-2. valid inbox/system INF bindings such as `machine.inf` are binding evidence but do not enter Phase 5's OEM-only exact rollback-package resolver.
+2. valid inbox/system INF bindings such as `machine.inf` are binding evidence but do not enter Phase 5's OEM-only exact rollback-package resolver;
+3. imported evidence could previously pair a non-OEM binding such as `machine.inf` with matching `current_package` data and falsely claim exact-package authority, so shared validation now rejects non-OEM package evidence and a dedicated regression proves the boundary;
+4. live Windows inventory previously emitted empty upper/lower filter arrays regardless of actual device filter properties, so it now reads `SPDRP_UPPERFILTERS` and `SPDRP_LOWERFILTERS` and carries those values into the assessment evidence.
 
-Neither correction grants mutation authority. The existing Phase 5 OEM mutation boundary remains unchanged.
+The subsequent closure commits add only regression/anti-drift proof and documentation around that already-proven production source. They do not broaden runtime behavior or mutation authority and must themselves pass exact-head CI before merge.
+
+Neither correction path grants mutation authority. The existing Phase 5 OEM mutation boundary remains unchanged.
 
 Live driver/PnP mutation is explicitly unclaimed.
