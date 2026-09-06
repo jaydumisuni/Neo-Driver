@@ -3,6 +3,7 @@ use neo_driverstore::StoredDriverPackage;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use crate::DriverRepairError;
 
@@ -15,6 +16,55 @@ pub(crate) fn is_phase5_oem_published_inf(value: &str) -> bool {
     }
     let digits = &lower[3..lower.len() - 4];
     !digits.is_empty() && digits.chars().all(|character| character.is_ascii_digit())
+}
+
+fn is_driver_store_inf_path(path: &Path) -> bool {
+    let value = path.to_string_lossy();
+    if value.is_empty() || value.trim() != value {
+        return false;
+    }
+
+    // Imported Phase 22 evidence must preserve the fully-qualified Windows path shape
+    // returned by SetupGetInfDriverStoreLocationW. Parse Windows separators explicitly so
+    // the same evidence validates deterministically on non-Windows CI hosts.
+    let normalized = value.replace('/', "\\");
+    let bytes = normalized.as_bytes();
+    if bytes.len() < 4
+        || !bytes[0].is_ascii_alphabetic()
+        || bytes[1] != b':'
+        || bytes[2] != b'\\'
+    {
+        return false;
+    }
+
+    let components: Vec<&str> = normalized[3..].split('\\').collect();
+    if components.iter().any(|component| {
+        component.is_empty()
+            || matches!(*component, "." | "..")
+            || component.contains(':')
+    }) {
+        return false;
+    }
+
+    let Some(repository_index) = components.windows(3).position(|window| {
+        window[0].eq_ignore_ascii_case("System32")
+            && window[1].eq_ignore_ascii_case("DriverStore")
+            && window[2].eq_ignore_ascii_case("FileRepository")
+    }) else {
+        return false;
+    };
+
+    // A Windows root component must precede System32, and FileRepository contains one
+    // package directory whose direct child is the original INF returned by SetupAPI.
+    if repository_index == 0 || components.len() != repository_index + 5 {
+        return false;
+    }
+
+    let package_directory = components[repository_index + 3];
+    let inf_name = components[repository_index + 4];
+    !package_directory.is_empty()
+        && inf_name.len() > 4
+        && inf_name.to_ascii_lowercase().ends_with(".inf")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -126,6 +176,12 @@ impl DriverRepairDeviceEvidence {
                 return Err(DriverRepairError::PackageMismatch(
                     self.device.instance_id.to_string(),
                 ));
+            }
+            if !is_driver_store_inf_path(&package.driver_store_inf) {
+                return Err(DriverRepairError::InvalidEvidence(format!(
+                    "device {} current package does not contain a fully qualified Driver Store FileRepository INF path",
+                    self.device.instance_id
+                )));
             }
         }
         Ok(())
