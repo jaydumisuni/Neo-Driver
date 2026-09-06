@@ -450,4 +450,19 @@ mod tests {
         assert!(utf16_array(&[0xD800, 0]).is_err());
         assert!(utf16_multisz(&[0xD800, 0, 0]).is_err());
     }
+
+    #[test]
+    fn string_evidence_requires_exact_termination() {
+        assert_eq!(utf16_array(&[0x41, 0]).unwrap(), "A");
+        assert!(utf16_array(&[0x41]).is_err());
+        assert!(utf16_array(&[0x41, 0, 0x42, 0]).is_err());
+    }
+
+    #[test]
+    fn string_list_evidence_requires_final_list_terminator_and_no_trailing_data() {
+        assert!(utf16_multisz(&[0]).unwrap().is_empty());
+        assert_eq!(utf16_multisz(&[0x41, 0, 0]).unwrap(), vec!["A"]);
+        assert!(utf16_multisz(&[0x41, 0]).is_err());
+        assert!(utf16_multisz(&[0x41, 0, 0, 0x42, 0, 0]).is_err());
+    }
 }
