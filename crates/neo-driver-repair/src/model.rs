@@ -1,6 +1,6 @@
 use neo_device::{DeviceRecord, DriverBinding, OpaqueDeviceId, OrderedDeviceIds};
 use neo_driverstore::StoredDriverPackage;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -267,10 +267,43 @@ struct ImportedDriverBinding {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
+enum ImportedPnpState {
+    NoProblem,
+    Problem,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImportedPnpStatusEnvelope {
+    state: ImportedPnpState,
+    #[serde(default)]
+    code: Option<u32>,
+}
+
+#[derive(Debug)]
 enum ImportedPnpStatusEvidence {
     NoProblem,
     Problem { code: u32 },
+}
+
+impl<'de> Deserialize<'de> for ImportedPnpStatusEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = ImportedPnpStatusEnvelope::deserialize(deserializer)?;
+        match (value.state, value.code) {
+            (ImportedPnpState::NoProblem, None) => Ok(Self::NoProblem),
+            (ImportedPnpState::Problem, Some(code)) => Ok(Self::Problem { code }),
+            (ImportedPnpState::NoProblem, Some(_)) => {
+                Err(D::Error::custom("no_problem PnP status must not contain code"))
+            }
+            (ImportedPnpState::Problem, None) => {
+                Err(D::Error::custom("problem PnP status requires code"))
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
