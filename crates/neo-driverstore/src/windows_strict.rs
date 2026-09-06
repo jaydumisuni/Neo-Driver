@@ -1,8 +1,8 @@
 //! Fail-closed public Windows driver host.
 //!
 //! The established Phase 5 backend remains the mutation implementation. This wrapper owns the
-//! public read-only inventory boundary so SetupAPI sizing/absence failures cannot be collapsed
-//! into fabricated empty evidence before Phase 5 or Phase 22 consumes the inventory.
+//! public inventory boundary so SetupAPI absence, sizing, type, and decoding failures cannot be
+//! collapsed into fabricated empty evidence before Phase 5 or Phase 22 consumes the inventory.
 
 use neo_device::{DeviceRecord, DriverBinding, OpaqueDeviceId, OrderedDeviceIds};
 use std::path::Path;
@@ -10,18 +10,18 @@ use windows::core::{Error as WinError, HRESULT};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_Get_DevNode_Status, SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo,
     SetupDiGetClassDevsW, SetupDiGetDeviceInstanceIdW, SetupDiGetDevicePropertyW,
-    SetupDiGetDeviceRegistryPropertyW, CM_DEVNODE_STATUS_FLAGS, CM_PROB, CONFIGRET, CR_SUCCESS,
-    DIGCF_ALLCLASSES, DIGCF_PRESENT, HDEVINFO, SPDRP_CLASS, SPDRP_CLASSGUID, SPDRP_COMPATIBLEIDS,
-    SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_LOWERFILTERS, SPDRP_MFG, SPDRP_UPPERFILTERS,
-    SP_DEVINFO_DATA,
+    CM_DEVNODE_STATUS_FLAGS, CM_PROB, CONFIGRET, CR_SUCCESS, DIGCF_ALLCLASSES, DIGCF_PRESENT,
+    HDEVINFO, SP_DEVINFO_DATA,
 };
 use windows::Win32::Devices::Properties::{
-    DEVPKEY_Device_DriverInfPath, DEVPROPTYPE, DEVPROP_TYPE_STRING,
+    DEVPKEY_Device_Class, DEVPKEY_Device_CompatibleIds, DEVPKEY_Device_DeviceDesc,
+    DEVPKEY_Device_DriverInfPath, DEVPKEY_Device_HardwareIds, DEVPKEY_Device_LowerFilters,
+    DEVPKEY_Device_Manufacturer, DEVPKEY_Device_UpperFilters, DEVPROPTYPE, DEVPROP_TYPE_STRING,
+    DEVPROP_TYPE_STRING_LIST,
 };
 use windows::Win32::Foundation::{
-    ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_DATA, ERROR_NOT_FOUND, ERROR_NO_MORE_ITEMS,
+    ERROR_INSUFFICIENT_BUFFER, ERROR_NOT_FOUND, ERROR_NO_MORE_ITEMS,
 };
-use windows::Win32::System::Registry::{REG_MULTI_SZ, REG_SZ, REG_VALUE_TYPE};
 
 use crate::{
     DriverBackendResult, DriverHost, DriverInventory, DriverStoreError, StoredDriverPackage,
@@ -116,25 +116,30 @@ fn strict_inventory() -> Result<DriverInventory, DriverStoreError> {
         index += 1;
 
         let instance_id = device_instance_id(set.0, &data)?;
-        let hardware_ids = registry_multisz(set.0, &data, SPDRP_HARDWAREID)?
-            .into_iter()
-            .map(opaque_id)
-            .collect::<Result<Vec<_>, _>>()?;
-        let compatible_ids = registry_multisz(set.0, &data, SPDRP_COMPATIBLEIDS)?
-            .into_iter()
-            .map(opaque_id)
-            .collect::<Result<Vec<_>, _>>()?;
-        let published_name = device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
+        let hardware_ids =
+            device_property_multisz(set.0, &data, &DEVPKEY_Device_HardwareIds)?
+                .into_iter()
+                .map(opaque_id)
+                .collect::<Result<Vec<_>, _>>()?;
+        let compatible_ids =
+            device_property_multisz(set.0, &data, &DEVPKEY_Device_CompatibleIds)?
+                .into_iter()
+                .map(opaque_id)
+                .collect::<Result<Vec<_>, _>>()?;
+        let published_name =
+            device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
         let problem_code = problem_code(&data)?;
-        let upper_filters = registry_multisz(set.0, &data, SPDRP_UPPERFILTERS)?;
-        let lower_filters = registry_multisz(set.0, &data, SPDRP_LOWERFILTERS)?;
+        let upper_filters =
+            device_property_multisz(set.0, &data, &DEVPKEY_Device_UpperFilters)?;
+        let lower_filters =
+            device_property_multisz(set.0, &data, &DEVPKEY_Device_LowerFilters)?;
 
         devices.push(DeviceRecord {
             instance_id: opaque_id(instance_id)?,
-            description: registry_string(set.0, &data, SPDRP_DEVICEDESC)?,
-            manufacturer: registry_string(set.0, &data, SPDRP_MFG)?,
-            class_name: registry_string(set.0, &data, SPDRP_CLASS)?,
-            class_guid: registry_string(set.0, &data, SPDRP_CLASSGUID)?,
+            description: device_property_string(set.0, &data, &DEVPKEY_Device_DeviceDesc)?,
+            manufacturer: device_property_string(set.0, &data, &DEVPKEY_Device_Manufacturer)?,
+            class_name: device_property_string(set.0, &data, &DEVPKEY_Device_Class)?,
+            class_guid: class_guid_from_devinfo(&data),
             problem_code,
             disabled: None,
             ids: OrderedDeviceIds {
@@ -177,90 +182,20 @@ fn device_instance_id(set: HDEVINFO, data: &SP_DEVINFO_DATA) -> Result<String, D
                 "SetupDiGetDeviceInstanceIdW succeeded without reporting a size".to_string(),
             ))
         }
-        Err(error) if is_insufficient_registry_buffer(&error) && required > 0 => {}
+        Err(error) if is_insufficient_device_property_buffer(&error) && required > 0 => {}
         Err(error) => return Err(win_error("SetupDiGetDeviceInstanceIdW sizing", error)),
     }
 
     let mut buffer = vec![0u16; required as usize];
     unsafe { SetupDiGetDeviceInstanceIdW(set, data, Some(&mut buffer), Some(&mut required)) }
         .map_err(|error| win_error("SetupDiGetDeviceInstanceIdW", error))?;
-    Ok(utf16_array(&buffer))
-}
-
-fn registry_string(
-    set: HDEVINFO,
-    data: &SP_DEVINFO_DATA,
-    property: windows::Win32::Devices::DeviceAndDriverInstallation::SETUP_DI_REGISTRY_PROPERTY,
-) -> Result<Option<String>, DriverStoreError> {
-    Ok(registry_property_wide(set, data, property, REG_SZ)?
-        .map(|values| utf16_array(&values))
-        .and_then(nonempty))
-}
-
-fn registry_multisz(
-    set: HDEVINFO,
-    data: &SP_DEVINFO_DATA,
-    property: windows::Win32::Devices::DeviceAndDriverInstallation::SETUP_DI_REGISTRY_PROPERTY,
-) -> Result<Vec<String>, DriverStoreError> {
-    let values = registry_property_wide(set, data, property, REG_MULTI_SZ)?
-        .map(|values| utf16_multisz(&values))
-        .unwrap_or_default();
-    Ok(stable_unique(values))
-}
-
-fn registry_property_wide(
-    set: HDEVINFO,
-    data: &SP_DEVINFO_DATA,
-    property: windows::Win32::Devices::DeviceAndDriverInstallation::SETUP_DI_REGISTRY_PROPERTY,
-    expected_registry_type: REG_VALUE_TYPE,
-) -> Result<Option<Vec<u16>>, DriverStoreError> {
-    let mut required = 0u32;
-    let sizing = unsafe {
-        SetupDiGetDeviceRegistryPropertyW(set, data, property, None, None, Some(&mut required))
-    };
-
-    match sizing {
-        Ok(()) if required == 0 => return Ok(Some(Vec::new())),
-        Ok(()) => {}
-        Err(error) if is_missing_registry_property(&error) => return Ok(None),
-        Err(error) if is_insufficient_registry_buffer(&error) && required > 0 => {}
-        Err(error) => return Err(win_error("SetupDiGetDeviceRegistryPropertyW sizing", error)),
-    }
-
-    if required == 0 {
+    if required as usize > buffer.len() {
         return Err(DriverStoreError::Windows(
-            "SetupDiGetDeviceRegistryPropertyW reported an insufficient buffer without a size"
+            "SetupDiGetDeviceInstanceIdW returned a size larger than the supplied buffer"
                 .to_string(),
         ));
     }
-
-    let mut bytes = vec![0u8; required as usize];
-    let mut registry_type = 0u32;
-    unsafe {
-        SetupDiGetDeviceRegistryPropertyW(
-            set,
-            data,
-            property,
-            Some(&mut registry_type),
-            Some(&mut bytes),
-            Some(&mut required),
-        )
-    }
-    .map_err(|error| win_error("SetupDiGetDeviceRegistryPropertyW", error))?;
-    if registry_type != expected_registry_type.0 {
-        return Err(DriverStoreError::Windows(format!(
-            "SetupDiGetDeviceRegistryPropertyW returned registry property type {registry_type}, expected {}",
-            expected_registry_type.0
-        )));
-    }
-    if required as usize > bytes.len() {
-        return Err(DriverStoreError::Windows(
-            "SetupDiGetDeviceRegistryPropertyW returned a size larger than the supplied buffer"
-                .to_string(),
-        ));
-    }
-    bytes.truncate(required as usize);
-    bytes_to_u16(&bytes).map(Some)
+    utf16_array(&buffer)
 }
 
 fn device_property_string(
@@ -268,6 +203,30 @@ fn device_property_string(
     data: &SP_DEVINFO_DATA,
     property: &windows::Win32::Foundation::DEVPROPKEY,
 ) -> Result<Option<String>, DriverStoreError> {
+    Ok(device_property_wide(set, data, property, DEVPROP_TYPE_STRING)?
+        .map(|values| utf16_array(&values))
+        .transpose()?
+        .and_then(nonempty))
+}
+
+fn device_property_multisz(
+    set: HDEVINFO,
+    data: &SP_DEVINFO_DATA,
+    property: &windows::Win32::Foundation::DEVPROPKEY,
+) -> Result<Vec<String>, DriverStoreError> {
+    let values = match device_property_wide(set, data, property, DEVPROP_TYPE_STRING_LIST)? {
+        Some(values) => utf16_multisz(&values)?,
+        None => Vec::new(),
+    };
+    Ok(stable_unique(values))
+}
+
+fn device_property_wide(
+    set: HDEVINFO,
+    data: &SP_DEVINFO_DATA,
+    property: &windows::Win32::Foundation::DEVPROPKEY,
+    expected_property_type: DEVPROPTYPE,
+) -> Result<Option<Vec<u16>>, DriverStoreError> {
     let mut property_type = DEVPROPTYPE(0);
     let mut required = 0u32;
     let sizing = unsafe {
@@ -283,10 +242,13 @@ fn device_property_string(
     };
 
     match sizing {
-        Ok(()) if required == 0 => return Ok(None),
+        Ok(()) if required == 0 => {
+            ensure_device_property_type(property_type, expected_property_type)?;
+            return Ok(Some(Vec::new()));
+        }
         Ok(()) => {}
         Err(error) if is_missing_device_property(&error) => return Ok(None),
-        Err(error) if is_insufficient_registry_buffer(&error) && required > 0 => {}
+        Err(error) if is_insufficient_device_property_buffer(&error) && required > 0 => {}
         Err(error) => return Err(win_error("SetupDiGetDevicePropertyW sizing", error)),
     }
 
@@ -309,18 +271,54 @@ fn device_property_string(
         )
     }
     .map_err(|error| win_error("SetupDiGetDevicePropertyW", error))?;
-    if property_type != DEVPROP_TYPE_STRING {
-        return Err(DriverStoreError::Windows(
-            "SetupDiGetDevicePropertyW returned unexpected device property type".to_string(),
-        ));
-    }
+    ensure_device_property_type(property_type, expected_property_type)?;
     if required as usize > bytes.len() {
         return Err(DriverStoreError::Windows(
             "SetupDiGetDevicePropertyW returned a size larger than the supplied buffer".to_string(),
         ));
     }
     bytes.truncate(required as usize);
-    Ok(nonempty(utf16_array(&bytes_to_u16(&bytes)?)))
+    bytes_to_u16(&bytes).map(Some)
+}
+
+fn ensure_device_property_type(
+    actual: DEVPROPTYPE,
+    expected: DEVPROPTYPE,
+) -> Result<(), DriverStoreError> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(DriverStoreError::Windows(format!(
+            "SetupDiGetDevicePropertyW returned device property type {}, expected {}",
+            actual.0, expected.0
+        )))
+    }
+}
+
+fn class_guid_from_devinfo(data: &SP_DEVINFO_DATA) -> Option<String> {
+    let guid = data.ClassGuid;
+    if guid.data1 == 0
+        && guid.data2 == 0
+        && guid.data3 == 0
+        && guid.data4.iter().all(|byte| *byte == 0)
+    {
+        return None;
+    }
+
+    Some(format!(
+        "{{{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}}}",
+        guid.data1,
+        guid.data2,
+        guid.data3,
+        guid.data4[0],
+        guid.data4[1],
+        guid.data4[2],
+        guid.data4[3],
+        guid.data4[4],
+        guid.data4[5],
+        guid.data4[6],
+        guid.data4[7]
+    ))
 }
 
 fn problem_code(data: &SP_DEVINFO_DATA) -> Result<Option<u32>, DriverStoreError> {
@@ -363,15 +361,17 @@ fn bytes_to_u16(bytes: &[u8]) -> Result<Vec<u16>, DriverStoreError> {
     Ok(pairs.iter().map(|pair| u16::from_le_bytes(*pair)).collect())
 }
 
-fn utf16_array(value: &[u16]) -> String {
+fn utf16_array(value: &[u16]) -> Result<String, DriverStoreError> {
     let end = value
         .iter()
         .position(|code| *code == 0)
         .unwrap_or(value.len());
-    String::from_utf16_lossy(&value[..end])
+    String::from_utf16(&value[..end]).map_err(|error| {
+        DriverStoreError::Windows(format!("SetupAPI returned invalid UTF-16 evidence: {error}"))
+    })
 }
 
-fn utf16_multisz(value: &[u16]) -> Vec<String> {
+fn utf16_multisz(value: &[u16]) -> Result<Vec<String>, DriverStoreError> {
     let mut result = Vec::new();
     let mut start = 0usize;
     for (index, code) in value.iter().copied().enumerate() {
@@ -379,12 +379,22 @@ fn utf16_multisz(value: &[u16]) -> Vec<String> {
             continue;
         }
         if index == start {
-            break;
+            return Ok(result);
         }
-        result.push(String::from_utf16_lossy(&value[start..index]));
+        result.push(String::from_utf16(&value[start..index]).map_err(|error| {
+            DriverStoreError::Windows(format!(
+                "SetupAPI returned invalid UTF-16 string-list evidence: {error}"
+            ))
+        })?);
         start = index + 1;
     }
-    result
+
+    if start < value.len() && value[start..].iter().any(|code| *code != 0) {
+        return Err(DriverStoreError::Windows(
+            "SetupAPI returned an unterminated UTF-16 string-list evidence value".to_string(),
+        ));
+    }
+    Ok(result)
 }
 
 fn nonempty(value: String) -> Option<String> {
@@ -406,15 +416,11 @@ fn is_no_more_items(error: &WinError) -> bool {
     error.code() == HRESULT::from_win32(ERROR_NO_MORE_ITEMS.0)
 }
 
-fn is_missing_registry_property(error: &WinError) -> bool {
-    error.code() == HRESULT::from_win32(ERROR_INVALID_DATA.0)
-}
-
 fn is_missing_device_property(error: &WinError) -> bool {
     error.code() == HRESULT::from_win32(ERROR_NOT_FOUND.0)
 }
 
-fn is_insufficient_registry_buffer(error: &WinError) -> bool {
+fn is_insufficient_device_property_buffer(error: &WinError) -> bool {
     error.code() == HRESULT::from_win32(ERROR_INSUFFICIENT_BUFFER.0)
 }
 
@@ -440,5 +446,11 @@ mod tests {
     fn utf16_evidence_rejects_odd_byte_count() {
         assert!(bytes_to_u16(&[0x41]).is_err());
         assert_eq!(bytes_to_u16(&[0x41, 0x00]).unwrap(), vec![0x0041]);
+    }
+
+    #[test]
+    fn malformed_utf16_evidence_is_rejected() {
+        assert!(utf16_array(&[0xD800, 0]).is_err());
+        assert!(utf16_multisz(&[0xD800, 0, 0]).is_err());
     }
 }
