@@ -11,18 +11,18 @@ Phase 22 is a read-only Driver Store / PnP repair assessment foundation. PASS re
 | 05 | No Phase 22 production path calls driver staging, install, rollback, package deletion, re-enumeration, or enable/disable mutation. |
 | 06 | Device instance identity is exact and case-insensitive duplicates fail closed. |
 | 07 | Package evidence without an active published INF fails closed. |
-| 08 | Exact package authority is OEM-only and has one crate-owned identity predicate shared by live capture and imported-evidence validation: both the active binding and imported/resolved `current_package` must be `oem<digits>.inf`, and package published identity must equal the active published INF. |
+| 08 | Exact package authority is OEM-only and has one crate-owned identity predicate shared by live capture and imported-evidence validation: both the active binding and imported/resolved `current_package` must be `oem<digits>.inf`, package published identity must equal the active published INF, and imported exact-package evidence must carry a fully qualified Driver Store `FileRepository` INF path. |
 | 09 | Phase 22 preserves Phase 5 semantics: successful problem code zero is inherited as `None`/`NoProblem`; nonzero codes are explicit problems; `Some(0)` or mismatched imported status fails closed. |
 | 10 | Healthy requires explicit normalized `NoProblem` plus exact active published INF and exact Driver Store package. |
 | 11 | A non-disabled nonzero problem with exact current package is only a future reinstall candidate, not execution authority. |
 | 12 | Driver selection is suggested only when Windows reports an actual PnP problem and no active binding exists; a no-problem/no-binding device does not manufacture a repair need. |
 | 13 | Device Manager Code 22 is `Disabled` even when the generic disabled field is unavailable; contradictory explicit disabled evidence fails closed; no enable/re-enumeration authority exists. |
-| 14 | Live Windows inventory reads `SPDRP_UPPERFILTERS` and `SPDRP_LOWERFILTERS`, retains those exact lists as evidence, and never automatically blames a filter merely because it exists. |
+| 14 | The public Windows `DriverHost` inventory boundary uses the unified `SetupDiGetDevicePropertyW`/`DEVPKEY_Device_*` model for IDs, active INF, metadata, and upper/lower filters; `ERROR_NOT_FOUND` is the only property-absence result, buffer/type/UTF-16 failures fail closed, ClassGuid comes from enumerated `SP_DEVINFO_DATA`, exact filter lists are retained as evidence, and filter presence alone is never blamed as a fault. |
 | 15 | Assessment order and evidence digest are deterministic across inventory ordering. |
 | 16 | Report explicitly records `machine_changes = false`. |
 | 17 | CLI surface is read-only: `neo repair drivers` supports live Windows evidence and validated fixture evidence with explicit normalized PnP status only. |
 | 18 | Adversarial host proof panics all write-capable Phase 5 methods and Phase 22 still passes. |
-| 19 | Normal Ubuntu/Windows CI runs Phase 22 static, focused, fixture, and Windows live read-only gates; focused tests bind the single shared OEM identity law plus the imported-package and live-filter evidence corrections against drift. |
+| 19 | Normal Ubuntu/Windows CI runs Phase 22 static, focused, fixture, and Windows live read-only gates; focused tests bind the single shared OEM identity law, imported-package path law, public SetupAPI evidence boundary, and live-filter correction against drift. |
 | 20 | Windows Update/networking/Winget/AppX/restore-recovery and all Driver/PnP mutations remain explicitly deferred. |
 
 No lane may be waived by a passing test elsewhere. A material failure reopens Phase 22 review.
