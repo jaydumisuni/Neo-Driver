@@ -357,11 +357,17 @@ fn bytes_to_u16(bytes: &[u8]) -> Result<Vec<u16>, DriverStoreError> {
 }
 
 fn utf16_array(value: &[u16]) -> Result<String, DriverStoreError> {
-    let end = value
-        .iter()
-        .position(|code| *code == 0)
-        .unwrap_or(value.len());
-    String::from_utf16(&value[..end]).map_err(|error| {
+    let Some((&terminator, payload)) = value.split_last() else {
+        return Err(DriverStoreError::Windows(
+            "SetupAPI returned unterminated UTF-16 evidence".to_string(),
+        ));
+    };
+    if terminator != 0 || payload.contains(&0) {
+        return Err(DriverStoreError::Windows(
+            "SetupAPI returned non-canonical UTF-16 evidence termination".to_string(),
+        ));
+    }
+    String::from_utf16(payload).map_err(|error| {
         DriverStoreError::Windows(format!(
             "SetupAPI returned invalid UTF-16 evidence: {error}"
         ))
@@ -369,14 +375,25 @@ fn utf16_array(value: &[u16]) -> Result<String, DriverStoreError> {
 }
 
 fn utf16_multisz(value: &[u16]) -> Result<Vec<String>, DriverStoreError> {
+    if value == [0] {
+        return Ok(Vec::new());
+    }
+    if value.len() < 3 || !value.ends_with(&[0, 0]) {
+        return Err(DriverStoreError::Windows(
+            "SetupAPI returned unterminated UTF-16 string-list evidence value".to_string(),
+        ));
+    }
+
     let mut result = Vec::new();
     let mut start = 0usize;
-    for (index, code) in value.iter().copied().enumerate() {
+    for (index, code) in value[..value.len() - 1].iter().copied().enumerate() {
         if code != 0 {
             continue;
         }
         if index == start {
-            return Ok(result);
+            return Err(DriverStoreError::Windows(
+                "SetupAPI returned trailing data after a UTF-16 string-list terminator".to_string(),
+            ));
         }
         result.push(String::from_utf16(&value[start..index]).map_err(|error| {
             DriverStoreError::Windows(format!(
@@ -384,12 +401,6 @@ fn utf16_multisz(value: &[u16]) -> Result<Vec<String>, DriverStoreError> {
             ))
         })?);
         start = index + 1;
-    }
-
-    if start < value.len() && value[start..].iter().any(|code| *code != 0) {
-        return Err(DriverStoreError::Windows(
-            "SetupAPI returned an unterminated UTF-16 string-list evidence value".to_string(),
-        ));
     }
     Ok(result)
 }
