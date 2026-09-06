@@ -325,14 +325,15 @@ fn stable_unique(values: Vec<String>) -> Vec<String> {
 }
 
 fn bytes_to_u16(bytes: &[u8]) -> Result<Vec<u16>, DriverStoreError> {
-    if bytes.len() % 2 != 0 {
+    let (pairs, remainder) = bytes.as_chunks::<2>();
+    if !remainder.is_empty() {
         return Err(DriverStoreError::Windows(
             "SetupAPI returned an odd byte count for UTF-16 evidence".to_string(),
         ));
     }
-    Ok(bytes
-        .chunks_exact(2)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+    Ok(pairs
+        .iter()
+        .map(|pair| u16::from_le_bytes(*pair))
         .collect())
 }
 
