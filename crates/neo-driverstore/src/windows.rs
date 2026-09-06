@@ -550,7 +550,10 @@ fn driver_store_location(published_inf: &Path) -> Result<PathBuf, DriverStoreErr
         )
     }
     .map_err(|error| win_error("SetupGetInfDriverStoreLocationW", error))?;
-    Ok(PathBuf::from(utf16_array(&buffer)))
+    Ok(PathBuf::from(strict_utf16_api_string(
+        &buffer,
+        "SetupGetInfDriverStoreLocationW",
+    )?))
 }
 
 fn published_name_for_store_inf(driver_store_inf: &Path) -> Result<String, DriverStoreError> {
@@ -558,7 +561,10 @@ fn published_name_for_store_inf(driver_store_inf: &Path) -> Result<String, Drive
     let mut buffer = vec![0u16; 32768];
     unsafe { SetupGetInfPublishedNameW(PCWSTR(wide.as_ptr()), &mut buffer, None) }
         .map_err(|error| win_error("SetupGetInfPublishedNameW", error))?;
-    Ok(file_name(&utf16_array(&buffer)))
+    Ok(file_name(&strict_utf16_api_string(
+        &buffer,
+        "SetupGetInfPublishedNameW",
+    )?))
 }
 
 fn source_catalog_path(inf: &Path, catalog_file: &str) -> Result<PathBuf, DriverStoreError> {
@@ -644,6 +650,22 @@ fn wide_path(path: &Path) -> Result<Vec<u16>, DriverStoreError> {
 
 fn wide_string(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+fn strict_utf16_api_string(value: &[u16], context: &str) -> Result<String, DriverStoreError> {
+    let Some(end) = value.iter().position(|code| *code == 0) else {
+        return Err(DriverStoreError::Windows(format!(
+            "{context} returned unterminated UTF-16"
+        )));
+    };
+    if value[end + 1..].iter().any(|code| *code != 0) {
+        return Err(DriverStoreError::Windows(format!(
+            "{context} returned trailing data after the UTF-16 terminator"
+        )));
+    }
+    String::from_utf16(&value[..end]).map_err(|error| {
+        DriverStoreError::Windows(format!("{context} returned invalid UTF-16: {error}"))
+    })
 }
 
 fn utf16_array(value: &[u16]) -> String {
@@ -755,6 +777,17 @@ mod windows_tests {
         assert!(!is_safe_published_name("oem.inf"));
         assert!(!is_safe_published_name("oemx.inf"));
         assert!(!is_safe_published_name(r"sub\oem1.inf"));
+    }
+
+    #[test]
+    fn exact_package_identity_utf16_is_fail_closed() {
+        assert_eq!(
+            strict_utf16_api_string(&[0x41, 0, 0], "probe").unwrap(),
+            "A"
+        );
+        assert!(strict_utf16_api_string(&[0x41], "probe").is_err());
+        assert!(strict_utf16_api_string(&[0xD800, 0], "probe").is_err());
+        assert!(strict_utf16_api_string(&[0x41, 0, 0x42], "probe").is_err());
     }
 
     #[test]
