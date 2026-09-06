@@ -14,3 +14,20 @@ fn public_registry_property_probe_distinguishes_absence_from_failure() {
         .contains("let _ = unsafe {\n        SetupDiGetDeviceRegistryPropertyW"));
     assert!(!STRICT_WINDOWS_SOURCE.contains("let _ = unsafe {\n        SetupDiGetDevicePropertyW"));
 }
+
+#[test]
+fn public_driver_evidence_requires_documented_property_types() {
+    for token in [
+        "REG_SZ",
+        "REG_MULTI_SZ",
+        "DEVPROP_TYPE_STRING",
+        "expected_registry_type",
+        "registry property type",
+        "device property type",
+    ] {
+        assert!(
+            STRICT_WINDOWS_SOURCE.contains(token),
+            "missing SetupAPI property-type authority token: {token}"
+        );
+    }
+}
