@@ -1,6 +1,8 @@
 const ASSESSMENT_SOURCE: &str = include_str!("../src/assessment.rs");
 const MODEL_SOURCE: &str = include_str!("../src/model.rs");
-const WINDOWS_DRIVERSTORE_SOURCE: &str = include_str!("../../neo-driverstore/src/windows.rs");
+const WINDOWS_DRIVERSTORE_LIB: &str = include_str!("../../neo-driverstore/src/lib.rs");
+const STRICT_WINDOWS_DRIVERSTORE_SOURCE: &str =
+    include_str!("../../neo-driverstore/src/windows_strict.rs");
 
 #[test]
 fn phase5_oem_inf_law_has_one_shared_source_of_truth() {
@@ -49,20 +51,26 @@ fn imported_exact_package_authority_requires_driver_store_path_shape() {
 }
 
 #[test]
-fn live_windows_inventory_collects_real_filter_evidence() {
+fn live_windows_inventory_collects_real_filter_evidence_through_public_strict_host() {
+    assert!(WINDOWS_DRIVERSTORE_LIB.contains("pub use windows_strict::WindowsDriverHost;"));
     for token in [
-        "SPDRP_UPPERFILTERS",
-        "SPDRP_LOWERFILTERS",
-        "let upper_filters = registry_multisz(set.0, &data, SPDRP_UPPERFILTERS)?;",
-        "let lower_filters = registry_multisz(set.0, &data, SPDRP_LOWERFILTERS)?;",
+        "DEVPKEY_Device_UpperFilters",
+        "DEVPKEY_Device_LowerFilters",
+        "device_property_multisz(set.0, &data, &DEVPKEY_Device_UpperFilters)?",
+        "device_property_multisz(set.0, &data, &DEVPKEY_Device_LowerFilters)?",
+        "ERROR_NOT_FOUND",
+        "ERROR_INSUFFICIENT_BUFFER",
+        "DEVPROP_TYPE_STRING_LIST",
         "upper_filters,",
         "lower_filters,",
     ] {
         assert!(
-            WINDOWS_DRIVERSTORE_SOURCE.contains(token),
-            "missing live Windows filter-evidence boundary token: {token}"
+            STRICT_WINDOWS_DRIVERSTORE_SOURCE.contains(token),
+            "missing strict live Windows filter-evidence boundary token: {token}"
         );
     }
-    assert!(!WINDOWS_DRIVERSTORE_SOURCE.contains("upper_filters: vec![]"));
-    assert!(!WINDOWS_DRIVERSTORE_SOURCE.contains("lower_filters: vec![]"));
+    assert!(!STRICT_WINDOWS_DRIVERSTORE_SOURCE.contains("SetupDiGetDeviceRegistryPropertyW"));
+    assert!(!STRICT_WINDOWS_DRIVERSTORE_SOURCE.contains("ERROR_INVALID_DATA"));
+    assert!(!STRICT_WINDOWS_DRIVERSTORE_SOURCE.contains("upper_filters: vec![]"));
+    assert!(!STRICT_WINDOWS_DRIVERSTORE_SOURCE.contains("lower_filters: vec![]"));
 }
