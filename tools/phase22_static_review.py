@@ -331,7 +331,7 @@ config_manager_problem_boundary = (
             "result != CR_SUCCESS",
             "status.0 & DN_HAS_PROBLEM.0 != 0",
             "(false, 0) => Ok(None)",
-            "(true, code) if code != 0 => Ok(Some(code))",
+            "(true, code @ 1..=u32::MAX) => Ok(Some(code))",
             "without a nonzero problem code",
             "without DN_HAS_PROBLEM",
         ),
