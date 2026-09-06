@@ -15,10 +15,13 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_LOWERFILTERS, SPDRP_MFG, SPDRP_UPPERFILTERS,
     SP_DEVINFO_DATA,
 };
-use windows::Win32::Devices::Properties::{DEVPKEY_Device_DriverInfPath, DEVPROPTYPE};
+use windows::Win32::Devices::Properties::{
+    DEVPKEY_Device_DriverInfPath, DEVPROPTYPE, DEVPROP_TYPE_STRING,
+};
 use windows::Win32::Foundation::{
     ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_DATA, ERROR_NOT_FOUND, ERROR_NO_MORE_ITEMS,
 };
+use windows::Win32::System::Registry::{REG_MULTI_SZ, REG_SZ};
 
 use crate::{
     DriverBackendResult, DriverHost, DriverInventory, DriverStoreError, StoredDriverPackage,
@@ -189,7 +192,7 @@ fn registry_string(
     data: &SP_DEVINFO_DATA,
     property: windows::Win32::Devices::DeviceAndDriverInstallation::SETUP_DI_REGISTRY_PROPERTY,
 ) -> Result<Option<String>, DriverStoreError> {
-    Ok(registry_property_wide(set, data, property)?
+    Ok(registry_property_wide(set, data, property, REG_SZ)?
         .map(|values| utf16_array(&values))
         .and_then(nonempty))
 }
@@ -199,7 +202,7 @@ fn registry_multisz(
     data: &SP_DEVINFO_DATA,
     property: windows::Win32::Devices::DeviceAndDriverInstallation::SETUP_DI_REGISTRY_PROPERTY,
 ) -> Result<Vec<String>, DriverStoreError> {
-    let values = registry_property_wide(set, data, property)?
+    let values = registry_property_wide(set, data, property, REG_MULTI_SZ)?
         .map(|values| utf16_multisz(&values))
         .unwrap_or_default();
     Ok(stable_unique(values))
@@ -209,6 +212,7 @@ fn registry_property_wide(
     set: HDEVINFO,
     data: &SP_DEVINFO_DATA,
     property: windows::Win32::Devices::DeviceAndDriverInstallation::SETUP_DI_REGISTRY_PROPERTY,
+    expected_registry_type: u32,
 ) -> Result<Option<Vec<u16>>, DriverStoreError> {
     let mut required = 0u32;
     let sizing = unsafe {
@@ -231,17 +235,30 @@ fn registry_property_wide(
     }
 
     let mut bytes = vec![0u8; required as usize];
+    let mut registry_type = 0u32;
     unsafe {
         SetupDiGetDeviceRegistryPropertyW(
             set,
             data,
             property,
-            None,
+            Some(&mut registry_type),
             Some(&mut bytes),
             Some(&mut required),
         )
     }
     .map_err(|error| win_error("SetupDiGetDeviceRegistryPropertyW", error))?;
+    if registry_type != expected_registry_type {
+        return Err(DriverStoreError::Windows(format!(
+            "SetupDiGetDeviceRegistryPropertyW returned registry property type {registry_type}, expected {expected_registry_type}"
+        )));
+    }
+    if required as usize > bytes.len() {
+        return Err(DriverStoreError::Windows(
+            "SetupDiGetDeviceRegistryPropertyW returned a size larger than the supplied buffer"
+                .to_string(),
+        ));
+    }
+    bytes.truncate(required as usize);
     bytes_to_u16(&bytes).map(Some)
 }
 
@@ -291,6 +308,17 @@ fn device_property_string(
         )
     }
     .map_err(|error| win_error("SetupDiGetDevicePropertyW", error))?;
+    if property_type != DEVPROP_TYPE_STRING {
+        return Err(DriverStoreError::Windows(
+            "SetupDiGetDevicePropertyW returned unexpected device property type".to_string(),
+        ));
+    }
+    if required as usize > bytes.len() {
+        return Err(DriverStoreError::Windows(
+            "SetupDiGetDevicePropertyW returned a size larger than the supplied buffer".to_string(),
+        ));
+    }
+    bytes.truncate(required as usize);
     Ok(nonempty(utf16_array(&bytes_to_u16(&bytes)?)))
 }
 
