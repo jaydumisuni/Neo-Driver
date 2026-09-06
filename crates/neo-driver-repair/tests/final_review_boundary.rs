@@ -1,5 +1,15 @@
+const ASSESSMENT_SOURCE: &str = include_str!("../src/assessment.rs");
 const MODEL_SOURCE: &str = include_str!("../src/model.rs");
 const WINDOWS_DRIVERSTORE_SOURCE: &str = include_str!("../../neo-driverstore/src/windows.rs");
+
+#[test]
+fn phase5_oem_inf_law_has_one_shared_source_of_truth() {
+    assert_eq!(MODEL_SOURCE.matches("fn is_phase5_oem_published_inf").count(), 1);
+    assert!(MODEL_SOURCE.contains("pub(crate) fn is_phase5_oem_published_inf"));
+    assert_eq!(ASSESSMENT_SOURCE.matches("fn is_phase5_oem_published_inf").count(), 0);
+    assert!(ASSESSMENT_SOURCE.contains("use crate::model::is_phase5_oem_published_inf;"));
+    assert!(ASSESSMENT_SOURCE.contains("Some(value) if is_phase5_oem_published_inf(value)"));
+}
 
 #[test]
 fn imported_exact_package_authority_remains_oem_only() {
