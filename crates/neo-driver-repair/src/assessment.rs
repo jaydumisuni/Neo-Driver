@@ -1,6 +1,8 @@
 #[cfg(any(windows, test))]
 use neo_driverstore::DriverHost;
 
+#[cfg(any(windows, test))]
+use crate::model::is_phase5_oem_published_inf;
 use crate::model::CM_PROB_DISABLED_CODE;
 use crate::{
     DriverRepairAssessment, DriverRepairAssessmentReport, DriverRepairDeviceEvidence,
@@ -37,16 +39,6 @@ pub(crate) fn capture_and_assess_with_host<H: DriverHost>(
     }
 
     assess(DriverRepairEvidence { devices })
-}
-
-#[cfg(any(windows, test))]
-fn is_phase5_oem_published_inf(value: &str) -> bool {
-    let lower = value.to_ascii_lowercase();
-    if value.contains(['\\', '/']) || !lower.starts_with("oem") || !lower.ends_with(".inf") {
-        return false;
-    }
-    let digits = &lower[3..lower.len() - 4];
-    !digits.is_empty() && digits.chars().all(|character| character.is_ascii_digit())
 }
 
 pub(crate) fn assess(
