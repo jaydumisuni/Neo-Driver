@@ -317,6 +317,31 @@ exact_package_resolution_boundary = (
     and "exact_package_resolution_rejects_lossy_utf16_evidence" in DRIVERSTORE_BOUNDARY_TESTS
 )
 
+problem_code_body = normalize_whitespace(
+    extract_function(DRIVERSTORE_STRICT_WINDOWS, "problem_code") or ""
+)
+problem_decode_body = normalize_whitespace(
+    extract_function(DRIVERSTORE_STRICT_WINDOWS, "decode_problem_code") or ""
+)
+config_manager_problem_boundary = (
+    "decode_problem_code(result, status, problem)" in problem_code_body
+    and has_all(
+        problem_decode_body,
+        (
+            "result != CR_SUCCESS",
+            "status.0 & DN_HAS_PROBLEM.0 != 0",
+            "(false, 0) => Ok(None)",
+            "(true, code) if code != 0 => Ok(Some(code))",
+            "without a nonzero problem code",
+            "without DN_HAS_PROBLEM",
+        ),
+    )
+    and "config_manager_problem_decode_requires_status_flag_and_code_consistency"
+    in DRIVERSTORE_STRICT_WINDOWS
+    and "config_manager_problem_evidence_requires_dn_has_problem_consistency"
+    in DRIVERSTORE_BOUNDARY_TESTS
+)
+
 checks = [
     (
         "01-master-plan-continuity",
@@ -389,7 +414,8 @@ checks = [
     ),
     (
         "09-phase5-pnp-semantics",
-        has_all(
+        config_manager_problem_boundary
+        and has_all(
             MODEL,
             (
                 "PnpStatusEvidence",
