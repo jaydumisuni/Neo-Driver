@@ -403,7 +403,9 @@ impl<'de> Deserialize<'de> for DriverRepairEvidence {
     where
         D: Deserializer<'de>,
     {
-        ImportedDriverRepairEvidence::deserialize(deserializer).map(Into::into)
+        let value: Self = ImportedDriverRepairEvidence::deserialize(deserializer)?.into();
+        value.validate().map_err(D::Error::custom)?;
+        Ok(value)
     }
 }
 
