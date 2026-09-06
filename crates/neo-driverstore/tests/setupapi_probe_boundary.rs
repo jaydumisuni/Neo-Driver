@@ -1,6 +1,10 @@
 const LIB_SOURCE: &str = include_str!("../src/lib.rs");
 const STRICT_WINDOWS_SOURCE: &str = include_str!("../src/windows_strict.rs");
 
+fn normalized_source(source: &str) -> String {
+    source.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 #[test]
 fn public_device_property_probe_distinguishes_absence_from_failure() {
     assert!(LIB_SOURCE.contains("pub use windows_strict::WindowsDriverHost"));
@@ -24,7 +28,8 @@ fn public_device_property_probe_distinguishes_absence_from_failure() {
     assert!(!STRICT_WINDOWS_SOURCE.contains("SetupDiGetDeviceRegistryPropertyW"));
     assert!(!STRICT_WINDOWS_SOURCE.contains("ERROR_INVALID_DATA"));
     assert!(!STRICT_WINDOWS_SOURCE.contains("is_missing_registry_property"));
-    assert!(!STRICT_WINDOWS_SOURCE.contains("let _ = unsafe {\n        SetupDiGetDevicePropertyW"));
+    assert!(!normalized_source(STRICT_WINDOWS_SOURCE)
+        .contains("let _ = unsafe { SetupDiGetDevicePropertyW"));
 }
 
 #[test]
