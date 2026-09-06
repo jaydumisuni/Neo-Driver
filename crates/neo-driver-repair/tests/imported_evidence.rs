@@ -171,8 +171,10 @@ fn imported_json_rejects_unknown_fields_at_every_authority_layer() {
 
     for (layer, evidence) in cases {
         let input = serde_json::to_string(&evidence).unwrap();
-        let error = DriverRepairEvidence::from_json_str(&input)
-            .unwrap_err_or_else(|_| panic!("unknown field was accepted at {layer}"));
+        let error = match DriverRepairEvidence::from_json_str(&input) {
+            Err(error) => error,
+            Ok(_) => panic!("unknown field was accepted at {layer}"),
+        };
         assert!(
             matches!(error, DriverRepairError::Serialization(_)),
             "unexpected rejection class at {layer}: {error}"
