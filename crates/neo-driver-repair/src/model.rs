@@ -1,9 +1,9 @@
-use neo_device::DeviceRecord;
+use neo_device::{DeviceRecord, DriverBinding, OpaqueDeviceId, OrderedDeviceIds};
 use neo_driverstore::StoredDriverPackage;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::DriverRepairError;
 
@@ -191,9 +191,187 @@ impl DriverRepairDeviceEvidence {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImportedDriverRepairEvidence {
+    devices: Vec<ImportedDriverRepairDeviceEvidence>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImportedDriverRepairDeviceEvidence {
+    device: ImportedDeviceRecord,
+    pnp_status: ImportedPnpStatusEvidence,
+    #[serde(default)]
+    current_package: Option<ImportedStoredDriverPackage>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImportedDeviceRecord {
+    instance_id: OpaqueDeviceId,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    manufacturer: Option<String>,
+    #[serde(default)]
+    class_name: Option<String>,
+    #[serde(default)]
+    class_guid: Option<String>,
+    #[serde(default)]
+    problem_code: Option<u32>,
+    #[serde(default)]
+    disabled: Option<bool>,
+    #[serde(default)]
+    ids: ImportedOrderedDeviceIds,
+    #[serde(default)]
+    active_driver: Option<ImportedDriverBinding>,
+    #[serde(default)]
+    upper_filters: Vec<String>,
+    #[serde(default)]
+    lower_filters: Vec<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImportedOrderedDeviceIds {
+    #[serde(default)]
+    hardware_ids: Vec<OpaqueDeviceId>,
+    #[serde(default)]
+    compatible_ids: Vec<OpaqueDeviceId>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImportedDriverBinding {
+    #[serde(default)]
+    published_name: Option<String>,
+    #[serde(default)]
+    original_name: Option<String>,
+    #[serde(default)]
+    provider: Option<String>,
+    #[serde(default)]
+    class_name: Option<String>,
+    #[serde(default)]
+    class_guid: Option<String>,
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(default)]
+    date: Option<String>,
+    #[serde(default)]
+    signer: Option<String>,
+    #[serde(default)]
+    catalog_file: Option<String>,
+    #[serde(default)]
+    service: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+enum ImportedPnpStatusEvidence {
+    NoProblem,
+    Problem { code: u32 },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImportedStoredDriverPackage {
+    published_inf: String,
+    driver_store_inf: PathBuf,
+}
+
+impl From<ImportedDriverRepairEvidence> for DriverRepairEvidence {
+    fn from(value: ImportedDriverRepairEvidence) -> Self {
+        Self {
+            devices: value.devices.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<ImportedDriverRepairDeviceEvidence> for DriverRepairDeviceEvidence {
+    fn from(value: ImportedDriverRepairDeviceEvidence) -> Self {
+        Self {
+            device: value.device.into(),
+            pnp_status: value.pnp_status.into(),
+            current_package: value.current_package.map(Into::into),
+        }
+    }
+}
+
+impl From<ImportedDeviceRecord> for DeviceRecord {
+    fn from(value: ImportedDeviceRecord) -> Self {
+        Self {
+            instance_id: value.instance_id,
+            description: value.description,
+            manufacturer: value.manufacturer,
+            class_name: value.class_name,
+            class_guid: value.class_guid,
+            problem_code: value.problem_code,
+            disabled: value.disabled,
+            ids: value.ids.into(),
+            active_driver: value.active_driver.map(Into::into),
+            upper_filters: value.upper_filters,
+            lower_filters: value.lower_filters,
+        }
+    }
+}
+
+impl From<ImportedOrderedDeviceIds> for OrderedDeviceIds {
+    fn from(value: ImportedOrderedDeviceIds) -> Self {
+        Self {
+            hardware_ids: value.hardware_ids,
+            compatible_ids: value.compatible_ids,
+        }
+    }
+}
+
+impl From<ImportedDriverBinding> for DriverBinding {
+    fn from(value: ImportedDriverBinding) -> Self {
+        Self {
+            published_name: value.published_name,
+            original_name: value.original_name,
+            provider: value.provider,
+            class_name: value.class_name,
+            class_guid: value.class_guid,
+            version: value.version,
+            date: value.date,
+            signer: value.signer,
+            catalog_file: value.catalog_file,
+            service: value.service,
+        }
+    }
+}
+
+impl From<ImportedPnpStatusEvidence> for PnpStatusEvidence {
+    fn from(value: ImportedPnpStatusEvidence) -> Self {
+        match value {
+            ImportedPnpStatusEvidence::NoProblem => Self::NoProblem,
+            ImportedPnpStatusEvidence::Problem { code } => Self::Problem { code },
+        }
+    }
+}
+
+impl From<ImportedStoredDriverPackage> for StoredDriverPackage {
+    fn from(value: ImportedStoredDriverPackage) -> Self {
+        Self {
+            published_inf: value.published_inf,
+            driver_store_inf: value.driver_store_inf,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
 pub struct DriverRepairEvidence {
     pub devices: Vec<DriverRepairDeviceEvidence>,
+}
+
+impl<'de> Deserialize<'de> for DriverRepairEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        ImportedDriverRepairEvidence::deserialize(deserializer).map(Into::into)
+    }
 }
 
 impl DriverRepairEvidence {
