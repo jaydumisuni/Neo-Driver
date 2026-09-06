@@ -40,8 +40,16 @@ fn public_device_property_probe_distinguishes_absence_from_failure() {
     assert!(!STRICT_WINDOWS_SOURCE.contains("SetupDiGetDeviceRegistryPropertyW"));
     assert!(!STRICT_WINDOWS_SOURCE.contains("ERROR_INVALID_DATA"));
     assert!(!STRICT_WINDOWS_SOURCE.contains("is_missing_registry_property"));
-    assert!(!normalized_source(STRICT_WINDOWS_SOURCE)
-        .contains("let _ = unsafe { SetupDiGetDevicePropertyW"));
+
+    let property_wide = normalized_source(function_body(
+        STRICT_WINDOWS_SOURCE,
+        "device_property_wide",
+        "ensure_device_property_type",
+    ));
+    assert_eq!(property_wide.matches("SetupDiGetDevicePropertyW(").count(), 2);
+    assert!(property_wide.contains("let sizing = unsafe { SetupDiGetDevicePropertyW("));
+    assert!(property_wide.contains("match sizing {"));
+    assert!(!property_wide.contains("let _ = unsafe { SetupDiGetDevicePropertyW("));
 }
 
 #[test]
