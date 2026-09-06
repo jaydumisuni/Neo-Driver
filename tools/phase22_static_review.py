@@ -27,6 +27,9 @@ DRIVER_HOST = (ROOT / "crates" / "neo-driverstore" / "src" / "host.rs").read_tex
 DRIVERSTORE_LIB = (ROOT / "crates" / "neo-driverstore" / "src" / "lib.rs").read_text(
     encoding="utf-8"
 )
+DRIVERSTORE_LEGACY_WINDOWS = (
+    ROOT / "crates" / "neo-driverstore" / "src" / "windows.rs"
+).read_text(encoding="utf-8")
 DRIVERSTORE_STRICT_WINDOWS = (
     ROOT / "crates" / "neo-driverstore" / "src" / "windows_strict.rs"
 ).read_text(encoding="utf-8")
@@ -235,7 +238,9 @@ phase22_ci_exact = all(
     )
 )
 
-normalized_driverstore_strict_windows = normalize_whitespace(DRIVERSTORE_STRICT_WINDOWS)
+property_wide_body = normalize_whitespace(
+    extract_function(DRIVERSTORE_STRICT_WINDOWS, "device_property_wide") or ""
+)
 strict_property_boundary = (
     has_all(
         DRIVERSTORE_LIB,
@@ -275,7 +280,10 @@ strict_property_boundary = (
     and "SetupDiGetDeviceRegistryPropertyW" not in DRIVERSTORE_STRICT_WINDOWS
     and "ERROR_INVALID_DATA" not in DRIVERSTORE_STRICT_WINDOWS
     and "is_missing_registry_property" not in DRIVERSTORE_STRICT_WINDOWS
-    and "let _ = unsafe { SetupDiGetDevicePropertyW" not in normalized_driverstore_strict_windows
+    and property_wide_body.count("SetupDiGetDevicePropertyW(") == 2
+    and "let sizing = unsafe { SetupDiGetDevicePropertyW(" in property_wide_body
+    and "match sizing {" in property_wide_body
+    and "let _ = unsafe { SetupDiGetDevicePropertyW(" not in property_wide_body
     and has_all(
         DRIVERSTORE_BOUNDARY_TESTS,
         (
@@ -285,6 +293,28 @@ strict_property_boundary = (
             "public_setupapi_id_dedup_is_case_insensitive_and_stable",
         ),
     )
+)
+
+store_location_body = extract_function(DRIVERSTORE_LEGACY_WINDOWS, "driver_store_location") or ""
+published_name_body = (
+    extract_function(DRIVERSTORE_LEGACY_WINDOWS, "published_name_for_store_inf") or ""
+)
+exact_package_resolution_boundary = (
+    has_all(
+        DRIVERSTORE_LEGACY_WINDOWS,
+        (
+            "fn strict_utf16_api_string",
+            "String::from_utf16(&value[..end])",
+            "exact_package_identity_utf16_is_fail_closed",
+        ),
+    )
+    and "strict_utf16_api_string" in store_location_body
+    and "utf16_array(&buffer)" not in store_location_body
+    and "from_utf16_lossy" not in store_location_body
+    and "strict_utf16_api_string" in published_name_body
+    and "utf16_array(&buffer)" not in published_name_body
+    and "from_utf16_lossy" not in published_name_body
+    and "exact_package_resolution_rejects_lossy_utf16_evidence" in DRIVERSTORE_BOUNDARY_TESTS
 )
 
 checks = [
@@ -345,6 +375,7 @@ checks = [
         and "is_driver_store_inf_path" in MODEL
         and "repository_index != 1" in MODEL
         and "DriverRepairError::PackageMismatch" in MODEL
+        and exact_package_resolution_boundary
         and has_all(
             INTEGRATION_TESTS,
             (
