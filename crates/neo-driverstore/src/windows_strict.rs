@@ -466,9 +466,7 @@ mod tests {
             Some(28)
         );
         assert!(decode_problem_code(CR_SUCCESS, DN_HAS_PROBLEM, CM_PROB(0)).is_err());
-        assert!(
-            decode_problem_code(CR_SUCCESS, CM_DEVNODE_STATUS_FLAGS(0), CM_PROB(28)).is_err()
-        );
+        assert!(decode_problem_code(CR_SUCCESS, CM_DEVNODE_STATUS_FLAGS(0), CM_PROB(28)).is_err());
         assert!(
             decode_problem_code(CONFIGRET(13), CM_DEVNODE_STATUS_FLAGS(0), CM_PROB(0)).is_err()
         );
