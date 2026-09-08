@@ -146,8 +146,7 @@ impl DriverRepairDeviceEvidence {
             .active_driver
             .as_ref()
             .and_then(|binding| binding.published_name.as_deref())
-            .map(str::trim)
-            .filter(|value| !value.is_empty());
+            .filter(|value| !value.trim().is_empty());
 
         if let Some(package) = &self.current_package {
             package
