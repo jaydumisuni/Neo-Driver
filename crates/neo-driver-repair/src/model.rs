@@ -177,6 +177,24 @@ impl DriverRepairDeviceEvidence {
                     self.device.instance_id
                 )));
             }
+            if let Some(original_name) = self
+                .device
+                .active_driver
+                .as_ref()
+                .and_then(|binding| binding.original_name.as_deref())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                let path_value = package.driver_store_inf.to_string_lossy();
+                let normalized_path = path_value.replace('/', "\\");
+                let driver_store_inf_name = normalized_path.rsplit('\\').next().unwrap_or_default();
+                if !driver_store_inf_name.eq_ignore_ascii_case(original_name) {
+                    return Err(DriverRepairError::InvalidEvidence(format!(
+                        "device {} active original INF does not match the Driver Store INF filename",
+                        self.device.instance_id
+                    )));
+                }
+            }
         }
         Ok(())
     }
