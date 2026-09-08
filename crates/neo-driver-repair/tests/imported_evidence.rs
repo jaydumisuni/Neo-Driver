@@ -227,3 +227,16 @@ fn imported_original_inf_must_match_driver_store_filename_when_supplied() {
         "imported original INF identity must agree with the Driver Store INF filename"
     );
 }
+
+#[test]
+fn imported_active_published_inf_must_be_canonical_without_surrounding_whitespace() {
+    let mut evidence: serde_json::Value = serde_json::from_str(PHASE22_FIXTURE).unwrap();
+    evidence["devices"][0]["device"]["active_driver"]["published_name"] =
+        serde_json::Value::String(" oem40.inf ".to_string());
+
+    let input = serde_json::to_string(&evidence).unwrap();
+    assert!(
+        DriverRepairEvidence::from_json_str(&input).is_err(),
+        "exact imported published INF authority must reject surrounding whitespace"
+    );
+}
