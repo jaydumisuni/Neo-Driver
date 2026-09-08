@@ -376,6 +376,33 @@ strict_import_boundary = (
     )
 )
 
+device_evidence_validate_body = normalize_whitespace(
+    extract_function(MODEL, "validate") or ""
+)
+exact_imported_inf_boundary = (
+    has_all(
+        device_evidence_validate_body,
+        (
+            "published_name.as_deref()",
+            ".filter(|value| !value.trim().is_empty())",
+            "if !is_phase5_oem_published_inf(published)",
+            "original_name.is_empty() || original_name.trim() != original_name",
+            "active original INF is not canonical",
+            "driver_store_inf_name.eq_ignore_ascii_case(original_name)",
+            "active original INF does not match the Driver Store INF filename",
+        ),
+    )
+    and "map(str::trim)" not in device_evidence_validate_body
+    and has_all(
+        INTEGRATION_TESTS,
+        (
+            "imported_original_inf_must_match_driver_store_filename_when_supplied",
+            "imported_active_published_inf_must_be_canonical_without_surrounding_whitespace",
+            "imported_original_inf_when_supplied_must_be_canonical_and_nonempty",
+        ),
+    )
+)
+
 checks = [
     (
         "01-master-plan-continuity",
@@ -435,6 +462,7 @@ checks = [
         and "repository_index != 1" in MODEL
         and "DriverRepairError::PackageMismatch" in MODEL
         and exact_package_resolution_boundary
+        and exact_imported_inf_boundary
         and has_all(
             INTEGRATION_TESTS,
             (
