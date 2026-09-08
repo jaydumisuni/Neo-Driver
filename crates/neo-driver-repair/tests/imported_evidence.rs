@@ -240,3 +240,18 @@ fn imported_active_published_inf_must_be_canonical_without_surrounding_whitespac
         "exact imported published INF authority must reject surrounding whitespace"
     );
 }
+
+#[test]
+fn imported_original_inf_when_supplied_must_be_canonical_and_nonempty() {
+    for original_name in [" oem40.inf ", "   "] {
+        let mut evidence: serde_json::Value = serde_json::from_str(PHASE22_FIXTURE).unwrap();
+        evidence["devices"][0]["device"]["active_driver"]["original_name"] =
+            serde_json::Value::String(original_name.to_string());
+
+        let input = serde_json::to_string(&evidence).unwrap();
+        assert!(
+            DriverRepairEvidence::from_json_str(&input).is_err(),
+            "supplied original INF evidence must be canonical and nonempty: {original_name:?}"
+        );
+    }
+}
