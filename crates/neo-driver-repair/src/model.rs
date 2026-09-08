@@ -181,9 +181,13 @@ impl DriverRepairDeviceEvidence {
                 .active_driver
                 .as_ref()
                 .and_then(|binding| binding.original_name.as_deref())
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
             {
+                if original_name.is_empty() || original_name.trim() != original_name {
+                    return Err(DriverRepairError::InvalidEvidence(format!(
+                        "device {} active original INF is not canonical",
+                        self.device.instance_id
+                    )));
+                }
                 let path_value = package.driver_store_inf.to_string_lossy();
                 let normalized_path = path_value.replace('/', "\\");
                 let driver_store_inf_name = normalized_path.rsplit('\\').next().unwrap_or_default();
