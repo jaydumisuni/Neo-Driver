@@ -35,7 +35,10 @@ fn is_driver_store_inf_path(path: &Path) -> bool {
 
     let components: Vec<&str> = normalized[3..].split('\\').collect();
     if components.iter().any(|component| {
-        component.is_empty() || matches!(*component, "." | "..") || component.contains(':')
+        component.is_empty()
+            || matches!(*component, "." | "..")
+            || component.contains(':')
+            || component.contains('\0')
     }) {
         return false;
     }

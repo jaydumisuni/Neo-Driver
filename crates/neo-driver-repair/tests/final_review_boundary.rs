@@ -40,6 +40,7 @@ fn imported_exact_package_authority_requires_driver_store_path_shape() {
         "System32",
         "DriverStore",
         "FileRepository",
+        "component.contains('\\0')",
         "if !is_driver_store_inf_path(&package.driver_store_inf)",
         "fully qualified Driver Store FileRepository INF path",
     ] {

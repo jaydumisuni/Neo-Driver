@@ -460,6 +460,7 @@ checks = [
         and "eq_ignore_ascii_case(published)" in MODEL
         and "is_driver_store_inf_path" in MODEL
         and "repository_index != 1" in MODEL
+        and "component.contains('\\0')" in MODEL
         and "DriverRepairError::PackageMismatch" in MODEL
         and exact_package_resolution_boundary
         and exact_imported_inf_boundary
@@ -471,6 +472,7 @@ checks = [
                 "imported_exact_package_authority_remains_oem_only",
                 "imported_exact_package_authority_requires_driver_store_path_shape",
                 "imported_oem_package_with_nested_prefix_before_system32_cannot_claim_exact_authority",
+                "imported_driver_store_path_with_embedded_nul_cannot_claim_exact_authority",
             ),
         ),
     ),

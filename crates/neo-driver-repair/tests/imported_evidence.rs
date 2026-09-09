@@ -114,6 +114,20 @@ fn imported_oem_package_with_nested_prefix_before_system32_cannot_claim_exact_au
 }
 
 #[test]
+fn imported_driver_store_path_with_embedded_nul_cannot_claim_exact_authority() {
+    let mut evidence: serde_json::Value = serde_json::from_str(PHASE22_FIXTURE).unwrap();
+    evidence["devices"][0]["current_package"]["driver_store_inf"] = serde_json::Value::String(
+        "C:\\Windows\\System32\\DriverStore\\FileRepository\\bad\0dir\\neo.inf".to_string(),
+    );
+
+    let input = serde_json::to_string(&evidence).unwrap();
+    let error = DriverRepairEvidence::from_json_str(&input).unwrap_err();
+    assert!(matches!(error, DriverRepairError::Serialization(_)));
+    assert!(error.to_string().contains("Driver Store"));
+    assert!(serde_json::from_str::<DriverRepairEvidence>(&input).is_err());
+}
+
+#[test]
 fn imported_json_rejects_unknown_fields_at_every_authority_layer() {
     let base: serde_json::Value = serde_json::from_str(PHASE22_FIXTURE).unwrap();
     assert!(DriverRepairEvidence::from_json_str(PHASE22_FIXTURE).is_ok());
