@@ -23,8 +23,7 @@ pub(crate) fn capture_and_assess_with_host<H: DriverHost>(
             .active_driver
             .as_ref()
             .and_then(|binding| binding.published_name.as_deref())
-            .map(str::trim)
-            .filter(|value| !value.is_empty());
+            .filter(|value| !value.trim().is_empty());
         let current_package = match published {
             Some(value) if is_phase5_oem_published_inf(value) => {
                 host.resolve_published_package(value)?
