@@ -1,6 +1,6 @@
 # Decision 0022 — Phase 22 Driver Store / PnP Repair Assessment Foundation
 
-**Status:** REOPENED FOR FINAL CLOSEOUT / EXACT-HEAD REPROOF
+**Status:** FROZEN AND PROVEN
 
 ## Why this phase exists
 
@@ -209,6 +209,14 @@ The evidence campaign, external review, and correction cycle found the following
 
 Corrections 5 through 16 do not grant mutation authority. They narrow what may become trusted read evidence, preserve the ranking semantics of that read evidence, or strengthen the proof/diagnostic boundary. The existing Phase 5 OEM mutation boundary remains unchanged.
 
-This decision returns to **FROZEN AND PROVEN** only after the final closeout head containing these documentation and anti-drift updates passes the complete exact-head Ubuntu/Windows CI matrix and no further material review finding remains.
+## Final Phase 22 proof and closeout
+
+The final corrected implementation head is `3a0d5def3e28b371de8a6f9ef8e7cd1b4cb259b4`. It closes the final imported-evidence authority findings, including exact preservation of non-authoritative published INF evidence and embedded-NUL rejection for imported Driver Store path components. Before merge, PR #46 had zero unresolved material review threads and the exact head passed the complete Ubuntu/Windows CI matrix, including the Phase 22 20-lane static review, locked build, Clippy with warnings denied, full workspace units, focused Driver Store/PnP assessment proof, fixture proof, and live Windows `neo repair drivers --json` source proof.
+
+Phase 22 merged through PR #46 as `def3e2c5f179cc3c10ea65af2b9b648ee71017cb`. Merged-main Neo Driver CI run `34299192129` then completed successfully on both Ubuntu and Windows for that exact merge commit. The Windows matrix included the inherited live read-only probes and the Phase 22 live Driver Store/PnP source proof.
+
+ATHENA's final local read-only proof on the corrected implementation head assessed 184 current devices with `machine_changes=false` and source-evidence SHA-256 `f84b8d82a57f0b36142dcd7aa2e4f3b3afdc7d34834778f6341c6a5eeb5b3121`. This is evidence only; Phase 22 grants no Driver/PnP mutation authority.
+
+Phase 22 is therefore **source-reviewed, exact-head CI-proven, merged, and merged-main CI-proven**. Live driver staging/install/reinstall, rollback, package deletion, device enable/disable, and re-enumeration remain explicitly unclaimed.
 
 Live driver/PnP mutation is explicitly unclaimed.
