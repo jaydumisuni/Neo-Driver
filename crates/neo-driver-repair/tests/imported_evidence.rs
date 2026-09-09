@@ -1,7 +1,7 @@
 use neo_device::{DeviceRecord, DriverBinding, OpaqueDeviceId, OrderedDeviceIds};
 use neo_driver_repair::{
     assess_driver_repair_evidence, DriverRepairDeviceEvidence, DriverRepairError,
-    DriverRepairEvidence, PnpStatusEvidence,
+    DriverRepairEvidence, DriverRepairRoute, PnpStatusEvidence,
 };
 use neo_driverstore::StoredDriverPackage;
 use std::path::PathBuf;
@@ -254,4 +254,25 @@ fn imported_original_inf_when_supplied_must_be_canonical_and_nonempty() {
             "supplied original INF evidence must be canonical and nonempty: {original_name:?}"
         );
     }
+}
+
+#[test]
+fn non_authoritative_published_inf_is_reported_exactly_without_trimming() {
+    let mut evidence: serde_json::Value = serde_json::from_str(PHASE22_FIXTURE).unwrap();
+    evidence["devices"][0]["device"]["active_driver"]["published_name"] =
+        serde_json::Value::String(" oem40.inf ".to_string());
+    evidence["devices"][0]["current_package"] = serde_json::Value::Null;
+
+    let input = serde_json::to_string(&evidence).unwrap();
+    let evidence = DriverRepairEvidence::from_json_str(&input)
+        .expect("padded non-authoritative binding remains readable evidence");
+    let report = assess_driver_repair_evidence(evidence).unwrap();
+    let assessment = &report.assessments[0];
+    assert_eq!(
+        assessment.active_published_inf.as_deref(),
+        Some(" oem40.inf "),
+        "read-only report must preserve exact binding evidence"
+    );
+    assert_eq!(assessment.route, DriverRepairRoute::ManualInvestigation);
+    assert!(assessment.exact_driver_store_package.is_none());
 }
