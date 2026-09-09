@@ -12,6 +12,8 @@ mod plan;
 
 #[cfg(windows)]
 mod windows;
+#[cfg(windows)]
+mod windows_strict;
 
 pub use error::DriverStoreError;
 pub use executor::DriverInstallSession;
@@ -24,7 +26,7 @@ pub use model::{
 pub use plan::{prepare_driver_install, DriverInstallRequest};
 
 #[cfg(windows)]
-pub use windows::WindowsDriverHost;
+pub use windows_strict::WindowsDriverHost;
 
 #[cfg(test)]
 mod tests;

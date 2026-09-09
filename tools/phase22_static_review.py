@@ -1,0 +1,601 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import re
+import sys
+import tomllib
+
+ROOT = Path(__file__).resolve().parents[1]
+CRATE = ROOT / "crates" / "neo-driver-repair"
+SRC = CRATE / "src"
+LIB = (SRC / "lib.rs").read_text(encoding="utf-8")
+MODEL = (SRC / "model.rs").read_text(encoding="utf-8")
+ASSESS = (SRC / "assessment.rs").read_text(encoding="utf-8")
+TESTS = (SRC / "tests.rs").read_text(encoding="utf-8")
+INTEGRATION_TESTS = "\n".join(
+    path.read_text(encoding="utf-8") for path in sorted((CRATE / "tests").glob("*.rs"))
+)
+PRODUCTION_SOURCES = {
+    path.name: path.read_text(encoding="utf-8")
+    for path in sorted(SRC.glob("*.rs"))
+    if path.name != "tests.rs"
+}
+PRODUCTION = "\n".join(PRODUCTION_SOURCES.values())
+MANIFEST = (CRATE / "Cargo.toml").read_text(encoding="utf-8")
+DRIVER_HOST = (ROOT / "crates" / "neo-driverstore" / "src" / "host.rs").read_text(
+    encoding="utf-8"
+)
+DRIVERSTORE_LIB = (ROOT / "crates" / "neo-driverstore" / "src" / "lib.rs").read_text(
+    encoding="utf-8"
+)
+DRIVERSTORE_LEGACY_WINDOWS = (
+    ROOT / "crates" / "neo-driverstore" / "src" / "windows.rs"
+).read_text(encoding="utf-8")
+DRIVERSTORE_STRICT_WINDOWS = (
+    ROOT / "crates" / "neo-driverstore" / "src" / "windows_strict.rs"
+).read_text(encoding="utf-8")
+DRIVERSTORE_BOUNDARY_TESTS = "\n".join(
+    path.read_text(encoding="utf-8")
+    for path in sorted((ROOT / "crates" / "neo-driverstore" / "tests").glob("*.rs"))
+)
+WORKSPACE_RAW = (ROOT / "Cargo.toml").read_text(encoding="utf-8")
+WORKSPACE = tomllib.loads(WORKSPACE_RAW)
+MASTER = (ROOT / "docs" / "NEO_DRIVER_MASTER_PLAN.md").read_text(encoding="utf-8")
+DECISION = (
+    ROOT / "docs" / "decisions" / "0022-PHASE22-DRIVER-PNP-REPAIR-ASSESSMENT.md"
+).read_text(encoding="utf-8")
+REVIEW = (ROOT / "docs" / "PHASE22_20_LANE_REVIEW.md").read_text(encoding="utf-8")
+CLI = (ROOT / "crates" / "neo-cli" / "src" / "repair_cli.rs").read_text(encoding="utf-8")
+CLI_MANIFEST = (ROOT / "crates" / "neo-cli" / "Cargo.toml").read_text(encoding="utf-8")
+CI = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+FIXTURE = (ROOT / "fixtures" / "repair" / "phase22_driver_evidence.json").read_text(
+    encoding="utf-8"
+)
+
+members = set(WORKSPACE["workspace"]["members"])
+READ_ONLY_DRIVER_HOST_METHODS = {
+    "windows_build",
+    "inventory",
+    "compatible_present_devices",
+    "verify_inf_signature",
+    "find_equivalent_package",
+    "resolve_published_package",
+}
+ALLOWED_PHASE22_HOST_CALLS = {"inventory", "resolve_published_package"}
+FORBIDDEN_WINDOWS_MUTATION_TOKENS = (
+    "DiInstallDevice",
+    "SetupCopyOEMInf",
+    "SetupUninstallOEMInf",
+    "UpdateDriverForPlugAndPlayDevices",
+    "CM_Reenumerate_DevNode",
+    "CM_Enable_DevNode",
+    "CM_Disable_DevNode",
+    "SetupDiCallClassInstaller",
+    "DIF_PROPERTYCHANGE",
+    "DIF_REGISTERDEVICE",
+    "DIF_REMOVE",
+    "DIF_INSTALLDEVICE",
+    "pnputil",
+    "devcon",
+    "Command::new",
+)
+
+
+def has_all(text, values):
+    return all(value in text for value in values)
+
+
+def normalize_whitespace(text):
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def extract_braced(text, brace_index):
+    if brace_index < 0 or brace_index >= len(text) or text[brace_index] != "{":
+        return None
+    depth = 0
+    for index in range(brace_index, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[brace_index + 1 : index]
+    return None
+
+
+def extract_block_after(text, pattern):
+    match = re.search(pattern, text, re.MULTILINE)
+    if not match:
+        return None
+    return extract_braced(text, text.find("{", match.end()))
+
+
+def extract_function(text, name):
+    match = re.search(rf"\bfn\s+{re.escape(name)}(?:\s*<[^{{}};]*>)?\s*\(", text)
+    if not match:
+        return None
+    return extract_braced(text, text.find("{", match.end()))
+
+
+def trait_methods(text):
+    block = extract_block_after(text, r"pub\s+trait\s+DriverHost\s*")
+    if block is None:
+        return set()
+    return set(re.findall(r"^\s*fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", block, re.MULTILINE))
+
+
+def host_calls(text):
+    return set(re.findall(r"\bhost\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(", text))
+
+
+def parse_ci_steps(text):
+    steps = []
+    current = None
+    for raw in text.splitlines():
+        name_match = re.match(r"^\s+-\s+name:\s*(.+?)\s*$", raw)
+        if name_match:
+            if current is not None:
+                steps.append(current)
+            current = {"name": name_match.group(1), "run": None, "if": None, "timeout": None}
+            continue
+        if current is None:
+            continue
+        stripped = raw.strip()
+        if stripped.startswith("run: "):
+            current["run"] = stripped[len("run: ") :].strip()
+        elif stripped.startswith("if: "):
+            current["if"] = stripped[len("if: ") :].strip()
+        elif stripped.startswith("timeout-minutes: "):
+            current["timeout"] = stripped[len("timeout-minutes: ") :].strip()
+    if current is not None:
+        steps.append(current)
+    return steps
+
+
+def exact_ci_step(steps, name, command, *, condition=None, timeout=None):
+    matches = [step for step in steps if step["name"] == name]
+    if len(matches) != 1:
+        return False
+    step = matches[0]
+    return (
+        step["run"] == command
+        and step["if"] == condition
+        and step["timeout"] == timeout
+    )
+
+
+host_method_names = trait_methods(DRIVER_HOST)
+forbidden_host_mutators = host_method_names - READ_ONLY_DRIVER_HOST_METHODS
+capture_body = extract_function(ASSESS, "capture_and_assess_with_host")
+capture_host_calls = host_calls(capture_body or "")
+production_host_calls = host_calls(PRODUCTION)
+production_mutator_calls = {
+    method
+    for method in forbidden_host_mutators
+    if re.search(rf"\.\s*{re.escape(method)}\s*\(", PRODUCTION)
+}
+production_windows_mutation_hits = {
+    token
+    for token in FORBIDDEN_WINDOWS_MUTATION_TOKENS
+    if token.casefold() in PRODUCTION.casefold()
+}
+
+read_only_impl = extract_block_after(TESTS, r"impl\s+DriverHost\s+for\s+ReadOnlyHost\s*")
+read_only_impl_methods = (
+    set(re.findall(r"^\s*fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", read_only_impl, re.MULTILINE))
+    if read_only_impl is not None
+    else set()
+)
+mutators_panic = read_only_impl is not None and all(
+    (body := extract_function(read_only_impl, method)) is not None and "panic!(" in body
+    for method in forbidden_host_mutators
+)
+live_problem_test = extract_function(
+    TESTS, "live_adapter_problem_path_invokes_only_inventory_and_exact_package_resolution"
+)
+live_healthy_test = extract_function(
+    TESTS, "live_adapter_maps_phase5_none_to_no_problem_and_uses_only_read_authority"
+)
+structural_read_only_adapter = (
+    len(forbidden_host_mutators) == 4
+    and read_only_impl_methods == host_method_names
+    and mutators_panic
+    and capture_host_calls == ALLOWED_PHASE22_HOST_CALLS
+    and live_problem_test is not None
+    and "capture_and_assess_with_host(&host)" in live_problem_test
+    and "CurrentExactDriverReinstallCandidate" in live_problem_test
+    and "machine_changes" in live_problem_test
+    and live_healthy_test is not None
+    and "capture_and_assess_with_host(&host)" in live_healthy_test
+    and "PnpStatusEvidence::NoProblem" in live_healthy_test
+)
+
+ci_steps = parse_ci_steps(CI)
+phase22_ci_exact = all(
+    (
+        exact_ci_step(
+            ci_steps,
+            "Phase 22 twenty-lane static review",
+            "python -W error tools/phase22_static_review.py",
+        ),
+        exact_ci_step(
+            ci_steps,
+            "Phase 22 Driver Store / PnP assessment proof",
+            "cargo test --locked -p neo-driver-repair",
+        ),
+        exact_ci_step(
+            ci_steps,
+            "Phase 22 live Windows driver repair source proof",
+            "cargo run --locked -p neo-cli -- repair drivers --json",
+            condition="runner.os == 'Windows'",
+            timeout="20",
+        ),
+        exact_ci_step(
+            ci_steps,
+            "Phase 22 driver repair fixture proof",
+            "cargo run --locked -p neo-cli -- repair drivers --evidence fixtures/repair/phase22_driver_evidence.json --json",
+        ),
+    )
+)
+
+property_wide_body = normalize_whitespace(
+    extract_function(DRIVERSTORE_STRICT_WINDOWS, "device_property_wide") or ""
+)
+strict_property_boundary = (
+    has_all(
+        DRIVERSTORE_LIB,
+        ("mod windows_strict;", "pub use windows_strict::WindowsDriverHost;"),
+    )
+    and has_all(
+        DRIVERSTORE_STRICT_WINDOWS,
+        (
+            "SetupDiGetDevicePropertyW",
+            "DEVPKEY_Device_HardwareIds",
+            "DEVPKEY_Device_CompatibleIds",
+            "DEVPKEY_Device_DriverInfPath",
+            "DEVPKEY_Device_UpperFilters",
+            "DEVPKEY_Device_LowerFilters",
+            "DEVPKEY_Device_DeviceDesc",
+            "DEVPKEY_Device_Manufacturer",
+            "DEVPKEY_Device_Class",
+            "DEVPROP_TYPE_STRING",
+            "DEVPROP_TYPE_STRING_LIST",
+            "ERROR_INSUFFICIENT_BUFFER",
+            "ERROR_NOT_FOUND",
+            "device_property_wide",
+            "expected_property_type",
+            "is_missing_device_property",
+            "is_insufficient_device_property_buffer",
+            "class_guid_from_devinfo",
+            "data.ClassGuid",
+            "odd byte count",
+            "split_last()",
+            "ends_with(&[0, 0])",
+            "existing.eq_ignore_ascii_case(&value)",
+            "string_evidence_requires_exact_termination",
+            "string_list_evidence_requires_final_list_terminator_and_no_trailing_data",
+            "setupapi_id_normalization_removes_case_only_duplicates_without_reordering",
+        ),
+    )
+    and "SetupDiGetDeviceRegistryPropertyW" not in DRIVERSTORE_STRICT_WINDOWS
+    and "ERROR_INVALID_DATA" not in DRIVERSTORE_STRICT_WINDOWS
+    and "is_missing_registry_property" not in DRIVERSTORE_STRICT_WINDOWS
+    and property_wide_body.count("SetupDiGetDevicePropertyW(") == 2
+    and "let sizing = unsafe { SetupDiGetDevicePropertyW(" in property_wide_body
+    and "match sizing {" in property_wide_body
+    and "let _ = unsafe { SetupDiGetDevicePropertyW(" not in property_wide_body
+    and has_all(
+        DRIVERSTORE_BOUNDARY_TESTS,
+        (
+            "public_device_property_probe_distinguishes_absence_from_failure",
+            "public_driver_evidence_requires_documented_property_types",
+            "class_guid_comes_from_enumerated_devinfo_not_ambiguous_registry_data",
+            "public_setupapi_id_dedup_is_case_insensitive_and_stable",
+        ),
+    )
+)
+
+store_location_body = extract_function(DRIVERSTORE_LEGACY_WINDOWS, "driver_store_location") or ""
+published_name_body = (
+    extract_function(DRIVERSTORE_LEGACY_WINDOWS, "published_name_for_store_inf") or ""
+)
+exact_package_resolution_boundary = (
+    has_all(
+        DRIVERSTORE_LEGACY_WINDOWS,
+        (
+            "fn strict_utf16_api_string",
+            "String::from_utf16(&value[..end])",
+            "exact_package_identity_utf16_is_fail_closed",
+        ),
+    )
+    and "strict_utf16_api_string" in store_location_body
+    and "utf16_array(&buffer)" not in store_location_body
+    and "from_utf16_lossy" not in store_location_body
+    and "strict_utf16_api_string" in published_name_body
+    and "utf16_array(&buffer)" not in published_name_body
+    and "from_utf16_lossy" not in published_name_body
+    and "exact_package_resolution_rejects_lossy_utf16_evidence" in DRIVERSTORE_BOUNDARY_TESTS
+)
+
+problem_code_body = normalize_whitespace(
+    extract_function(DRIVERSTORE_STRICT_WINDOWS, "problem_code") or ""
+)
+problem_decode_body = normalize_whitespace(
+    extract_function(DRIVERSTORE_STRICT_WINDOWS, "decode_problem_code") or ""
+)
+config_manager_problem_boundary = (
+    "decode_problem_code(result, status, problem)" in problem_code_body
+    and has_all(
+        problem_decode_body,
+        (
+            "result != CR_SUCCESS",
+            "status.0 & DN_HAS_PROBLEM.0 != 0",
+            "(false, 0) => Ok(None)",
+            "(true, code @ 1..=u32::MAX) => Ok(Some(code))",
+            "without a nonzero problem code",
+            "without DN_HAS_PROBLEM",
+        ),
+    )
+    and "config_manager_problem_decode_requires_status_flag_and_code_consistency"
+    in DRIVERSTORE_STRICT_WINDOWS
+    and "config_manager_problem_evidence_requires_dn_has_problem_consistency"
+    in DRIVERSTORE_BOUNDARY_TESTS
+)
+
+root_deserialize_impl = extract_block_after(
+    MODEL, r"impl<'de>\s+Deserialize<'de>\s+for\s+DriverRepairEvidence\s*"
+) or ""
+root_deserialize_body = normalize_whitespace(
+    extract_function(root_deserialize_impl, "deserialize") or ""
+)
+strict_import_boundary = (
+    has_all(
+        MODEL,
+        (
+            "struct ImportedDriverRepairEvidence",
+            "struct ImportedDriverRepairDeviceEvidence",
+            "struct ImportedDeviceRecord",
+            "struct ImportedOrderedDeviceIds",
+            "struct ImportedDriverBinding",
+            "struct ImportedPnpStatusEnvelope",
+            "struct ImportedStoredDriverPackage",
+            "no_problem PnP status must not contain code",
+            "problem PnP status requires code",
+        ),
+    )
+    and MODEL.count("#[serde(deny_unknown_fields)]") >= 7
+    and "ImportedDriverRepairEvidence::deserialize(deserializer)?" in root_deserialize_body
+    and "value.validate().map_err(D::Error::custom)?" in root_deserialize_body
+    and "Ok(value)" in root_deserialize_body
+    and has_all(
+        INTEGRATION_TESTS,
+        (
+            "imported_json_rejects_unknown_fields_at_every_authority_layer",
+            "direct_root_serde_rejects_semantically_contradictory_pnp_evidence",
+        ),
+    )
+)
+
+device_evidence_validate_body = normalize_whitespace(
+    extract_function(MODEL, "validate") or ""
+)
+exact_imported_inf_boundary = (
+    has_all(
+        device_evidence_validate_body,
+        (
+            "published_name.as_deref()",
+            ".filter(|value| !value.trim().is_empty())",
+            "if !is_phase5_oem_published_inf(published)",
+            "original_name.is_empty() || original_name.trim() != original_name",
+            "active original INF is not canonical",
+            "driver_store_inf_name.eq_ignore_ascii_case(original_name)",
+            "active original INF does not match the Driver Store INF filename",
+        ),
+    )
+    and "map(str::trim)" not in device_evidence_validate_body
+    and has_all(
+        INTEGRATION_TESTS,
+        (
+            "imported_original_inf_must_match_driver_store_filename_when_supplied",
+            "imported_active_published_inf_must_be_canonical_without_surrounding_whitespace",
+            "imported_original_inf_when_supplied_must_be_canonical_and_nonempty",
+        ),
+    )
+)
+
+checks = [
+    (
+        "01-master-plan-continuity",
+        has_all(MASTER, ("Driver Store/PnP repair;", "device re-enumeration;", "Windows Update reset/repair;")),
+    ),
+    (
+        "02-exact-authority-recorded",
+        has_all(
+            DECISION,
+            (
+                "5e791fd6509a818b8f6632d57e1c74ffbc258461",
+                "neo-phase22-scope-tenfold-workspace",
+                "four deterministic authority evidence packets",
+            ),
+        ),
+    ),
+    (
+        "03-separate-crate-boundary",
+        "crates/neo-driver-repair" in members
+        and 'name = "neo-driver-repair"' in MANIFEST
+        and 'neo-driverstore = { path = "../neo-driverstore" }' in MANIFEST,
+    ),
+    (
+        "04-read-only-host-seam",
+        len(forbidden_host_mutators) == 4
+        and capture_host_calls == ALLOWED_PHASE22_HOST_CALLS
+        and production_host_calls <= ALLOWED_PHASE22_HOST_CALLS,
+    ),
+    (
+        "05-no-mutation-call-path",
+        not production_mutator_calls
+        and not production_windows_mutation_hits
+        and "machine_changes: false" in ASSESS,
+    ),
+    (
+        "06-exact-device-identity",
+        "to_ascii_lowercase()" in MODEL
+        and "DriverRepairError::DuplicateDevice" in MODEL
+        and "duplicate_instance_ids_are_case_insensitive" in TESTS,
+    ),
+    (
+        "07-package-requires-binding",
+        "DriverRepairError::PackageWithoutBinding" in MODEL
+        and "package_without_active_binding_is_rejected" in TESTS,
+    ),
+    (
+        "08-package-identity-equality",
+        MODEL.count("fn is_phase5_oem_published_inf") == 1
+        and "pub(crate) fn is_phase5_oem_published_inf" in MODEL
+        and "fn is_phase5_oem_published_inf" not in ASSESS
+        and "use crate::model::is_phase5_oem_published_inf;" in ASSESS
+        and "Some(value) if is_phase5_oem_published_inf(value)" in ASSESS
+        and "if !is_phase5_oem_published_inf(published)" in MODEL
+        and "|| !is_phase5_oem_published_inf(&package.published_inf)" in MODEL
+        and "eq_ignore_ascii_case(published)" in MODEL
+        and "is_driver_store_inf_path" in MODEL
+        and "repository_index != 1" in MODEL
+        and "component.contains('\\0')" in MODEL
+        and "DriverRepairError::PackageMismatch" in MODEL
+        and exact_package_resolution_boundary
+        and exact_imported_inf_boundary
+        and has_all(
+            INTEGRATION_TESTS,
+            (
+                "phase5_oem_inf_law_has_one_shared_source_of_truth",
+                "imported_inbox_inf_cannot_claim_exact_package_authority",
+                "imported_exact_package_authority_remains_oem_only",
+                "imported_exact_package_authority_requires_driver_store_path_shape",
+                "imported_oem_package_with_nested_prefix_before_system32_cannot_claim_exact_authority",
+                "imported_driver_store_path_with_embedded_nul_cannot_claim_exact_authority",
+            ),
+        ),
+    ),
+    (
+        "09-phase5-pnp-semantics",
+        config_manager_problem_boundary
+        and strict_import_boundary
+        and has_all(
+            MODEL,
+            (
+                "PnpStatusEvidence",
+                "None => Ok(Self::NoProblem)",
+                "Some(0)",
+                "does not match the inherited Phase 5 problem-code evidence",
+            ),
+        )
+        and has_all(
+            TESTS,
+            (
+                "problem_code_zero_is_rejected_as_noncanonical_phase5_evidence",
+                "explicit_pnp_status_must_match_device_problem_evidence",
+            ),
+        ),
+    ),
+    (
+        "10-healthy-needs-no-problem-exact-package",
+        "PnpStatusEvidence::NoProblem" in ASSESS
+        and "DriverRepairState::Healthy" in ASSESS
+        and "evidence.current_package.is_none()" in ASSESS
+        and "healthy_exact_binding_requires_no_action" in TESTS,
+    ),
+    (
+        "11-reinstall-is-candidate-only",
+        "CurrentExactDriverReinstallCandidate" in MODEL
+        and "future authority phase" in ASSESS
+        and "only_a_reinstall_candidate" in TESTS,
+    ),
+    (
+        "12-selection-only-for-real-problem",
+        "PnpStatusEvidence::Problem { code } if !binding_present" in ASSESS
+        and "PnpStatusEvidence::NoProblem if !binding_present" in ASSESS
+        and "no_problem_without_binding_does_not_invent_driver_selection_need" in TESTS,
+    ),
+    (
+        "13-disabled-code22-remains-read-only",
+        "CM_PROB_DISABLED_CODE: u32 = 22" in MODEL
+        and "DriverRepairState::Disabled" in ASSESS
+        and not any(
+            token.casefold() in PRODUCTION.casefold()
+            for token in ("CM_Reenumerate_DevNode", "CM_Enable_DevNode", "CM_Disable_DevNode")
+        )
+        and has_all(
+            TESTS,
+            (
+                "cm_prob_disabled_is_authoritative_when_generic_disabled_field_is_unavailable",
+                "contradictory_disabled_evidence_fails_closed",
+                "disabled_device_is_recorded_without_enable_authority",
+            ),
+        ),
+    ),
+    (
+        "14-filters-are-evidence-only",
+        has_all(MODEL, ("upper_filters", "lower_filters"))
+        and strict_property_boundary
+        and "filters_are_retained_as_evidence_not_inferred_as_fault" in TESTS,
+    ),
+    (
+        "15-deterministic-order-and-digest",
+        "evidence.devices.sort_by" in ASSESS
+        and "source_evidence_sha256" in MODEL
+        and "output_order_and_digest_are_independent_of_inventory_order" in TESTS,
+    ),
+    (
+        "16-machine-change-false",
+        "pub machine_changes: bool" in MODEL
+        and "machine_changes: false" in ASSESS
+        and "machine_changes = false" in DECISION,
+    ),
+    (
+        "17-read-only-cli-surface",
+        has_all(
+            CLI,
+            (
+                "RepairCommand::Drivers",
+                "inspect_windows_driver_repair",
+                "DriverRepairEvidence::from_json_str",
+                "failed to read evidence file",
+                "Machine changes: none",
+            ),
+        )
+        and strict_import_boundary
+        and "neo-driver-repair" in CLI_MANIFEST
+        and '"pnp_status"' in FIXTURE
+        and '"state": "no_problem"' in FIXTURE,
+    ),
+    ("18-adversarial-write-method-proof", structural_read_only_adapter),
+    ("19-ci-proof-binding", phase22_ci_exact),
+    (
+        "20-deferred-scope-remains-closed",
+        has_all(
+            DECISION,
+            (
+                "device re-enumeration execution",
+                "device enable/disable execution",
+                "driver staging or installation",
+                "Driver Store package deletion",
+                "Windows Update repair",
+                "networking repair",
+                "Winget repair",
+                "AppX repair",
+                "restore/recovery mutation",
+            ),
+        )
+        and REVIEW.count("| 20 |") == 1,
+    ),
+]
+
+failed = [name for name, ok in checks if not ok]
+for name, ok in checks:
+    print(f"{'PASS' if ok else 'FAIL'} {name}")
+print(f"PHASE22_STATIC_REVIEW {len(checks) - len(failed)}/{len(checks)}")
+if failed:
+    print("FAILED: " + ", ".join(failed), file=sys.stderr)
+    raise SystemExit(1)
+if len(checks) != 20:
+    raise SystemExit("Phase 22 review must contain exactly 20 lanes")

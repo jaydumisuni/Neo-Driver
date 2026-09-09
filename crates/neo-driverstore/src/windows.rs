@@ -20,8 +20,9 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     SetupUninstallOEMInfW, SetupVerifyInfFileW, CM_DEVNODE_STATUS_FLAGS, CM_PROB, CONFIGRET,
     CR_SUCCESS, DIGCF_ALLCLASSES, DIGCF_PRESENT, DIINSTALLDEVICE_FLAGS, DI_ENUMSINGLEINF,
     DI_FLAGSEX_ALLOWEXCLUDEDDRVS, HDEVINFO, SPDIT_COMPATDRIVER, SPDRP_CLASS, SPDRP_CLASSGUID,
-    SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_MFG, SPOST_PATH, SP_COPY_STYLE,
-    SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
+    SPDRP_COMPATIBLEIDS, SPDRP_DEVICEDESC, SPDRP_HARDWAREID, SPDRP_LOWERFILTERS, SPDRP_MFG,
+    SPDRP_UPPERFILTERS, SPOST_PATH, SP_COPY_STYLE, SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W,
+    SP_DRVINFO_DATA_V2_W, SP_INF_SIGNER_INFO_V2_W,
 };
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_DriverInfPath, DEVPROPTYPE};
 use windows::Win32::Foundation::ERROR_NO_MORE_ITEMS;
@@ -78,6 +79,8 @@ impl DriverHost for WindowsDriverHost {
             let published_name =
                 device_property_string(set.0, &data, &DEVPKEY_Device_DriverInfPath)?;
             let problem_code = problem_code(&data)?;
+            let upper_filters = registry_multisz(set.0, &data, SPDRP_UPPERFILTERS)?;
+            let lower_filters = registry_multisz(set.0, &data, SPDRP_LOWERFILTERS)?;
             devices.push(DeviceRecord {
                 instance_id: opaque_id(instance_id)?,
                 description: registry_string(set.0, &data, SPDRP_DEVICEDESC)?,
@@ -94,8 +97,8 @@ impl DriverHost for WindowsDriverHost {
                     published_name: Some(published_name),
                     ..DriverBinding::default()
                 }),
-                upper_filters: vec![],
-                lower_filters: vec![],
+                upper_filters,
+                lower_filters,
             });
         }
         let inventory = DriverInventory { devices };
@@ -431,9 +434,23 @@ fn registry_multisz(
     data: &SP_DEVINFO_DATA,
     property: windows::Win32::Devices::DeviceAndDriverInstallation::SETUP_DI_REGISTRY_PROPERTY,
 ) -> Result<Vec<String>, DriverStoreError> {
-    Ok(registry_property_wide(set, data, property)?
+    let values = registry_property_wide(set, data, property)?
         .map(|values| utf16_multisz(&values))
-        .unwrap_or_default())
+        .unwrap_or_default();
+    Ok(stable_unique(values))
+}
+
+fn stable_unique(values: Vec<String>) -> Vec<String> {
+    let mut unique = Vec::with_capacity(values.len());
+    for value in values {
+        if !unique
+            .iter()
+            .any(|existing: &String| existing.eq_ignore_ascii_case(&value))
+        {
+            unique.push(value);
+        }
+    }
+    unique
 }
 
 fn registry_property_wide(
@@ -533,7 +550,10 @@ fn driver_store_location(published_inf: &Path) -> Result<PathBuf, DriverStoreErr
         )
     }
     .map_err(|error| win_error("SetupGetInfDriverStoreLocationW", error))?;
-    Ok(PathBuf::from(utf16_array(&buffer)))
+    Ok(PathBuf::from(strict_utf16_api_string(
+        &buffer,
+        "SetupGetInfDriverStoreLocationW",
+    )?))
 }
 
 fn published_name_for_store_inf(driver_store_inf: &Path) -> Result<String, DriverStoreError> {
@@ -541,7 +561,10 @@ fn published_name_for_store_inf(driver_store_inf: &Path) -> Result<String, Drive
     let mut buffer = vec![0u16; 32768];
     unsafe { SetupGetInfPublishedNameW(PCWSTR(wide.as_ptr()), &mut buffer, None) }
         .map_err(|error| win_error("SetupGetInfPublishedNameW", error))?;
-    Ok(file_name(&utf16_array(&buffer)))
+    Ok(file_name(&strict_utf16_api_string(
+        &buffer,
+        "SetupGetInfPublishedNameW",
+    )?))
 }
 
 fn source_catalog_path(inf: &Path, catalog_file: &str) -> Result<PathBuf, DriverStoreError> {
@@ -629,6 +652,22 @@ fn wide_string(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
+fn strict_utf16_api_string(value: &[u16], context: &str) -> Result<String, DriverStoreError> {
+    let Some(end) = value.iter().position(|code| *code == 0) else {
+        return Err(DriverStoreError::Windows(format!(
+            "{context} returned unterminated UTF-16"
+        )));
+    };
+    if value[end + 1..].iter().any(|code| *code != 0) {
+        return Err(DriverStoreError::Windows(format!(
+            "{context} returned trailing data after the UTF-16 terminator"
+        )));
+    }
+    String::from_utf16(&value[..end]).map_err(|error| {
+        DriverStoreError::Windows(format!("{context} returned invalid UTF-16: {error}"))
+    })
+}
+
 fn utf16_array(value: &[u16]) -> String {
     let end = value
         .iter()
@@ -654,10 +693,8 @@ fn utf16_multisz(value: &[u16]) -> Vec<String> {
 }
 
 fn bytes_to_u16(bytes: &[u8]) -> Vec<u16> {
-    bytes
-        .chunks_exact(2)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
-        .collect()
+    let (pairs, _) = bytes.as_chunks::<2>();
+    pairs.iter().map(|pair| u16::from_le_bytes(*pair)).collect()
 }
 
 fn opaque_id(value: String) -> Result<OpaqueDeviceId, DriverStoreError> {
@@ -716,12 +753,41 @@ mod windows_tests {
     use super::*;
 
     #[test]
+    fn setupapi_id_normalization_removes_exact_duplicates_without_reordering() {
+        let values = vec![
+            r"COMPUTER\{A}".to_string(),
+            r"COMPUTER\{A}".to_string(),
+            r"computer\{a}".to_string(),
+            r"PCI\VEN_1234&DEV_5678".to_string(),
+            r"COMPUTER\{A}".to_string(),
+        ];
+        assert_eq!(
+            stable_unique(values),
+            vec![
+                r"COMPUTER\{A}".to_string(),
+                r"PCI\VEN_1234&DEV_5678".to_string(),
+            ]
+        );
+    }
+
+    #[test]
     fn published_name_requires_numeric_oem_index() {
         assert!(is_safe_published_name("oem0.inf"));
         assert!(is_safe_published_name("OEM42.INF"));
         assert!(!is_safe_published_name("oem.inf"));
         assert!(!is_safe_published_name("oemx.inf"));
         assert!(!is_safe_published_name(r"sub\oem1.inf"));
+    }
+
+    #[test]
+    fn exact_package_identity_utf16_is_fail_closed() {
+        assert_eq!(
+            strict_utf16_api_string(&[0x41, 0, 0], "probe").unwrap(),
+            "A"
+        );
+        assert!(strict_utf16_api_string(&[0x41], "probe").is_err());
+        assert!(strict_utf16_api_string(&[0xD800, 0], "probe").is_err());
+        assert!(strict_utf16_api_string(&[0x41, 0, 0x42], "probe").is_err());
     }
 
     #[test]

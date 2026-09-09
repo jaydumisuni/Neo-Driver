@@ -8,6 +8,7 @@ members = [
     "crates/neo-match",
     "crates/neo-transaction",
     "crates/neo-driverstore",
+    "crates/neo-driver-repair",
     "crates/neo-runtime",
     "crates/neo-directx-legacy",
     "crates/neo-runtime-probe",
