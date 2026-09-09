@@ -428,11 +428,7 @@ fn live_adapter_problem_path_invokes_only_inventory_and_exact_package_resolution
 fn live_adapter_does_not_normalize_padded_inf_into_exact_package_resolution() {
     let host = RejectResolveHost {
         inventory: DriverInventory {
-            devices: vec![device(
-                "PCI\\LIVE_PADDED",
-                Some(28),
-                Some(" oem32.inf "),
-            )],
+            devices: vec![device("PCI\\LIVE_PADDED", Some(28), Some(" oem32.inf "))],
         },
     };
     let report = crate::assessment::capture_and_assess_with_host(&host).unwrap();
