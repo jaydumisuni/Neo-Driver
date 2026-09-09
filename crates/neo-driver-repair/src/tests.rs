@@ -331,6 +331,67 @@ impl DriverHost for ReadOnlyHost {
     }
 }
 
+#[derive(Clone)]
+struct RejectResolveHost {
+    inventory: DriverInventory,
+}
+
+impl DriverHost for RejectResolveHost {
+    fn windows_build(&self) -> Result<u32, DriverStoreError> {
+        panic!("Phase 22 must not query unrelated host state")
+    }
+
+    fn inventory(&self) -> Result<DriverInventory, DriverStoreError> {
+        Ok(self.inventory.clone())
+    }
+
+    fn compatible_present_devices(&self, _inf: &Path) -> Result<Vec<String>, DriverStoreError> {
+        panic!("Phase 22 must not run install compatibility discovery")
+    }
+
+    fn verify_inf_signature(&self, _inf: &Path) -> Result<VerifiedInfSignature, DriverStoreError> {
+        panic!("Phase 22 must not verify a proposed install package")
+    }
+
+    fn find_equivalent_package(
+        &self,
+        _source_inf: &Path,
+        _catalogue_files: &[String],
+    ) -> Result<Option<StoredDriverPackage>, DriverStoreError> {
+        panic!("Phase 22 must not search proposed install packages")
+    }
+
+    fn resolve_published_package(
+        &self,
+        _published_inf: &str,
+    ) -> Result<Option<StoredDriverPackage>, DriverStoreError> {
+        panic!("non-canonical published INF must not enter exact package resolution")
+    }
+
+    fn stage_driver(&self, _source_inf: &Path) -> Result<StoredDriverPackage, DriverStoreError> {
+        panic!("Phase 22 has no stage authority")
+    }
+
+    fn install_best_match(
+        &self,
+        _instance_id: &str,
+    ) -> Result<DriverBackendResult, DriverStoreError> {
+        panic!("Phase 22 has no install authority")
+    }
+
+    fn restore_specific_driver(
+        &self,
+        _instance_id: &str,
+        _published_inf: &str,
+    ) -> Result<DriverBackendResult, DriverStoreError> {
+        panic!("Phase 22 has no rollback mutation authority")
+    }
+
+    fn remove_published_package(&self, _published_inf: &str) -> Result<(), DriverStoreError> {
+        panic!("Phase 22 has no Driver Store delete authority")
+    }
+}
+
 #[test]
 fn live_adapter_maps_phase5_none_to_no_problem_and_uses_only_read_authority() {
     let host = ReadOnlyHost {
@@ -360,5 +421,29 @@ fn live_adapter_problem_path_invokes_only_inventory_and_exact_package_resolution
         report.assessments[0].route,
         DriverRepairRoute::CurrentExactDriverReinstallCandidate
     );
+    assert!(!report.machine_changes);
+}
+
+#[test]
+fn live_adapter_does_not_normalize_padded_inf_into_exact_package_resolution() {
+    let host = RejectResolveHost {
+        inventory: DriverInventory {
+            devices: vec![device(
+                "PCI\\LIVE_PADDED",
+                Some(28),
+                Some(" oem32.inf "),
+            )],
+        },
+    };
+    let report = crate::assessment::capture_and_assess_with_host(&host).unwrap();
+    assert_eq!(
+        report.assessments[0].active_published_inf.as_deref(),
+        Some(" oem32.inf ")
+    );
+    assert_eq!(
+        report.assessments[0].route,
+        DriverRepairRoute::ManualInvestigation
+    );
+    assert!(report.assessments[0].exact_driver_store_package.is_none());
     assert!(!report.machine_changes);
 }
